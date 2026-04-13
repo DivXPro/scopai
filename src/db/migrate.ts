@@ -2,8 +2,19 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { exec } from './client';
 
-export function runMigrations(): void {
-  const schemaPath = path.join(__dirname, 'schema.sql');
+function findSchemaPath(): string {
+  const distSchema = path.join(__dirname, 'schema.sql');
+  if (fs.existsSync(distSchema)) return distSchema;
+
+  const projectRoot = path.join(__dirname, '..', '..');
+  const srcSchema = path.join(projectRoot, 'src', 'db', 'schema.sql');
+  if (fs.existsSync(srcSchema)) return srcSchema;
+
+  throw new Error(`schema.sql not found. Searched: ${distSchema}, ${srcSchema}`);
+}
+
+export async function runMigrations(): Promise<void> {
+  const schemaPath = findSchemaPath();
   const schema = fs.readFileSync(schemaPath, 'utf-8');
-  exec(schema);
+  await exec(schema);
 }

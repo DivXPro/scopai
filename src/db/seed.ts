@@ -178,14 +178,14 @@ const BUILT_IN_TEMPLATES = [
   },
 ];
 
-export function seedPlatformsAndMappings(): void {
+export async function seedPlatformsAndMappings(): Promise<void> {
   for (const platform of PLATFORMS) {
-    upsertPlatform({ id: platform.id, name: platform.name, description: platform.description ?? null });
+    await upsertPlatform({ id: platform.id, name: platform.name, description: platform.description ?? null });
     const mappings = PLATFORM_MAPPINGS[platform.id];
     if (mappings) {
       for (const m of mappings) {
         try {
-          createFieldMapping({
+          await createFieldMapping({
             id: generateId(),
             platform_id: platform.id,
             entity_type: m.entity_type,
@@ -204,10 +204,10 @@ export function seedPlatformsAndMappings(): void {
   }
 }
 
-export function seedTemplates(): void {
+export async function seedTemplates(): Promise<void> {
   for (const t of BUILT_IN_TEMPLATES) {
     try {
-      createTemplate({
+      await createTemplate({
         id: generateId(),
         name: t.name,
         description: t.description,
@@ -221,7 +221,7 @@ export function seedTemplates(): void {
   }
 }
 
-export function seedAll(): void {
-  seedPlatformsAndMappings();
-  seedTemplates();
+export async function seedAll(): Promise<void> {
+  await seedPlatformsAndMappings();
+  await seedTemplates();
 }

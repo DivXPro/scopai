@@ -1,29 +1,29 @@
 import { query, run } from './client';
 import { PromptTemplate } from '../shared/types';
 
-export function createTemplate(template: PromptTemplate): void {
-  run(
+export async function createTemplate(template: PromptTemplate): Promise<void> {
+  await run(
     `INSERT INTO prompt_templates (id, name, description, template, is_default, created_at)
      VALUES (?, ?, ?, ?, ?, ?)`,
     [template.id, template.name, template.description, template.template, template.is_default, template.created_at]
   );
 }
 
-export function listTemplates(): PromptTemplate[] {
+export async function listTemplates(): Promise<PromptTemplate[]> {
   return query<PromptTemplate>('SELECT * FROM prompt_templates ORDER BY name');
 }
 
-export function getTemplateById(id: string): PromptTemplate | null {
-  const rows = query<PromptTemplate>('SELECT * FROM prompt_templates WHERE id = ?', [id]);
+export async function getTemplateById(id: string): Promise<PromptTemplate | null> {
+  const rows = await query<PromptTemplate>('SELECT * FROM prompt_templates WHERE id = ?', [id]);
   return rows[0] ?? null;
 }
 
-export function getTemplateByName(name: string): PromptTemplate | null {
-  const rows = query<PromptTemplate>('SELECT * FROM prompt_templates WHERE name = ?', [name]);
+export async function getTemplateByName(name: string): Promise<PromptTemplate | null> {
+  const rows = await query<PromptTemplate>('SELECT * FROM prompt_templates WHERE name = ?', [name]);
   return rows[0] ?? null;
 }
 
-export function updateTemplate(id: string, updates: Partial<PromptTemplate>): void {
+export async function updateTemplate(id: string, updates: Partial<PromptTemplate>): Promise<void> {
   const sets: string[] = [];
   const params: unknown[] = [];
   if (updates.name !== undefined) { sets.push('name = ?'); params.push(updates.name); }
@@ -32,10 +32,10 @@ export function updateTemplate(id: string, updates: Partial<PromptTemplate>): vo
   if (updates.is_default !== undefined) { sets.push('is_default = ?'); params.push(updates.is_default); }
   if (sets.length === 0) return;
   params.push(id);
-  run(`UPDATE prompt_templates SET ${sets.join(', ')} WHERE id = ?`, params);
+  await run(`UPDATE prompt_templates SET ${sets.join(', ')} WHERE id = ?`, params);
 }
 
-export function setDefaultTemplate(id: string): void {
-  run('UPDATE prompt_templates SET is_default = false');
-  run('UPDATE prompt_templates SET is_default = true WHERE id = ?', [id]);
+export async function setDefaultTemplate(id: string): Promise<void> {
+  await run('UPDATE prompt_templates SET is_default = false');
+  await run('UPDATE prompt_templates SET is_default = true WHERE id = ?', [id]);
 }

@@ -2,10 +2,10 @@ import { query, run } from './client';
 import { Post } from '../shared/types';
 import { generateId, now } from '../shared/utils';
 
-export function createPost(post: Omit<Post, 'id' | 'fetched_at'>): Post {
+export async function createPost(post: Omit<Post, 'id' | 'fetched_at'>): Promise<Post> {
   const id = generateId();
   const ts = now();
-  run(
+  await run(
     `INSERT INTO posts (id, platform_id, platform_post_id, title, content, author_id, author_name,
      author_url, url, cover_url, post_type, like_count, collect_count, comment_count,
      share_count, play_count, score, tags, media_files, published_at, fetched_at, metadata)
@@ -20,7 +20,7 @@ export function createPost(post: Omit<Post, 'id' | 'fetched_at'>): Post {
   return { ...post, id, fetched_at: ts };
 }
 
-export function listPosts(platformId?: string, limit = 50, offset = 0): Post[] {
+export async function listPosts(platformId?: string, limit = 50, offset = 0): Promise<Post[]> {
   let sql = 'SELECT * FROM posts';
   const params: unknown[] = [];
   if (platformId) { sql += ' WHERE platform_id = ?'; params.push(platformId); }
@@ -29,30 +29,30 @@ export function listPosts(platformId?: string, limit = 50, offset = 0): Post[] {
   return query<Post>(sql, params);
 }
 
-export function getPostById(id: string): Post | null {
-  const rows = query<Post>('SELECT * FROM posts WHERE id = ?', [id]);
+export async function getPostById(id: string): Promise<Post | null> {
+  const rows = await query<Post>('SELECT * FROM posts WHERE id = ?', [id]);
   return rows[0] ?? null;
 }
 
-export function searchPosts(platformId: string, queryText: string, limit = 50): Post[] {
+export async function searchPosts(platformId: string, queryText: string, limit = 50): Promise<Post[]> {
   return query<Post>(
     `SELECT * FROM posts WHERE platform_id = ? AND content LIKE ? ORDER BY fetched_at DESC LIMIT ?`,
     [platformId, `%${queryText}%`, limit]
   );
 }
 
-export function queryPosts(platformId: string, whereClause: string, limit = 1000): Post[] {
+export async function queryPosts(platformId: string, whereClause: string, limit = 1000): Promise<Post[]> {
   return query<Post>(
     `SELECT * FROM posts WHERE platform_id = ? AND ${whereClause} LIMIT ?`,
     [platformId, limit]
   );
 }
 
-export function countPosts(platformId?: string): number {
+export async function countPosts(platformId?: string): Promise<number> {
   const sql = platformId
     ? 'SELECT COUNT(*) as cnt FROM posts WHERE platform_id = ?'
     : 'SELECT COUNT(*) as cnt FROM posts';
   const params = platformId ? [platformId] : [];
-  const rows = query<{ cnt: bigint }>(sql, params);
+  const rows = await query<{ cnt: bigint }>(sql, params);
   return Number(rows[0]?.cnt ?? 0);
 }

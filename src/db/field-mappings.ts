@@ -1,8 +1,8 @@
 import { query, run } from './client';
 import { FieldMapping } from '../shared/types';
 
-export function createFieldMapping(mapping: FieldMapping): void {
-  run(
+export async function createFieldMapping(mapping: FieldMapping): Promise<void> {
+  await run(
     `INSERT INTO field_mappings (id, platform_id, entity_type, system_field, platform_field, data_type, is_required, transform_expr, description)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [mapping.id, mapping.platform_id, mapping.entity_type, mapping.system_field, mapping.platform_field,
@@ -10,7 +10,7 @@ export function createFieldMapping(mapping: FieldMapping): void {
   );
 }
 
-export function listFieldMappings(platformId?: string, entityType?: string): FieldMapping[] {
+export async function listFieldMappings(platformId?: string, entityType?: string): Promise<FieldMapping[]> {
   let sql = 'SELECT * FROM field_mappings';
   const params: unknown[] = [];
   const conditions: string[] = [];
@@ -21,6 +21,6 @@ export function listFieldMappings(platformId?: string, entityType?: string): Fie
   return query<FieldMapping>(sql, params);
 }
 
-export function getMappingsForPlatform(platformId: string, entityType: string): FieldMapping[] {
+export async function getMappingsForPlatform(platformId: string, entityType: string): Promise<FieldMapping[]> {
   return listFieldMappings(platformId, entityType);
 }

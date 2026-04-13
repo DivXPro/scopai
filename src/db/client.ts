@@ -30,50 +30,56 @@ export function getConnection(): duckdb.Connection {
   return _conn;
 }
 
-function querySync<T>(conn: duckdb.Connection, sql: string, params?: unknown[]): T[] {
-  let results: T[] = [];
-  let error: Error | null = null;
-  const callback = (err: Error | null, rows: T[]) => {
-    error = err;
-    results = rows;
-  };
-  if (params && params.length > 0) {
-    // @ts-ignore - duckdb callback types are flexible
-    conn.all(sql, ...params, callback);
-  } else {
-    // @ts-ignore
-    conn.all(sql, callback);
-  }
-  if (error) throw error;
-  return results;
+// Promise-based query
+export function query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]> {
+  const conn = getConnection();
+  return new Promise((resolve, reject) => {
+    if (params && params.length > 0) {
+      // @ts-ignore
+      conn.all(sql, ...params, (err: Error | null, rows: T[]) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    } else {
+      // @ts-ignore
+      conn.all(sql, (err: Error | null, rows: T[]) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    }
+  });
 }
 
-export function query<T = Record<string, unknown>>(sql: string, params?: unknown[]): T[] {
+// Promise-based run
+export async function run(sql: string, params?: unknown[]): Promise<void> {
   const conn = getConnection();
-  return querySync<T>(conn, sql, params);
+  return new Promise((resolve, reject) => {
+    if (params && params.length > 0) {
+      // @ts-ignore
+      conn.run(sql, ...params, (err: Error | null) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    } else {
+      // @ts-ignore
+      conn.run(sql, (err: Error | null) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    }
+  });
 }
 
-export function run(sql: string, params?: unknown[]): void {
+// Promise-based exec
+export async function exec(sql: string): Promise<void> {
   const conn = getConnection();
-  let error: Error | null = null;
-  const callback = (err: Error | null) => { error = err; };
-  if (params && params.length > 0) {
+  return new Promise((resolve, reject) => {
     // @ts-ignore
-    conn.run(sql, ...params, callback);
-  } else {
-    // @ts-ignore
-    conn.run(sql, callback);
-  }
-  if (error) throw error;
-}
-
-export function exec(sql: string): void {
-  const conn = getConnection();
-  let error: Error | null = null;
-  const callback = (err: Error | null) => { error = err; };
-  // @ts-ignore
-  conn.exec(sql, callback);
-  if (error) throw error;
+    conn.exec(sql, (err: Error | null) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
 }
 
 export function close(): void {

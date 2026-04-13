@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.duckdb
+*.log
+.env
+
+.vscode/
+.idea/
+
+.claude/
+.qwen/
+.agent/
+.trae/
