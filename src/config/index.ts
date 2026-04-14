@@ -116,12 +116,12 @@ export function loadConfig(): Config {
     },
   };
 
-  // Merge order: DEFAULT → claudeFallback → fileConfig → envConfig
-  // deepMerge skips empty strings, so env vars won't override file config with empty values
+  // Merge order: DEFAULT → claudeFallback → envConfig → fileConfig
+  // fileConfig has highest priority, overriding env vars and defaults
   const withClaude = deepMerge(DEFAULT_CONFIG, claudeFallback);
-  const resolved = deepMerge(withClaude, fileConfig);
-  const withEnv = deepMerge(resolved, envConfig);
-  return resolveEnvVariables(withEnv) as Config;
+  const withEnv = deepMerge(withClaude, envConfig);
+  const resolved = deepMerge(withEnv, fileConfig);
+  return resolveEnvVariables(resolved) as Config;
 }
 
 export const config = loadConfig();
