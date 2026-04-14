@@ -7,6 +7,7 @@ import { enqueueJobs } from '../db/queue-jobs';
 import { runMigrations } from '../db/migrate';
 import { seedAll } from '../db/seed';
 import { generateId, now } from '../shared/utils';
+import { query } from '../db/client';
 
 export function taskCommands(program: Command): void {
   const task = program.command('task').description('Task management');
@@ -17,7 +18,8 @@ export function taskCommands(program: Command): void {
     .requiredOption('--name <name>', 'Task name')
     .option('--description <desc>', 'Task description')
     .option('--template <name>', 'Prompt template name')
-    .action(async (opts: { name: string; description?: string; template?: string }) => {
+    .option('--cli-templates <json>', 'JSON string of opencli command templates')
+    .action(async (opts: { name: string; description?: string; template?: string; cliTemplates?: string }) => {
       await runMigrations();
       await seedAll();
 
@@ -47,6 +49,7 @@ export function taskCommands(program: Command): void {
       console.log(pc.green(`Task created: ${id}`));
       console.log(`  Name: ${opts.name}`);
       if (opts.description) console.log(`  Description: ${opts.description}`);
+      if (opts.cliTemplates) console.log(`  CLI Templates: ${opts.cliTemplates}`);
       console.log();
     });
 
@@ -108,7 +111,33 @@ export function taskCommands(program: Command): void {
         return;
       }
 
-      const jobs = stats.pending.map(t => ({
+      const analyzedCommentIds = new Set(
+        (await query<{ comment_id: string }>(
+          'SELECT DISTINCT comment_id FROM analysis_results_comments WHERE task_id = ?',
+          [opts.taskId],
+        )).map(r => r.comment_id),
+      );
+
+      const analyzedMediaIds = new Set(
+        (await query<{ media_id: string }>(
+          'SELECT DISTINCT media_id FROM analysis_results_media WHERE task_id = ?',
+          [opts.taskId],
+        )).map(r => r.media_id),
+      );
+
+      const targetsToProcess = stats.pending.filter(t => {
+        if (t.target_type === 'comment' && analyzedCommentIds.has(t.target_id)) return false;
+        if (t.target_type === 'post' && analyzedCommentIds.has(t.target_id)) return false;
+        if (t.target_type === 'comment' && analyzedMediaIds.has(t.target_id)) return false;
+        return true;
+      });
+
+      if (targetsToProcess.length === 0) {
+        console.log(pc.yellow('All pending targets already have analysis results'));
+        return;
+      }
+
+      const jobs = targetsToProcess.map(t => ({
         id: generateId(),
         task_id: opts.taskId,
         target_type: t.target_type as 'post' | 'comment' | null,
@@ -122,6 +151,10 @@ export function taskCommands(program: Command): void {
         processed_at: null,
       }));
       await enqueueJobs(jobs);
+      const skipped = stats.pending.length - targetsToProcess.length;
+      if (skipped > 0) {
+        console.log(pc.dim(`  Skipped ${skipped} already-analyzed targets`));
+      }
       console.log(pc.green(`Task started. Enqueued ${jobs.length} jobs for analysis.`));
     });
 
