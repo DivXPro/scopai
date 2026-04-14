@@ -12,6 +12,7 @@
     "test": "node --test --experimental-strip-types 'test/*.test.ts'",
     "test:offline": "node --test --experimental-strip-types 'test/opencli.test.ts' 'test/import-offline.test.ts' 'test/prepare-data-offline.test.ts'",
     "test:integration": "node --test --experimental-strip-types 'test/task-post-status.test.ts' 'test/prepare-data.test.ts'",
+    "test:xhs": "node --test --experimental-strip-types 'test/xhs-shanghai-food.test.ts'",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
