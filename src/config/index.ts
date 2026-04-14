@@ -116,11 +116,10 @@ export function loadConfig(): Config {
     },
   };
 
-  // Merge order: DEFAULT → claudeFallback → envConfig → fileConfig
-  // fileConfig has highest priority, overriding env vars and defaults
-  const withClaude = deepMerge(DEFAULT_CONFIG, claudeFallback);
-  const withEnv = deepMerge(withClaude, envConfig);
-  const resolved = deepMerge(withEnv, fileConfig);
+  // Priority: config.json (highest) > claude settings > env vars > defaults (lowest)
+  const withEnv = deepMerge(DEFAULT_CONFIG, envConfig);
+  const withClaude = deepMerge(withEnv, claudeFallback);
+  const resolved = deepMerge(withClaude, fileConfig);
   return resolveEnvVariables(resolved) as Config;
 }
 
