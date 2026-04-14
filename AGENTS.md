@@ -114,6 +114,8 @@ CLI command
 
 项目根目录 `agents/` 是这套仓库的协作文档入口。<mccoremem id="03fxt3wab7n06ugtti28x07pu" />
 
+### 使用方 Agent（面向 CLI 使用者）
+
 主入口：
 
 - `agents/social-media-analysis-harness.md`
@@ -125,6 +127,13 @@ CLI command
 - `agents/template-task-architect.md`
 - `agents/run-supervisor.md`
 - `agents/insight-synthesizer.md`
+
+### 开发方 Agent（面向 CLI 开发者）
+
+- `agents/project-architect.md` — 项目架构、新模块设计
+- `agents/data-engineer.md` — 数据库 schema、migration、数据流
+- `agents/cli-developer.md` — CLI 命令开发、交互设计
+- `agents/integration-engineer.md` — opencli 集成、测试数据管理
 
 辅助说明：
 

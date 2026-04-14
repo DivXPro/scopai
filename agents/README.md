@@ -4,12 +4,21 @@
 
 ## 入口文件
 
+### 使用方 Agent（面向 CLI 使用者）
+
 - 主编排入口：`agents/social-media-analysis-harness.md`
 - 总控 agent：`agents/orchestrator.md`
 - 数据接入 agent：`agents/dataset-curator.md`
 - 模板与任务 agent：`agents/template-task-architect.md`
 - 运行监督 agent：`agents/run-supervisor.md`
 - 洞察输出 agent：`agents/insight-synthesizer.md`
+
+### 开发方 Agent（面向 CLI 开发者）
+
+- 项目架构师：`agents/project-architect.md`
+- 数据工程师：`agents/data-engineer.md`
+- CLI 开发者：`agents/cli-developer.md`
+- 集成工程师：`agents/integration-engineer.md`
 
 ## 适用场景
 
