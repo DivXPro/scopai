@@ -173,8 +173,10 @@ async function importCommentsToDb(
         metadata: (obj.metadata ?? obj) as Record<string, unknown> | null,
       });
       count++;
-    } catch {
-      // Skip duplicates (UNIQUE constraint)
+    } catch (err: unknown) {
+      if (!isDuplicateError(err)) {
+        console.error(pc.yellow(`  Warning: failed to import comment: ${errorMessage(err)}`));
+      }
     }
   }
   return count;
@@ -204,9 +206,21 @@ async function importMediaToDb(
         downloaded_at: obj.downloaded_at ? new Date(obj.downloaded_at as string) : null,
       });
       count++;
-    } catch {
-      // Skip duplicates
+    } catch (err: unknown) {
+      if (!isDuplicateError(err)) {
+        console.error(pc.yellow(`  Warning: failed to import media: ${errorMessage(err)}`));
+      }
     }
   }
   return count;
+}
+
+function isDuplicateError(err: unknown): boolean {
+  const msg = errorMessage(err);
+  return /duplicate|unique|constraint/i.test(msg);
+}
+
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return String(err);
 }

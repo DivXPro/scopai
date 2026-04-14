@@ -17,7 +17,7 @@ export async function upsertTaskPostStatus(
        comments_count = COALESCE(excluded.comments_count, task_post_status.comments_count),
        media_count = COALESCE(excluded.media_count, task_post_status.media_count),
        status = COALESCE(excluded.status, task_post_status.status),
-       error = COALESCE(excluded.error, task_post_status.error),
+       error = excluded.error,
        updated_at = ?`,
     [
       taskId,
