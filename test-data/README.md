@@ -25,16 +25,20 @@ analyze-cli/
 │   │   ├── xhs/                   # 小红书真实数据
 │   │   │   ├── search_shanghai_food.json
 │   │   │   ├── comments_68835071.json
-│   │   │   ├── media_68835071.json
-│   │   │   └── downloads/         # 下载的媒体文件
-│   │   │       └── 68835071_*.jpg
-│   │   └── hackernews/            # HackerNews 真实数据
+│   │   │   └── media_68835071.json
+│   │   └── hackernews/            # HackerNews 公开 API 数据
 │   │       └── top_stories.json
 │   └── reports/                   # 测试报告
 │       ├── test-report.json
 │       └── test-report.md
 │
-└── .gitignore                     # 排除运行时生成的文件
+└── downloads/                     # 下载的媒体文件（按平台分子目录）
+    ├── xhs/                       # 小红书媒体
+    │   └── 68835071000000001c0358d3/
+    │       ├── 68835071000000001c0358d3_1.jpg
+    │       └── ...
+    └── weibo/                     # 微博媒体（示例）
+        └── ...
 ```
 
 ## 分类规则
@@ -66,8 +70,7 @@ analyze-cli/
 
 | 路径 | 说明 |
 |------|------|
-| `test-data/real/xhs/` | 小红书通过 opencli 获取的数据 |
-| `test-data/real/xhs/downloads/` | opencli download 下载的媒体 |
+| `test-data/real/xhs/` | 小红书通过 opencli 获取的 JSON 数据 |
 | `test-data/real/hackernews/` | HackerNews 公开 API 数据 |
 
 **规则**：
@@ -76,7 +79,26 @@ analyze-cli/
 - 文件名包含数据标识（如 note ID、帖子标题关键词）
 - **不提交到 git**（通过 `.gitignore` 排除）
 
-### 4. 测试报告 → `test-data/reports/`
+### 4. 下载的媒体文件 → `downloads/<platform>/`
+
+| 路径 | 说明 |
+|------|------|
+| `downloads/xhs/` | 小红书下载的图片和视频 |
+| `downloads/weibo/` | 微博下载的媒体文件 |
+
+**规则**：
+- opencli 下载命令通过 `--output downloads/<platform>` 指定路径
+- 每个 note/帖子一个子目录（以 ID 命名）
+- **不提交到 git**（通过 `.gitignore` 排除）
+
+**CLI 模板示例**：
+```json
+{
+  "fetch_media": "opencli xiaohongshu download {note_id} --output downloads/xhs -f json"
+}
+```
+
+### 5. 测试报告 → `test-data/reports/`
 
 | 文件 | 说明 |
 |------|------|
@@ -94,11 +116,9 @@ analyze-cli/
 # 测试运行时生成的数据
 test-data/real/
 test-data/reports/
-xiaohongshu-downloads/
 
-# 测试生成的临时文件
-test-data/**/*.tmp
-test-data/**/downloads/
+# 下载的媒体文件
+downloads/
 ```
 
 ## 命名约定
@@ -112,8 +132,17 @@ test-data/**/downloads/
 search_shanghai_food.json          # 搜索 "上海美食" 的结果
 comments_68835071.json             # note ID 68835071 的评论
 media_68835071.json                # note ID 68835071 的媒体信息
-68835071_1.jpg                     # note 68835071 的第 1 张图片
 top_stories.json                   # HackerNews 热榜
+```
+
+### 媒体文件
+
+```
+downloads/<platform>/<note_id>/<note_id>_<index>.<ext>
+
+示例：
+downloads/xhs/68835071000000001c0358d3/68835071000000001c0358d3_1.jpg
+downloads/xhs/68835071000000001c0358d3/68835071000000001c0358d3_2.mp4
 ```
 
 ### 报告文件
@@ -138,6 +167,7 @@ pnpm test:offline
 pnpm test:integration
 pnpm test:xhs
 # 实时调用 opencli 获取真实数据
+# 媒体文件下载到 downloads/<platform>/
 ```
 
 ### 生成报告

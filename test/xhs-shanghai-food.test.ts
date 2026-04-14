@@ -126,7 +126,7 @@ describe('xhs shanghai food — real data E2E', { timeout: 120000 }, () => {
     // Create task with real XHS CLI templates
     const cliTemplates = JSON.stringify({
       fetch_comments: 'opencli xiaohongshu comments {note_id} --limit {limit} -f json',
-      fetch_media: 'opencli xiaohongshu download {note_id} -f json',
+      fetch_media: 'opencli xiaohongshu download {note_id} --output downloads/xhs -f json',
     });
     await createTask({
       id: TEST_TASK_ID,

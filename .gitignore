@@ -17,4 +17,6 @@ downloads/
 # Test runtime data
 test-data/real/
 test-data/reports/
-xiaohongshu-downloads/
+
+# Downloads (media files by platform)
+downloads/
