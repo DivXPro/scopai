@@ -1,7 +1,7 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export interface FetchResult {
   success: boolean;
@@ -21,6 +21,7 @@ export async function fetchViaOpencli(
   vars: Record<string, string>,
   timeoutMs: number = 120000,
 ): Promise<FetchResult> {
+  // Validate that required placeholders are filled
   const missingVars = extractPlaceholders(template).filter(v => !(v in vars));
   if (missingVars.length > 0) {
     return {
@@ -29,20 +30,25 @@ export async function fetchViaOpencli(
     };
   }
 
-  const command = substitutePlaceholders(template, vars);
+  // Parse template into command + args (split on whitespace, first token is executable)
+  const tokens = template.trim().split(/\s+/);
+  if (tokens.length === 0) {
+    return { success: false, error: 'Empty command template' };
+  }
+
+  // Substitute placeholders in command and args
+  const command = substitutePlaceholders(tokens[0], vars);
+  const args = tokens.slice(1).map(t => substitutePlaceholders(t, vars));
 
   try {
-    const { stdout, stderr } = await execAsync(command, {
+    const { stdout, stderr } = await execFileAsync(command, args, {
       timeout: timeoutMs,
-      maxBuffer: 50 * 1024 * 1024,
+      maxBuffer: 50 * 1024 * 1024, // 50MB
     });
-
-    if (stderr && !stdout) {
-      return { success: false, error: stderr.trim() };
-    }
 
     const trimmed = stdout.trim();
     if (!trimmed) {
+      // stderr may contain warnings but no stdout = empty result
       return { success: true, data: [] };
     }
 
@@ -50,9 +56,11 @@ export async function fetchViaOpencli(
     try {
       data = JSON.parse(trimmed);
     } catch {
+      // Not JSON, return as single string item
       return { success: true, data: [trimmed] };
     }
 
+    // If it's an object with a data/items field, extract it
     if (Array.isArray(data)) {
       return { success: true, data };
     }
@@ -63,11 +71,14 @@ export async function fetchViaOpencli(
 
     return { success: true, data: [data] };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.includes('timeout')) {
+    if (err instanceof Error && 'code' in err && err.code === 'ETIMEOUT') {
       return { success: false, error: `Command timed out after ${timeoutMs}ms: ${command}` };
     }
-    return { success: false, error: message };
+    const message = err instanceof Error ? err.message : String(err);
+    // Extract stderr if available
+    const execErr = err as { stderr?: string };
+    const detail = execErr.stderr?.trim() ?? message;
+    return { success: false, error: detail };
   }
 }
 
@@ -77,11 +88,7 @@ function extractPlaceholders(template: string): string[] {
   return [...new Set(matches.map(m => m.slice(1, -1)))];
 }
 
-/** Substitute {variable} placeholders in a template string. */
+/** Substitute {variable} placeholders in a template string (single-pass). */
 function substitutePlaceholders(template: string, vars: Record<string, string>): string {
-  let result = template;
-  for (const [key, value] of Object.entries(vars)) {
-    result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
-  }
-  return result;
+  return template.replace(/\{(\w+)\}/g, (match, key) => vars[key] ?? match);
 }
