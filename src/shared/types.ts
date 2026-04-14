@@ -231,7 +231,7 @@ export type QueueStatus = 'pending' | 'processing' | 'completed' | 'failed';
 export interface QueueJob {
   id: string;
   task_id: string;
-  target_type: 'post' | 'comment' | null;
+  target_type: 'post' | 'comment' | 'media' | null;
   target_id: string | null;
   status: QueueStatus;
   priority: number;

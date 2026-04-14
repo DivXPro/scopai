@@ -4,10 +4,10 @@ import { createTask, getTaskById, listTasks, updateTaskStatus, updateTaskStats }
 import { addTaskTargets, getTargetStats } from '../db/task-targets';
 import { getTemplateByName } from '../db/templates';
 import { enqueueJobs } from '../db/queue-jobs';
+import { query } from '../db/client';
 import { runMigrations } from '../db/migrate';
 import { seedAll } from '../db/seed';
 import { generateId, now } from '../shared/utils';
-import { query } from '../db/client';
 
 export function taskCommands(program: Command): void {
   const task = program.command('task').description('Task management');
@@ -146,7 +146,15 @@ export function taskCommands(program: Command): void {
       if (skipped > 0) {
         console.log(pc.dim(`  Skipped ${skipped} already-analyzed targets`));
       }
-      console.log(pc.green(`Task started. Enqueued ${jobs.length} jobs for analysis.`));
+
+      // Also create queue_jobs for media files associated with this task's posts
+      const mediaJobsCreated = await enqueueMediaJobsForTask(opts.taskId);
+      if (mediaJobsCreated > 0) {
+        console.log(pc.dim(`  Enqueued ${mediaJobsCreated} media analysis jobs`));
+      }
+
+      const totalJobs = jobs.length + mediaJobsCreated;
+      console.log(pc.green(`Task started. Enqueued ${totalJobs} jobs for analysis.`));
     });
 
   task
@@ -242,4 +250,68 @@ export function taskCommands(program: Command): void {
       console.log(`    Pending:   ${stats.pending.length}`);
       console.log();
     });
+}
+
+/**
+ * Create queue_jobs for media files associated with this task's posts.
+ * Only creates jobs for media that haven't been analyzed yet.
+ */
+async function enqueueMediaJobsForTask(taskId: string): Promise<number> {
+  // Get post IDs bound to this task
+  const postTargets = await query<{ target_id: string }>(
+    "SELECT target_id FROM task_targets WHERE task_id = ? AND target_type = 'post'",
+    [taskId],
+  );
+  if (postTargets.length === 0) return 0;
+
+  const postIds = postTargets.map(r => r.target_id);
+
+  // Get media files for these posts
+  const placeholders = postIds.map(() => '?').join(',');
+  const mediaFiles = await query<{ id: string; post_id: string }>(
+    `SELECT id, post_id FROM media_files WHERE post_id IN (${placeholders})`,
+    postIds,
+  );
+  if (mediaFiles.length === 0) return 0;
+
+  // Get media IDs that already have analysis results for this task
+  const analyzedMediaIds = new Set(
+    (await query<{ media_id: string }>(
+      'SELECT DISTINCT media_id FROM analysis_results_media WHERE task_id = ?',
+      [taskId],
+    )).map(r => r.media_id),
+  );
+
+  // Filter out already-analyzed media
+  const mediaToProcess = mediaFiles.filter(m => !analyzedMediaIds.has(m.id));
+  if (mediaToProcess.length === 0) return 0;
+
+  // Check if queue_jobs already exist for these media
+  const mediaIds = mediaToProcess.map(m => m.id);
+  const existingJobPlaceholders = mediaIds.map(() => '?').join(',');
+  const existingJobs = await query<{ target_id: string }>(
+    `SELECT target_id FROM queue_jobs WHERE task_id = ? AND target_type = 'media' AND target_id IN (${existingJobPlaceholders})`,
+    [taskId, ...mediaIds],
+  );
+  const existingTargetIds = new Set(existingJobs.map(j => j.target_id));
+  const newMediaJobs = mediaToProcess.filter(m => !existingTargetIds.has(m.id));
+
+  if (newMediaJobs.length === 0) return 0;
+
+  const jobs = newMediaJobs.map(m => ({
+    id: generateId(),
+    task_id: taskId,
+    target_type: 'media' as const,
+    target_id: m.id,
+    status: 'pending' as const,
+    priority: 0,
+    attempts: 0,
+    max_attempts: 3,
+    error: null,
+    created_at: now(),
+    processed_at: null,
+  }));
+
+  await enqueueJobs(jobs);
+  return jobs.length;
 }

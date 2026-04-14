@@ -224,19 +224,22 @@ describe('xhs shanghai food — real data E2E', { timeout: 120000 }, () => {
     console.log(`  Imported ${imported} real XHS comments`);
   });
 
-  it('should import media into DuckDB', async () => {
+  it('should import media into DuckDB with correct local_path', async () => {
     let imported = 0;
     for (const item of realMedia.slice(0, 5)) {
       if (typeof item !== 'object' || item === null) continue;
       const obj = item as Record<string, unknown>;
+      const index = obj.index ?? imported + 1;
+      // Construct local_path as prepare-data command would
+      const localPath = `downloads/xhs/${XHS_NOTE_ID}/${XHS_NOTE_ID}_${index}.jpg`;
       try {
         await createMediaFile({
           post_id: postId,
           comment_id: null,
           platform_id: TEST_PLATFORM,
           media_type: (obj.type ?? 'image') as any,
-          url: `https://ci.xiaohongshu.com/${XHS_NOTE_ID}_${obj.index}.jpg`,
-          local_path: null,
+          url: `https://ci.xiaohongshu.com/${XHS_NOTE_ID}_${index}.jpg`,
+          local_path: localPath,
           width: null,
           height: null,
           duration_ms: null,
@@ -253,6 +256,8 @@ describe('xhs shanghai food — real data E2E', { timeout: 120000 }, () => {
     assert.ok(imported > 0, `expected at least 1 media imported, got ${imported}`);
     const mediaList = await listMediaFilesByPost(postId);
     assert.equal(mediaList.length, imported);
+    // Verify local_path is set correctly
+    assert.ok(mediaList[0].local_path?.includes('downloads/xhs'), 'local_path should point to downloads/xhs');
     console.log(`  Imported ${imported} real XHS media items`);
   });
 
@@ -424,6 +429,7 @@ describe('xhs shanghai food — real data E2E', { timeout: 120000 }, () => {
 
     for (const m of mediaList) {
       assert.ok(m.url?.length > 0, `media should have URL: ${m.id}`);
+      assert.ok(m.local_path?.includes('downloads/xhs'), `media should have local_path: ${m.id}`);
       assert.ok(m.media_type === 'image', `media should be image: ${m.id}`);
       assert.ok(m.post_id === postId, `media should link to correct post: ${m.id}`);
     }

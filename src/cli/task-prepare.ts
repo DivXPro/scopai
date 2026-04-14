@@ -2,13 +2,15 @@ import { Command } from 'commander';
 import * as pc from 'picocolors';
 import { getTaskById, updateTaskStatus } from '../db/tasks';
 import { listTaskTargets } from '../db/task-targets';
-import { upsertTaskPostStatus, getPendingPostIds, getTaskPostStatus } from '../db/task-post-status';
+import { getTaskPostStatuses, upsertTaskPostStatus, getPendingPostIds, getTaskPostStatus } from '../db/task-post-status';
 import { fetchViaOpencli } from '../data-fetcher/opencli';
 import { createComment } from '../db/comments';
 import { createMediaFile } from '../db/media-files';
 import { getPostById } from '../db/posts';
+import { enqueueJobs } from '../db/queue-jobs';
 import { runMigrations } from '../db/migrate';
 import { seedAll } from '../db/seed';
+import { generateId, now } from '../shared/utils';
 
 interface CliTemplates {
   fetch_comments?: string;
@@ -16,7 +18,8 @@ interface CliTemplates {
 }
 
 export function taskPrepareCommands(program: Command): void {
-  const task = program.command('task');
+  // Get existing 'task' command or create new one
+  const task = program.commands.find(c => c.name() === 'task') ?? program.command('task');
 
   task
     .command('prepare-data')
@@ -123,9 +126,16 @@ export function taskPrepareCommands(program: Command): void {
             continue;
           }
 
-          const mediaCount = await importMediaToDb(result.data ?? [], postId, platformId);
+          // Extract note_id from the post metadata to construct local paths
+          const postMeta = await import('../db/posts').then(m => m.getPostById(postId));
+          const noteId = (postMeta?.metadata as Record<string, unknown>)?.note_id as string | undefined;
+
+          const mediaCount = await importMediaToDb(result.data ?? [], postId, platformId, noteId);
           await upsertTaskPostStatus(opts.taskId, postId, { media_fetched: true, media_count: mediaCount });
           console.log(`  Media imported: ${mediaCount}`);
+
+          // Create queue_jobs for each imported media file so worker can analyze them
+          await createMediaQueueJobs(opts.taskId, postId, mediaCount);
         } else if (!cliTemplates.fetch_media) {
           console.log('  Media: skipped (no template)');
         } else {
@@ -186,24 +196,41 @@ async function importMediaToDb(
   data: unknown[],
   postId: string,
   platformId: string,
+  noteId?: string,
 ): Promise<number> {
+  // Determine platform from platformId (e.g., 'xhs_123_xhs' → 'xhs')
+  const platform = platformId.includes('xhs') ? 'xhs' : platformId.split('_')[0];
+  const downloadBase = `downloads/${platform}${noteId ? `/${noteId}` : ''}`;
+
   let count = 0;
   for (const item of data) {
     if (typeof item !== 'object' || item === null) continue;
     const obj = item as Record<string, unknown>;
+    const index = obj.index ?? count + 1;
+    const mediaType = (obj.media_type ?? obj.type ?? 'image') as string;
+    const ext = mediaType === 'video' ? 'mp4' : mediaType === 'audio' ? 'mp3' : 'jpg';
+
+    // Construct local_path from opencli download convention
+    const localPath = noteId
+      ? `${downloadBase}/${noteId}_${index}.${ext}`
+      : null;
+
+    // URL is the remote URL if available, otherwise the local path
+    const url = (obj.url as string) || localPath || '';
+
     try {
       await createMediaFile({
         post_id: postId,
         comment_id: null,
         platform_id: platformId,
-        media_type: (obj.media_type ?? obj.type ?? 'image') as 'image' | 'video' | 'audio',
-        url: (obj.url ?? '') as string,
-        local_path: (obj.local_path ?? obj.path ?? null) as string | null,
+        media_type: mediaType as 'image' | 'video' | 'audio',
+        url,
+        local_path: localPath,
         width: obj.width ? Number(obj.width) : null,
         height: obj.height ? Number(obj.height) : null,
         duration_ms: obj.duration_ms ? Number(obj.duration_ms) : null,
         file_size: obj.file_size ? Number(obj.file_size) : null,
-        downloaded_at: obj.downloaded_at ? new Date(obj.downloaded_at as string) : null,
+        downloaded_at: obj.status === 'success' ? now() : null,
       });
       count++;
     } catch (err: unknown) {
@@ -213,6 +240,37 @@ async function importMediaToDb(
     }
   }
   return count;
+}
+
+/** Create queue_jobs for media analysis so worker can process them. */
+async function createMediaQueueJobs(taskId: string, postId: string, mediaCount: number): Promise<void> {
+  if (mediaCount === 0) return;
+
+  // Get the media files we just imported for this post
+  const { listMediaFilesByPost } = await import('../db/media-files');
+  const mediaFiles = await listMediaFilesByPost(postId);
+
+  // Filter to only the most recently created ones (within last minute)
+  const recentCutoff = new Date(Date.now() - 60000);
+  const recentMedia = mediaFiles.filter(m => new Date(m.created_at) >= recentCutoff);
+
+  if (recentMedia.length === 0) return;
+
+  const jobs = recentMedia.map(m => ({
+    id: generateId(),
+    task_id: taskId,
+    target_type: 'media' as const,
+    target_id: m.id,
+    status: 'pending' as const,
+    priority: 0,
+    attempts: 0,
+    max_attempts: 3,
+    error: null,
+    created_at: now(),
+    processed_at: null,
+  }));
+
+  await enqueueJobs(jobs);
 }
 
 function isDuplicateError(err: unknown): boolean {
