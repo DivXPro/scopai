@@ -1,7 +1,7 @@
 import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
 import * as db from '../dist/db/client.js';
-const { query, run } = db;
+const { query, run, close: closeDb } = db;
 import * as migrate from '../dist/db/migrate.js';
 const { runMigrations } = migrate;
 import * as seed from '../dist/db/seed.js';
@@ -22,7 +22,7 @@ const RUN_ID = `import_${Date.now()}`;
 const TEST_PLATFORM = `${RUN_ID}_xhs`;
 
 // Resolve test-data paths
-const testDir = path.join(process.cwd(), 'test-data');
+const testDir = path.join(process.cwd(), 'test-data', 'mock');
 const postsFile = path.join(testDir, 'xhs_posts.jsonl');
 const commentsFile1 = path.join(testDir, 'xhs_comments_post1.jsonl');
 const commentsFile2 = path.join(testDir, 'xhs_comments_post2.jsonl');
@@ -31,6 +31,8 @@ describe('import — offline mock data', { timeout: 15000 }, () => {
   let postIds: string[] = [];
 
   before(async () => {
+    // Reset DB connection to avoid stale state from previous tests
+    closeDb();
     await runMigrations();
     await seedAll();
 

@@ -223,13 +223,15 @@ async function main() {
   };
 
   // Write JSON report
-  const jsonPath = path.join(process.cwd(), 'test-report.json');
+  const reportsDir = path.join(process.cwd(), 'test-data', 'reports');
+  fs.mkdirSync(reportsDir, { recursive: true });
+  const jsonPath = path.join(reportsDir, 'test-report.json');
   fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2));
   console.log(`\nJSON report: ${jsonPath}`);
 
   // Write Markdown report
   const md = generateMarkdown(report);
-  const mdPath = path.join(process.cwd(), 'test-report.md');
+  const mdPath = path.join(reportsDir, 'test-report.md');
   fs.writeFileSync(mdPath, md);
   console.log(`Markdown report: ${mdPath}`);
 

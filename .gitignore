@@ -1,7 +1,6 @@
 node_modules/
 dist/
 downloads/
-test-data/
 
 *.duckdb
 *.log
@@ -13,4 +12,9 @@ test-data/
 .claude/
 .qwen/
 .agent/
-.trae/xiaohongshu-downloads/
+.trae/
+
+# Test runtime data
+test-data/real/
+test-data/reports/
+xiaohongshu-downloads/

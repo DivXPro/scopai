@@ -1,7 +1,7 @@
 import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
 import * as db from '../dist/db/client.js';
-const { query, run } = db;
+const { query, run, close: closeDb } = db;
 import * as migrate from '../dist/db/migrate.js';
 const { runMigrations } = migrate;
 import * as seed from '../dist/db/seed.js';
@@ -28,6 +28,7 @@ const TEST_PLATFORM = `${RUN_ID}_platform`;
 
 describe('task-post-status — real DB (integration)', { timeout: 15000 }, () => {
   before(async () => {
+    closeDb(); // Reset connection from previous tests
     await runMigrations();
     await seedAll();
 
