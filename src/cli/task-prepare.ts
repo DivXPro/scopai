@@ -48,12 +48,16 @@ export function taskPrepareCommands(program: Command): void {
         process.exit(1);
       }
 
-      if (cliTemplates.fetch_comments && !cliTemplates.fetch_comments.includes('{post_id}')) {
-        console.log(pc.red('fetch_comments template must contain {post_id} placeholder'));
+      // Validate templates have {post_id} or {note_id} placeholder
+      const hasNotePlaceholder = (tpl: string) =>
+        tpl.includes('{post_id}') || tpl.includes('{note_id}');
+
+      if (cliTemplates.fetch_comments && !hasNotePlaceholder(cliTemplates.fetch_comments)) {
+        console.log(pc.red('fetch_comments template must contain {post_id} or {note_id} placeholder'));
         process.exit(1);
       }
-      if (cliTemplates.fetch_media && !cliTemplates.fetch_media.includes('{post_id}')) {
-        console.log(pc.red('fetch_media template must contain {post_id} placeholder'));
+      if (cliTemplates.fetch_media && !hasNotePlaceholder(cliTemplates.fetch_media)) {
+        console.log(pc.red('fetch_media template must contain {post_id} or {note_id} placeholder'));
         process.exit(1);
       }
 
@@ -92,13 +96,22 @@ export function taskPrepareCommands(program: Command): void {
       for (const item of pending) {
         const postId = item.post_id;
 
+        // Get post metadata for note_id substitution
+        const postMeta = await import('../db/posts').then(m => m.getPostById(postId));
+        const noteId = (postMeta?.metadata as Record<string, unknown>)?.note_id as string | undefined;
+        const fetchVars: Record<string, string> = {
+          post_id: postId,
+          note_id: noteId ?? postId,
+          limit: '100',
+        };
+
         console.log(pc.dim(`[${successCount + failCount + 1}/${postIds.length}] Processing post: ${postId.slice(0, 8)}...`));
 
         if (!item.comments_fetched && cliTemplates.fetch_comments) {
           await upsertTaskPostStatus(opts.taskId, postId, { status: 'fetching' });
           console.log('  Fetching comments...');
 
-          const result = await fetchViaOpencli(cliTemplates.fetch_comments, { post_id: postId, limit: '100' });
+          const result = await fetchViaOpencli(cliTemplates.fetch_comments, fetchVars);
           if (!result.success) {
             console.log(pc.red(`  Comments fetch failed: ${result.error}`));
             await upsertTaskPostStatus(opts.taskId, postId, { status: 'failed', error: result.error ?? 'unknown' });
@@ -118,17 +131,13 @@ export function taskPrepareCommands(program: Command): void {
         if (!item.media_fetched && cliTemplates.fetch_media) {
           console.log('  Fetching media...');
 
-          const result = await fetchViaOpencli(cliTemplates.fetch_media, { post_id: postId });
+          const result = await fetchViaOpencli(cliTemplates.fetch_media, fetchVars);
           if (!result.success) {
             console.log(pc.red(`  Media fetch failed: ${result.error}`));
             await upsertTaskPostStatus(opts.taskId, postId, { status: 'failed', error: result.error ?? 'unknown' });
             failCount++;
             continue;
           }
-
-          // Extract note_id from the post metadata to construct local paths
-          const postMeta = await import('../db/posts').then(m => m.getPostById(postId));
-          const noteId = (postMeta?.metadata as Record<string, unknown>)?.note_id as string | undefined;
 
           const mediaCount = await importMediaToDb(result.data ?? [], postId, platformId, noteId);
           await upsertTaskPostStatus(opts.taskId, postId, { media_fetched: true, media_count: mediaCount });
@@ -206,6 +215,10 @@ async function importMediaToDb(
   for (const item of data) {
     if (typeof item !== 'object' || item === null) continue;
     const obj = item as Record<string, unknown>;
+
+    // Skip failed downloads
+    if (obj.status === 'failed') continue;
+
     const index = obj.index ?? count + 1;
     const mediaType = (obj.media_type ?? obj.type ?? 'image') as string;
     const ext = mediaType === 'video' ? 'mp4' : mediaType === 'audio' ? 'mp3' : 'jpg';

@@ -4,6 +4,7 @@ import { Comment, MediaFile, PromptTemplate } from '../shared/types';
 
 const client = new Anthropic({
   apiKey: config.anthropic.api_key,
+  baseURL: config.anthropic.base_url,
 });
 
 export async function analyzeComment(

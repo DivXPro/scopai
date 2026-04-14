@@ -85,6 +85,7 @@ export function loadConfig(): Config {
   const envConfig: Partial<Config> = {
     anthropic: {
       api_key: process.env.ANTHROPIC_API_KEY ?? '',
+      base_url: process.env.ANTHROPIC_BASE_URL ?? '',
       model: process.env.ANTHROPIC_MODEL ?? '',
       max_tokens: parseInt(process.env.ANTHROPIC_MAX_TOKENS ?? '4096', 10),
       temperature: parseFloat(process.env.ANTHROPIC_TEMPERATURE ?? '0.3'),
@@ -109,10 +110,10 @@ export function loadConfig(): Config {
       if (!envConfig.anthropic) envConfig.anthropic = { ...DEFAULT_CONFIG.anthropic };
       envConfig.anthropic.api_key = claudeConfig.api_key;
     }
-    if (claudeConfig.base_url) {
-      if (!envConfig.anthropic) envConfig.anthropic = { ...DEFAULT_CONFIG.anthropic };
-      (envConfig.anthropic as Record<string, unknown>).base_url = claudeConfig.base_url;
-    }
+  }
+  if (claudeConfig.base_url) {
+    if (!envConfig.anthropic) envConfig.anthropic = { ...DEFAULT_CONFIG.anthropic };
+    (envConfig.anthropic as Record<string, unknown>).base_url = claudeConfig.base_url;
   }
 
   const resolved = deepMerge(DEFAULT_CONFIG, fileConfig);
