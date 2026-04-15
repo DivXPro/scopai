@@ -48,8 +48,8 @@ function parseArgs(): RecordOptions {
     outputDir: getArg('--output', `test-data/recorded/${new Date().toISOString().slice(0, 10)}-${platform}-e2e`),
     // Default templates target Xiaohongshu (xhs) platform
     searchTemplate: getArg('--search-template', 'opencli xiaohongshu search {query} --limit {limit} -f json'),
-    commentsTemplate: getArg('--comments-template', 'opencli xiaohongshu comments {note_id} --limit 20 -f json'),
-    mediaTemplate: getArg('--media-template', 'opencli xiaohongshu download {note_id} --output downloads/xhs -f json'),
+    commentsTemplate: getArg('--comments-template', 'opencli xiaohongshu comments {note_url} --limit 20 -f json'),
+    mediaTemplate: getArg('--media-template', 'opencli xiaohongshu download {note_url} --output downloads/xhs -f json'),
     noteIdField: getArg('--note-id-field', 'noteId'),
   };
 }
@@ -456,13 +456,14 @@ async function main() {
     const item = postsForImport[idx];
     const postId = importedPostIds[idx] ?? `unknown_${idx}`;
     const noteId = extractNoteId(item, opts.noteIdField) ?? `note_${idx}`;
+    const noteUrl = item.url ?? item.link ?? noteId;
 
     console.log(`[record] Processing post ${postId} (note_id=${noteId})`);
 
     // Comments
     const commentsFile = path.join(opts.outputDir, `comments_${postId}.jsonl`);
     console.log(`[record]   Fetching comments...`);
-    const commentsResult = await runOpencli(opts.commentsTemplate, { note_id: noteId, post_id: postId });
+    const commentsResult = await runOpencli(opts.commentsTemplate, { note_url: noteUrl, note_id: noteId, post_id: postId });
     if (commentsResult.success && (commentsResult.data ?? []).length > 0) {
       const comments = commentsResult.data!;
       fs.writeFileSync(commentsFile, comments.map((c: any) => JSON.stringify(c)).join('\n') + '\n');
@@ -489,7 +490,7 @@ async function main() {
     // Media
     const mediaFile = path.join(opts.outputDir, `media_${postId}.jsonl`);
     console.log(`[record]   Fetching media...`);
-    const mediaResult = await runOpencli(opts.mediaTemplate, { note_id: noteId, post_id: postId });
+    const mediaResult = await runOpencli(opts.mediaTemplate, { note_url: noteUrl, note_id: noteId, post_id: postId });
     if (mediaResult.success && (mediaResult.data ?? []).length > 0) {
       const media = mediaResult.data!;
       fs.writeFileSync(mediaFile, media.map((m: any) => JSON.stringify(m)).join('\n') + '\n');
