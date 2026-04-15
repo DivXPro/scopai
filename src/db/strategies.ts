@@ -59,7 +59,7 @@ export function validateStrategyJson(data: unknown): { valid: boolean; error?: s
     return { valid: false, error: 'Strategy JSON must be an object' };
   }
   const obj = data as Record<string, unknown>;
-  const required = ['id', 'name', 'target', 'prompt', 'output_schema'];
+  const required = ['id', 'name', 'version', 'target', 'prompt', 'output_schema'];
   for (const key of required) {
     if (obj[key] == null) {
       return { valid: false, error: `Missing required field: ${key}` };

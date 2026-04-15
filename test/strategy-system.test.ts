@@ -1,4 +1,4 @@
-import { describe, it, before } from 'node:test';
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import * as db from '../dist/db/client.js';
 const { query, close: closeDb } = db;
@@ -7,7 +7,7 @@ const { runMigrations } = migrate;
 import * as strategies from '../dist/db/strategies.js';
 const { createStrategy, getStrategyById, validateStrategyJson } = strategies;
 import * as analysisResults from '../dist/db/analysis-results.js';
-const { createAnalysisResult, getExistingResultIds } = analysisResults;
+const { createAnalysisResult, getExistingResultIds, listAnalysisResultsByTask } = analysisResults;
 
 describe('strategy system', { timeout: 15000 }, () => {
   before(async () => {
@@ -90,9 +90,15 @@ describe('strategy system', { timeout: 15000 }, () => {
   });
 
   it('should validate strategy JSON', () => {
-    assert.ok(validateStrategyJson({ id: 's', name: 'S', target: 'post', prompt: 'P', output_schema: { columns: [], json_fields: [] } }).valid);
+    assert.ok(validateStrategyJson({ id: 's', name: 'S', version: '1.0.0', target: 'post', prompt: 'P', output_schema: { columns: [], json_fields: [] } }).valid);
     assert.ok(!validateStrategyJson({ name: 'S' }).valid);
-    assert.ok(!validateStrategyJson({ id: null, name: 'S', target: 'post', prompt: 'P', output_schema: { columns: [], json_fields: [] } }).valid);
+    assert.ok(!validateStrategyJson({ id: null, name: 'S', version: '1.0.0', target: 'post', prompt: 'P', output_schema: { columns: [], json_fields: [] } }).valid);
+  });
+
+  it('should reject invalid target in validateStrategyJson', () => {
+    const result = validateStrategyJson({ id: 's', name: 'S', version: '1.0.0', target: 'user', prompt: 'P', output_schema: { columns: [], json_fields: [] } });
+    assert.ok(!result.valid);
+    assert.ok(result.error?.includes("Invalid target"));
   });
 
   it('should create an analysis result and retrieve existing result ids', async () => {
@@ -111,5 +117,22 @@ describe('strategy system', { timeout: 15000 }, () => {
     });
     const existing = await getExistingResultIds('test-task', 'test-strategy-1', 'post', ['post-1', 'post-2']);
     assert.deepEqual(existing, ['post-1']);
+  });
+
+  it('should parse columns and json_fields from listAnalysisResultsByTask', async () => {
+    const results = await listAnalysisResultsByTask('test-task');
+    assert.ok(results.length > 0);
+    const result = results[0];
+    assert.equal(typeof result.columns, 'object');
+    assert.equal(typeof result.json_fields, 'object');
+    assert.deepEqual(result.columns, { sentiment: 'positive' });
+    assert.deepEqual(result.json_fields, { topics: ['a', 'b'] });
+  });
+
+  after(async () => {
+    await query("DELETE FROM analysis_results WHERE task_id = 'test-task'");
+    await query("DELETE FROM queue_jobs WHERE id = 'test-waiting-media-job'");
+    await query("DELETE FROM tasks WHERE id = 'test-task'");
+    await query("DELETE FROM strategies WHERE id = 'test-strategy-1'");
   });
 });
