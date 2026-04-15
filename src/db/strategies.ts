@@ -137,10 +137,27 @@ function jsonSchemaTypeToDuckDb(def: Record<string, unknown>): string {
   throw new Error(`Unsupported JSON Schema type: ${type}`);
 }
 
+const ALLOWED_SQL_TYPES = new Set(['DOUBLE', 'BOOLEAN', 'TEXT', 'VARCHAR[]', 'DOUBLE[]', 'BOOLEAN[]', 'JSON']);
+
+function normalizeSqlType(dataType: string): string {
+  const upper = dataType.toUpperCase();
+  if (upper === 'VARCHAR') return 'TEXT';
+  return upper;
+}
+
+function validateColumnDefs(columnDefs: JsonSchemaColumnDef[]): void {
+  for (const col of columnDefs) {
+    if (!ALLOWED_SQL_TYPES.has(col.sqlType)) {
+      throw new Error(`Invalid sqlType: ${col.sqlType}`);
+    }
+  }
+}
+
 export async function createStrategyResultTable(
   strategyId: string,
   columnDefs: JsonSchemaColumnDef[],
 ): Promise<void> {
+  validateColumnDefs(columnDefs);
   const tableName = getStrategyResultTableName(strategyId);
   const dynamicCols = columnDefs.map(c => `  ${c.name} ${c.sqlType}`).join(',\n');
   const sql = `CREATE TABLE IF NOT EXISTS ${tableName} (
@@ -170,18 +187,21 @@ export async function syncStrategyResultTable(
   strategyId: string,
   columnDefs: JsonSchemaColumnDef[],
 ): Promise<void> {
+  validateColumnDefs(columnDefs);
   const tableName = getStrategyResultTableName(strategyId);
-  const existing = await query<{ column_name: string }>(
-    `SELECT column_name FROM information_schema.columns WHERE table_name = ?`,
+  const existing = await query<{ column_name: string; data_type: string }>(
+    `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = ?`,
     [tableName]
   );
-  const existingNames = new Set(existing.map(c => c.column_name));
+  const existingMap = new Map(existing.map(c => [c.column_name, c.data_type]));
   for (const col of columnDefs) {
-    if (!existingNames.has(col.name)) {
+    if (!existingMap.has(col.name)) {
       await run(`ALTER TABLE ${tableName} ADD COLUMN ${col.name} ${col.sqlType}`);
       if (col.indexable) {
         await run(`CREATE INDEX IF NOT EXISTS idx_${strategyId}_${col.name} ON ${tableName}(${col.name})`);
       }
+    } else if (normalizeSqlType(existingMap.get(col.name) ?? '') !== col.sqlType) {
+      throw new Error(`Column ${col.name} exists with different type. DuckDB does not support ALTER COLUMN type changes. Please create a new strategy version.`);
     }
   }
 }

@@ -245,6 +245,31 @@ describe('strategy system', { timeout: 15000 }, () => {
     assert.equal(rows.length, 1);
   });
 
+  it('should reject invalid sqlType when creating table', async () => {
+    await assert.rejects(
+      () => createStrategyResultTable('test_bad_type', [{ name: 'evil', sqlType: 'TEXT; DROP TABLE strategies; --', indexable: false }]),
+      /Invalid sqlType/
+    );
+  });
+
+  it('should sync new columns and reject type changes', async () => {
+    const { syncStrategyResultTable } = strategies;
+    await syncStrategyResultTable('test_schema_1', [
+      { name: 'score', sqlType: 'DOUBLE', indexable: true },
+      { name: 'level', sqlType: 'TEXT', indexable: true },
+      { name: 'tags', sqlType: 'VARCHAR[]', indexable: false },
+    ]);
+    const cols = await query<{ column_name: string }>(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'analysis_results_strategy_test_schema_1'"
+    );
+    assert.ok(cols.some(c => c.column_name === 'tags'));
+
+    await assert.rejects(
+      () => syncStrategyResultTable('test_schema_1', [{ name: 'score', sqlType: 'TEXT', indexable: false }]),
+      /DuckDB does not support ALTER COLUMN/
+    );
+  });
+
   after(async () => {
     await query("DELETE FROM queue_jobs WHERE task_id = 'daemon-analyze-task'");
     await query("DELETE FROM task_targets WHERE task_id = 'daemon-analyze-task'");
