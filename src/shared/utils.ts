@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import * as fs from 'fs';
 
 export function generateId(): string {
   return uuidv4();
@@ -37,10 +38,10 @@ export function retryWithBackoff<T>(
 }
 
 export function parseImportFile(filePath: string): unknown[] {
-  const fs = require('fs');
   const content = fs.readFileSync(filePath, 'utf-8');
+  const ext = filePath.toLowerCase();
 
-  if (filePath.endsWith('.jsonl')) {
+  if (ext.endsWith('.jsonl')) {
     return content
       .split('\n')
       .map((l: string) => l.trim())
@@ -48,7 +49,7 @@ export function parseImportFile(filePath: string): unknown[] {
       .map((l: string) => JSON.parse(l));
   }
 
-  if (filePath.endsWith('.json')) {
+  if (ext.endsWith('.json')) {
     const parsed = JSON.parse(content);
     if (!Array.isArray(parsed)) {
       throw new Error('Invalid JSON array file: expected an array');
