@@ -336,6 +336,45 @@ describe('strategy system', { timeout: 15000 }, () => {
     assert.deepEqual(result.values.tags, ['a']);
   });
 
+  it('should coerce integer values strictly', async () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        count: { type: 'integer' },
+      },
+    };
+    assert.equal(parseStrategyResult('{"count": 5}', schema).values.count, 5);
+    assert.equal(parseStrategyResult('{"count": "7"}', schema).values.count, 7);
+    assert.equal(parseStrategyResult('{"count": 5.5}', schema).values.count, null);
+    assert.equal(parseStrategyResult('{"count": "abc"}', schema).values.count, null);
+  });
+
+  it('should handle invalid JSON gracefully', async () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        score: { type: 'number' },
+        tags: { type: 'array', items: { type: 'string' } },
+      },
+    };
+    const result = parseStrategyResult('not json at all', schema);
+    assert.equal(result.values.score, null);
+    assert.deepEqual(result.values.tags, []);
+    assert.deepEqual(result.raw, {});
+  });
+
+  it('should extract JSON from markdown code block', async () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        score: { type: 'number' },
+      },
+    };
+    const raw = 'Here is the result:\n```json\n{"score": 9.5}\n```';
+    const result = parseStrategyResult(raw, schema);
+    assert.equal(result.values.score, 9.5);
+  });
+
   it('should insert and list strategy results dynamically', async () => {
     const taskId = `dyn-task-${Date.now()}`;
     const targetId = `dyn-post-${Date.now()}`;
