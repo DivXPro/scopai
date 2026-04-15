@@ -391,6 +391,15 @@ describe('strategy system', { timeout: 15000 }, () => {
 
       const runResult = await handlers['analyze.run']({ task_id: taskId, strategy: strategyId }) as any;
       assert.equal(runResult.enqueued, 1);
+
+      const jobs = await query<{ task_id: string; strategy_id: string; status: string }>(
+        'SELECT task_id, strategy_id, status FROM queue_jobs WHERE task_id = ? AND strategy_id = ?',
+        [taskId, strategyId]
+      );
+      assert.equal(jobs.length, 1);
+      assert.equal(jobs[0].task_id, taskId);
+      assert.equal(jobs[0].strategy_id, strategyId);
+      assert.ok(jobs[0].status === 'pending' || jobs[0].status === 'waiting_media');
     } finally {
       testFs.unlinkSync(strategyFile);
     }
