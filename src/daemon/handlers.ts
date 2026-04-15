@@ -17,6 +17,7 @@ import { fetchViaOpencli } from '../data-fetcher/opencli';
 import { createStrategy, getStrategyById, listStrategies, validateStrategyJson, updateStrategy } from '../db/strategies';
 import { getExistingResultIds } from '../db/analysis-results';
 import { getTaskPostStatus } from '../db/task-post-status';
+import type { QueueJob } from '../shared/types';
 
 type Handler = (params: Record<string, unknown>) => Promise<unknown>;
 
@@ -537,6 +538,7 @@ export function getHandlers(): Record<string, Handler> {
     },
 
     async 'strategy.import'(params) {
+      if (typeof params.file !== 'string') throw new Error('file is required and must be a string');
       const filePath = params.file as string;
       if (!fs.existsSync(filePath)) throw new Error(`File not found: ${filePath}`);
       const content = fs.readFileSync(filePath, 'utf-8');
@@ -580,12 +582,15 @@ export function getHandlers(): Record<string, Handler> {
     },
 
     async 'strategy.show'(params) {
+      if (typeof params.id !== 'string') throw new Error('id is required and must be a string');
       const strategy = await getStrategyById(params.id as string);
       if (!strategy) throw new Error(`Strategy not found: ${params.id}`);
       return strategy;
     },
 
     async 'analyze.run'(params) {
+      if (typeof params.task_id !== 'string') throw new Error('task_id is required and must be a string');
+      if (typeof params.strategy !== 'string') throw new Error('strategy is required and must be a string');
       const taskId = params.task_id as string;
       const strategyId = params.strategy as string;
       const task = await getTaskById(taskId);
@@ -593,7 +598,6 @@ export function getHandlers(): Record<string, Handler> {
       const strategy = await getStrategyById(strategyId);
       if (!strategy) throw new Error(`Strategy not found: ${strategyId}`);
 
-      const { listTaskTargets } = await import('../db/task-targets');
       const targets = (await listTaskTargets(taskId)).filter(t => t.target_type === strategy.target);
       if (targets.length === 0) throw new Error('No matching targets for this strategy');
 
@@ -601,7 +605,7 @@ export function getHandlers(): Record<string, Handler> {
       const existingIds = new Set(await getExistingResultIds(taskId, strategyId, strategy.target, targetIds));
       const newTargets = targets.filter(t => !existingIds.has(t.target_id));
 
-      const jobs = [];
+      const jobs: QueueJob[] = [];
       for (const t of newTargets) {
         let status: 'pending' | 'waiting_media' = 'pending';
         if (strategy.needs_media?.enabled && strategy.target === 'post') {
@@ -627,10 +631,10 @@ export function getHandlers(): Record<string, Handler> {
       }
 
       if (jobs.length > 0) {
-        await enqueueJobs(jobs as any);
+        await enqueueJobs(jobs);
       }
 
-      return { enqueued: jobs.length, skipped: newTargets.length - jobs.length };
+      return { enqueued: jobs.length, skipped: targets.length - jobs.length };
     },
 
     async 'daemon.status'() {

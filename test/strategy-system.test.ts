@@ -293,10 +293,13 @@ describe('strategy system', { timeout: 15000 }, () => {
         json_fields: [{ name: 'tags', type: 'array', label: 'Tags' }],
       },
     }));
-    const handlers = getHandlers();
-    const result = await handlers['strategy.import']({ file: strategyFile }) as any;
-    assert.equal(result.imported, true);
-    testFs.unlinkSync(strategyFile);
+    try {
+      const handlers = getHandlers();
+      const result = await handlers['strategy.import']({ file: strategyFile }) as any;
+      assert.equal(result.imported, true);
+    } finally {
+      testFs.unlinkSync(strategyFile);
+    }
   });
 
   it('should list strategies via daemon', async () => {
@@ -319,6 +322,15 @@ describe('strategy system', { timeout: 15000 }, () => {
     const handlers = getHandlers();
     const result = await handlers['analyze.run']({ task_id: 'daemon-analyze-task', strategy: 'daemon-strategy-1' }) as any;
     assert.ok(result.enqueued > 0);
+    const rows = await query<{ task_id: string; strategy_id: string; status: string }>(
+      "SELECT task_id, strategy_id, status FROM queue_jobs WHERE task_id = 'daemon-analyze-task'"
+    );
+    assert.ok(rows.length > 0);
+    for (const row of rows) {
+      assert.equal(row.task_id, 'daemon-analyze-task');
+      assert.equal(row.strategy_id, 'daemon-strategy-1');
+      assert.ok(row.status === 'pending' || row.status === 'waiting_media');
+    }
   });
 
   after(async () => {
