@@ -1,132 +1,123 @@
 import { query, run } from './client';
-import { AnalysisResultComment, AnalysisResultMedia, AnalysisResult } from '../shared/types';
+import { AnalysisResult } from '../shared/types';
 import { generateId, now } from '../shared/utils';
+import { getStrategyResultTableName } from './strategies';
 
-export async function createAnalysisResultComment(result: Omit<AnalysisResultComment, 'id'>): Promise<void> {
+export async function insertStrategyResult(
+  strategyId: string,
+  result: Omit<AnalysisResult, 'id' | 'strategy_id'>,
+  dynamicColumns: string[],
+  dynamicValues: unknown[],
+): Promise<void> {
+  const tableName = getStrategyResultTableName(strategyId);
   const id = generateId();
+  const columns = [
+    'id',
+    'task_id',
+    'target_type',
+    'target_id',
+    'post_id',
+    'strategy_version',
+    ...dynamicColumns,
+    'raw_response',
+    'error',
+    'analyzed_at',
+  ];
+  const placeholders = columns.map(() => '?').join(',');
+  const values = [
+    id,
+    result.task_id,
+    result.target_type,
+    result.target_id,
+    result.post_id ?? null,
+    result.strategy_version,
+    ...dynamicValues,
+    result.raw_response ? JSON.stringify(result.raw_response) : null,
+    result.error,
+    result.analyzed_at,
+  ];
   await run(
-    `INSERT INTO analysis_results_comments (id, task_id, comment_id, sentiment_label, sentiment_score, intent, risk_flagged, risk_level, risk_reason, topics, emotion_tags, keywords, summary, raw_response, error, analyzed_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, result.task_id, result.comment_id, result.sentiment_label, result.sentiment_score,
-     result.intent, result.risk_flagged, result.risk_level, result.risk_reason,
-     result.topics ? JSON.stringify(result.topics) : null,
-     result.emotion_tags ? JSON.stringify(result.emotion_tags) : null,
-     result.keywords ? JSON.stringify(result.keywords) : null,
-     result.summary, result.raw_response ? JSON.stringify(result.raw_response) : null,
-     result.error, result.analyzed_at]
+    `INSERT INTO ${tableName} (${columns.join(',')}) VALUES (${placeholders})`,
+    values,
   );
 }
 
-export async function createAnalysisResultMedia(result: Omit<AnalysisResultMedia, 'id'>): Promise<void> {
-  const id = generateId();
-  await run(
-    `INSERT INTO analysis_results_media (id, task_id, media_id, media_type, content_type, description, ocr_text, sentiment_label, sentiment_score, risk_flagged, risk_level, risk_reason, objects, logos, faces, raw_response, error, analyzed_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, result.task_id, result.media_id, result.media_type, result.content_type, result.description,
-     result.ocr_text, result.sentiment_label, result.sentiment_score,
-     result.risk_flagged, result.risk_level, result.risk_reason,
-     result.objects ? JSON.stringify(result.objects) : null,
-     result.logos ? JSON.stringify(result.logos) : null,
-     result.faces ? JSON.stringify(result.faces) : null,
-     result.raw_response ? JSON.stringify(result.raw_response) : null,
-     result.error, result.analyzed_at]
+export async function listStrategyResultsByTask(
+  strategyId: string,
+  taskId: string,
+  limit = 100,
+): Promise<AnalysisResult[]> {
+  const tableName = getStrategyResultTableName(strategyId);
+  return query<AnalysisResult>(
+    `SELECT * FROM ${tableName} WHERE task_id = ? ORDER BY analyzed_at DESC LIMIT ?`,
+    [taskId, limit],
   );
 }
 
-export async function listResultsByTask(taskId: string, targetType: 'comment' | 'media', limit = 100): Promise<unknown[]> {
-  if (targetType === 'comment') {
-    return query<AnalysisResultComment>(
-      'SELECT * FROM analysis_results_comments WHERE task_id = ? ORDER BY analyzed_at DESC LIMIT ?',
-      [taskId, limit]
-    );
-  } else {
-    return query<AnalysisResultMedia>(
-      'SELECT * FROM analysis_results_media WHERE task_id = ? ORDER BY analyzed_at DESC LIMIT ?',
-      [taskId, limit]
-    );
-  }
-}
-
-export async function getResultById(id: string, targetType: 'comment' | 'media'): Promise<unknown | null> {
-  if (targetType === 'comment') {
-    const rows = await query<AnalysisResultComment>('SELECT * FROM analysis_results_comments WHERE id = ?', [id]);
-    return rows[0] ?? null;
-  } else {
-    const rows = await query<AnalysisResultMedia>('SELECT * FROM analysis_results_media WHERE id = ?', [id]);
-    return rows[0] ?? null;
-  }
-}
-
-export async function aggregateStats(taskId: string): Promise<Record<string, unknown>> {
-  const sentimentStats = await query<{ sentiment_label: string; cnt: bigint }>(
-    'SELECT sentiment_label, COUNT(*) as cnt FROM analysis_results_comments WHERE task_id = ? GROUP BY sentiment_label',
-    [taskId]
-  );
-  const intentStats = await query<{ intent: string; cnt: bigint }>(
-    'SELECT intent, COUNT(*) as cnt FROM analysis_results_comments WHERE task_id = ? GROUP BY intent',
-    [taskId]
-  );
-  const riskStats = await query<{ cnt: bigint }>(
-    'SELECT COUNT(*) as cnt FROM analysis_results_comments WHERE task_id = ? AND risk_flagged = true',
-    [taskId]
-  );
+export async function getStrategyResultStats(
+  strategyId: string,
+  taskId: string,
+): Promise<Record<string, unknown>> {
+  const tableName = getStrategyResultTableName(strategyId);
   const total = await query<{ cnt: bigint }>(
-    'SELECT COUNT(*) as cnt FROM analysis_results_comments WHERE task_id = ?',
-    [taskId]
+    `SELECT COUNT(*) as cnt FROM ${tableName} WHERE task_id = ?`,
+    [taskId],
   );
+
+  // Query numeric aggregations
+  const numericCols = await query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = ? AND data_type = 'DOUBLE'`,
+    [tableName],
+  );
+  const numericStats: Record<string, Record<string, number>> = {};
+  for (const col of numericCols) {
+    const rows = await query<{ avg: number | null; min: number | null; max: number | null }>(
+      `SELECT AVG(${col.column_name}) as avg, MIN(${col.column_name}) as min, MAX(${col.column_name}) as max FROM ${tableName} WHERE task_id = ?`,
+      [taskId],
+    );
+    numericStats[col.column_name] = {
+      avg: rows[0]?.avg ?? 0,
+      min: rows[0]?.min ?? 0,
+      max: rows[0]?.max ?? 0,
+    };
+  }
+
+  // Query enum/text distributions
+  const textCols = await query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = ? AND data_type = 'VARCHAR'`,
+    [tableName],
+  );
+  const textStats: Record<string, Record<string, number>> = {};
+  for (const col of textCols) {
+    const rows = await query<{ val: string; cnt: bigint }>(
+      `SELECT ${col.column_name} as val, COUNT(*) as cnt FROM ${tableName} WHERE task_id = ? AND ${col.column_name} IS NOT NULL GROUP BY ${col.column_name}`,
+      [taskId],
+    );
+    textStats[col.column_name] = rows.reduce((acc, r) => {
+      acc[r.val] = Number(r.cnt);
+      return acc;
+    }, {} as Record<string, number>);
+  }
+
   return {
     total: Number(total[0]?.cnt ?? 0),
-    sentiment: sentimentStats.reduce<Record<string, number>>((acc, r) => {
-      if (r.sentiment_label) acc[r.sentiment_label] = Number(r.cnt);
-      return acc;
-    }, {}),
-    intent: intentStats.reduce<Record<string, number>>((acc, r) => {
-      if (r.intent) acc[r.intent] = Number(r.cnt);
-      return acc;
-    }, {}),
-    risk_flagged: Number(riskStats[0]?.cnt ?? 0),
+    numeric: numericStats,
+    text: textStats,
   };
 }
 
-export async function createAnalysisResult(result: Omit<AnalysisResult, 'id'>): Promise<void> {
-  const id = generateId();
-  await run(
-    `INSERT INTO analysis_results (id, task_id, strategy_id, strategy_version, target_type, target_id, post_id, columns, json_fields, raw_response, error, analyzed_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id, result.task_id, result.strategy_id, result.strategy_version, result.target_type,
-      result.target_id, result.post_id ?? null,
-      JSON.stringify(result.columns),
-      JSON.stringify(result.json_fields),
-      result.raw_response ? JSON.stringify(result.raw_response) : null,
-      result.error, result.analyzed_at,
-    ]
-  );
-}
-
-export async function listAnalysisResultsByTask(taskId: string, limit = 100): Promise<AnalysisResult[]> {
-  const rows = await query<AnalysisResult>(
-    'SELECT * FROM analysis_results WHERE task_id = ? ORDER BY analyzed_at DESC LIMIT ?',
-    [taskId, limit]
-  );
-  return rows.map(parseAnalysisResultRow);
-}
-
-function parseAnalysisResultRow(row: AnalysisResult): AnalysisResult {
-  return {
-    ...row,
-    columns: typeof row.columns === 'string' ? JSON.parse(row.columns) : row.columns,
-    json_fields: typeof row.json_fields === 'string' ? JSON.parse(row.json_fields) : row.json_fields,
-    raw_response: typeof row.raw_response === 'string' ? JSON.parse(row.raw_response) : row.raw_response,
-  } as AnalysisResult;
-}
-
-export async function getExistingResultIds(taskId: string, strategyId: string, targetType: string, targetIds: string[]): Promise<string[]> {
+export async function getExistingResultIds(
+  strategyId: string,
+  taskId: string,
+  targetType: string,
+  targetIds: string[],
+): Promise<string[]> {
   if (targetIds.length === 0) return [];
+  const tableName = getStrategyResultTableName(strategyId);
   const placeholders = targetIds.map(() => '?').join(',');
   const rows = await query<{ target_id: string }>(
-    `SELECT target_id FROM analysis_results WHERE task_id = ? AND strategy_id = ? AND target_type = ? AND target_id IN (${placeholders})`,
-    [taskId, strategyId, targetType, ...targetIds]
+    `SELECT target_id FROM ${tableName} WHERE task_id = ? AND target_type = ? AND target_id IN (${placeholders})`,
+    [taskId, targetType, ...targetIds],
   );
   return rows.map(r => r.target_id);
 }

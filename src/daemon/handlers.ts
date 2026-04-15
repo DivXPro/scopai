@@ -9,7 +9,6 @@ import { createMediaFile, listMediaFilesByPost } from '../db/media-files';
 import { createPlatform, listPlatforms } from '../db/platforms';
 import { createFieldMapping, listFieldMappings } from '../db/field-mappings';
 import { createTemplate, listTemplates, getTemplateById, updateTemplate, setDefaultTemplate } from '../db/templates';
-import { listResultsByTask, aggregateStats, getResultById } from '../db/analysis-results';
 import { enqueueJobs, getQueueStats, syncWaitingMediaJobs } from '../db/queue-jobs';
 import { getDbPath, query } from '../db/client';
 import { generateId, now, parseImportFile } from '../shared/utils';
@@ -444,50 +443,19 @@ export function getHandlers(): Record<string, Handler> {
     },
 
     async 'result.list'(params) {
-      return listResultsByTask(
-        params.task_id as string,
-        (params.target ?? 'comment') as 'comment' | 'media',
-        Number(params.limit ?? 50)
-      );
+      throw new Error('Legacy result.list not implemented; use strategy-specific result queries');
     },
 
     async 'result.show'(params) {
-      return getResultById(params.id as string, (params.target ?? 'comment') as 'comment' | 'media');
+      throw new Error('Legacy result.show not implemented; use strategy-specific result queries');
     },
 
     async 'result.stats'(params) {
-      return aggregateStats(params.task_id as string);
+      throw new Error('Legacy result.stats not implemented; use strategy-specific stats queries');
     },
 
     async 'result.export'(params) {
-      const taskId = params.task_id as string;
-      const format = (params.format ?? 'json') as 'csv' | 'json';
-      const outputPath = params.output as string | undefined;
-      const commentResults = await listResultsByTask(taskId, 'comment', 100000);
-      const allResults = commentResults.map(r => {
-        const rec = r as Record<string, unknown>;
-        const flat: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(rec)) {
-          if (typeof value === 'object' && value !== null) {
-            flat[key] = JSON.stringify(value);
-          } else {
-            flat[key] = value;
-          }
-        }
-        return flat;
-      });
-
-      let content: string;
-      if (format === 'csv') {
-        content = exportToCsv(allResults);
-      } else {
-        content = allResults.map(r => JSON.stringify(r)).join('\n') + '\n';
-      }
-
-      if (outputPath) {
-        fs.writeFileSync(outputPath, content);
-      }
-      return { content, writtenTo: outputPath ?? null, count: allResults.length };
+      throw new Error('Legacy result.export not implemented; use strategy-specific export');
     },
 
     async 'result.media'(params) {
@@ -603,7 +571,7 @@ export function getHandlers(): Record<string, Handler> {
       if (targets.length === 0) throw new Error('No matching targets for this strategy');
 
       const targetIds = targets.map(t => t.target_id);
-      const existingIds = new Set(await getExistingResultIds(taskId, strategyId, strategy.target, targetIds));
+      const existingIds = new Set(await getExistingResultIds(strategyId, taskId, strategy.target, targetIds));
       const newTargets = targets.filter(t => !existingIds.has(t.target_id));
 
       const jobs: QueueJob[] = [];

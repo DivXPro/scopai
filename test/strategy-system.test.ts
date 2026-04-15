@@ -16,6 +16,11 @@ import * as anthropic from '../dist/worker/anthropic.js';
 const { buildStrategyPrompt } = anthropic;
 import * as queueJobs from '../dist/db/queue-jobs.js';
 const { syncWaitingMediaJobs } = queueJobs;
+import {
+  insertStrategyResult,
+  listStrategyResultsByTask,
+  getExistingResultIds,
+} from '../dist/db/analysis-results.js';
 import * as testPath from 'path';
 import * as testFs from 'fs';
 import { getHandlers } from '../dist/daemon/handlers.js';
@@ -268,6 +273,24 @@ describe('strategy system', { timeout: 15000 }, () => {
       () => syncStrategyResultTable('test_schema_1', [{ name: 'score', sqlType: 'TEXT', indexable: false }]),
       /DuckDB does not support ALTER COLUMN/
     );
+  });
+
+  it('should insert and list strategy results dynamically', async () => {
+    await insertStrategyResult('test_schema_1', {
+      task_id: 'task-1',
+      target_type: 'post',
+      target_id: 'post-1',
+      post_id: 'post-1',
+      strategy_version: '1.0.0',
+      raw_response: { score: 5 },
+      error: null,
+      analyzed_at: new Date(),
+    }, ['score', 'level'], [4.5, 'high']);
+
+    const rows = await listStrategyResultsByTask('test_schema_1', 'task-1');
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].score, 4.5);
+    assert.equal(rows[0].level, 'high');
   });
 
   after(async () => {

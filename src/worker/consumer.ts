@@ -7,7 +7,7 @@ import { getPlatformById } from '../db/platforms';
 import { getTemplateById } from '../db/templates';
 import { getPostById } from '../db/posts';
 import { getStrategyById } from '../db/strategies';
-import { createAnalysisResultComment, createAnalysisResultMedia, createAnalysisResult } from '../db/analysis-results';
+import { insertStrategyResult } from '../db/analysis-results';
 import { analyzeComment, analyzeMedia, analyzeWithStrategy } from './anthropic';
 import { parseCommentResult, parseMediaResult, parseStrategyResult } from './parser';
 import { QueueJob } from '../shared/types';
@@ -99,23 +99,17 @@ async function processCommentJob(
 
   const parsed = parseCommentResult(rawResponse);
 
-  await createAnalysisResultComment({
+  await insertStrategyResult('legacy_comment', {
     task_id: task.id,
-    comment_id: job.target_id,
-    sentiment_label: parsed.sentiment_label,
-    sentiment_score: parsed.sentiment_score,
-    intent: parsed.intent,
-    risk_flagged: parsed.risk_flagged,
-    risk_level: parsed.risk_level,
-    risk_reason: parsed.risk_reason,
-    topics: parsed.topics,
-    emotion_tags: parsed.emotion_tags,
-    keywords: parsed.keywords,
-    summary: parsed.summary,
+    target_type: 'comment',
+    target_id: job.target_id,
+    post_id: null,
+    strategy_version: 'legacy',
     raw_response: parsed.raw,
     error: null,
     analyzed_at: new Date(),
-  });
+  }, ['sentiment_label', 'sentiment_score', 'intent', 'risk_flagged', 'risk_level', 'risk_reason', 'topics', 'emotion_tags', 'keywords', 'summary'],
+  [parsed.sentiment_label, parsed.sentiment_score, parsed.intent, parsed.risk_flagged, parsed.risk_level, parsed.risk_reason, parsed.topics, parsed.emotion_tags, parsed.keywords, parsed.summary]);
 }
 
 async function processMediaJob(
@@ -142,25 +136,17 @@ async function processMediaJob(
 
   const parsed = parseMediaResult(rawResponse);
 
-  await createAnalysisResultMedia({
+  await insertStrategyResult('legacy_media', {
     task_id: task.id,
-    media_id: job.target_id,
-    media_type: media.media_type,
-    content_type: parsed.content_type,
-    description: parsed.description,
-    ocr_text: parsed.ocr_text,
-    sentiment_label: parsed.sentiment_label,
-    sentiment_score: parsed.sentiment_score,
-    risk_flagged: parsed.risk_flagged,
-    risk_level: parsed.risk_level,
-    risk_reason: parsed.risk_reason,
-    objects: parsed.objects,
-    logos: parsed.logos,
-    faces: parsed.faces,
+    target_type: 'media',
+    target_id: job.target_id,
+    post_id: null,
+    strategy_version: 'legacy',
     raw_response: parsed.raw,
     error: null,
     analyzed_at: new Date(),
-  });
+  }, ['media_type', 'content_type', 'description', 'ocr_text', 'sentiment_label', 'sentiment_score', 'risk_flagged', 'risk_level', 'risk_reason', 'objects', 'logos', 'faces'],
+  [media.media_type, parsed.content_type, parsed.description, parsed.ocr_text, parsed.sentiment_label, parsed.sentiment_score, parsed.risk_flagged, parsed.risk_level, parsed.risk_reason, parsed.objects, parsed.logos, parsed.faces]);
 }
 
 async function processStrategyJob(
@@ -180,19 +166,18 @@ async function processStrategyJob(
     const rawResponse = await analyzeWithStrategy(post, strategy);
     const parsed = parseStrategyResult(rawResponse, strategy.output_schema as any);
 
-    await createAnalysisResult({
+    const dynamicColumns = Object.keys(parsed.columns ?? {});
+    const dynamicValues = dynamicColumns.map(k => (parsed.columns as Record<string, unknown>)[k]);
+    await insertStrategyResult(strategy.id, {
       task_id: task.id,
-      strategy_id: strategy.id,
-      strategy_version: strategy.version,
       target_type: 'post',
       target_id: job.target_id,
       post_id: job.target_id,
-      columns: parsed.columns,
-      json_fields: parsed.json_fields,
+      strategy_version: strategy.version,
       raw_response: parsed.raw,
       error: null,
       analyzed_at: new Date(),
-    });
+    }, dynamicColumns, dynamicValues);
   } else if (strategy.target === 'comment') {
     // P2 scope; for now throw
     throw new Error('Comment-level strategy analysis not yet implemented');
