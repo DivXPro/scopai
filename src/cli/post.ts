@@ -3,7 +3,7 @@ import * as pc from 'picocolors';
 import { createPost, listPosts, searchPosts, countPosts } from '../db/posts';
 import { runMigrations } from '../db/migrate';
 import { seedAll } from '../db/seed';
-import { generateId, now } from '../shared/utils';
+import { generateId, now, parseImportFile } from '../shared/utils';
 
 interface RawPostItem {
   platform_post_id?: string;
@@ -38,9 +38,9 @@ export function postCommands(program: Command): void {
 
   post
     .command('import')
-    .description('Import posts from a JSONL file')
+    .description('Import posts from a JSON or JSONL file')
     .requiredOption('--platform <id>', 'Platform ID')
-    .option('--file <path>', 'Path to JSONL file')
+    .option('--file <path>', 'Path to JSON or JSONL file')
     .action(async (opts: { platform: string; file?: string }) => {
       if (!opts.file) {
         console.log(pc.red('Error: --file is required'));
@@ -55,13 +55,19 @@ export function postCommands(program: Command): void {
         console.log(pc.red(`File not found: ${opts.file}`));
         process.exit(1);
       }
-      const content = fs.readFileSync(opts.file, 'utf-8');
-      const lines = content.split('\n').filter((l: string) => l.trim());
+
+      let items: unknown[];
+      try {
+        items = parseImportFile(opts.file);
+      } catch (err: unknown) {
+        console.log(pc.red(`Failed to parse import file: ${err instanceof Error ? err.message : String(err)}`));
+        process.exit(1);
+      }
       let imported = 0;
       let skipped = 0;
-      for (const line of lines) {
+      for (const itemRaw of items) {
         try {
-          const item: RawPostItem = JSON.parse(line);
+          const item = itemRaw as RawPostItem;
           await createPost({
             platform_id: opts.platform,
             platform_post_id: item.platform_post_id ?? item.noteId ?? item.id ?? generateId(),
