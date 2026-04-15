@@ -44,32 +44,6 @@ async function migrateStrategiesTable(): Promise<void> {
   }
 }
 
-async function migrateAnalysisResultsTable(): Promise<void> {
-  const hasAnalysisResults = await query<{ name: string }>(
-    "SELECT table_name as name FROM information_schema.tables WHERE table_name = 'analysis_results'"
-  );
-  if (hasAnalysisResults.length === 0) {
-    await exec(`CREATE TABLE analysis_results (
-      id TEXT PRIMARY KEY,
-      task_id TEXT REFERENCES tasks(id),
-      strategy_id TEXT REFERENCES strategies(id),
-      strategy_version TEXT NOT NULL,
-      target_type TEXT NOT NULL CHECK(target_type IN ('post', 'comment')),
-      target_id TEXT NOT NULL,
-      post_id TEXT REFERENCES posts(id),
-      columns JSON NOT NULL,
-      json_fields JSON NOT NULL,
-      raw_response JSON,
-      error TEXT,
-      analyzed_at TIMESTAMP DEFAULT NOW(),
-      UNIQUE(task_id, strategy_id, target_type, target_id)
-    )`);
-    await exec(`CREATE INDEX idx_analysis_results_task ON analysis_results(task_id)`);
-    await exec(`CREATE INDEX idx_analysis_results_strategy ON analysis_results(strategy_id)`);
-    await exec(`CREATE INDEX idx_analysis_results_target ON analysis_results(target_type, target_id)`);
-    await exec(`CREATE INDEX idx_analysis_results_post ON analysis_results(post_id)`);
-  }
-}
 
 async function migrateQueueJobsStrategyId(): Promise<void> {
   const queueColumns = await query<{ name: string }>(
@@ -88,6 +62,13 @@ export async function runMigrations(): Promise<void> {
 
   await migrateCliTemplates();
   await migrateStrategiesTable();
-  await migrateAnalysisResultsTable();
   await migrateQueueJobsStrategyId();
+
+  // Migration: drop legacy analysis_results table if present
+  const hasAnalysisResults = await query<{ name: string }>(
+    "SELECT table_name as name FROM information_schema.tables WHERE table_name = 'analysis_results'"
+  );
+  if (hasAnalysisResults.length > 0) {
+    await exec('DROP TABLE analysis_results');
+  }
 }

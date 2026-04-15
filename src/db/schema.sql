@@ -207,23 +207,3 @@ CREATE TABLE IF NOT EXISTS strategies (
     updated_at      TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS analysis_results (
-    id              TEXT PRIMARY KEY,
-    task_id         TEXT REFERENCES tasks(id),
-    strategy_id     TEXT REFERENCES strategies(id),
-    strategy_version TEXT NOT NULL,
-    target_type     TEXT NOT NULL CHECK(target_type IN ('post', 'comment')),
-    target_id       TEXT NOT NULL,
-    post_id         TEXT REFERENCES posts(id),
-    columns         JSON NOT NULL,
-    json_fields     JSON NOT NULL,
-    raw_response    JSON,
-    error           TEXT,
-    analyzed_at     TIMESTAMP DEFAULT NOW(),
-    UNIQUE(task_id, strategy_id, target_type, target_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_analysis_results_task ON analysis_results(task_id);
-CREATE INDEX IF NOT EXISTS idx_analysis_results_strategy ON analysis_results(strategy_id);
-CREATE INDEX IF NOT EXISTS idx_analysis_results_target ON analysis_results(target_type, target_id);
-CREATE INDEX IF NOT EXISTS idx_analysis_results_post ON analysis_results(post_id);

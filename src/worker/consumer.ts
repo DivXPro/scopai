@@ -178,7 +178,7 @@ async function processStrategyJob(
     if (!post) throw new Error(`Post ${job.target_id} not found`);
 
     const rawResponse = await analyzeWithStrategy(post, strategy);
-    const parsed = parseStrategyResult(rawResponse, strategy.output_schema);
+    const parsed = parseStrategyResult(rawResponse, strategy.output_schema as any);
 
     await createAnalysisResult({
       task_id: task.id,
