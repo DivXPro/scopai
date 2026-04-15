@@ -3,7 +3,7 @@ import * as pc from 'picocolors';
 import { createComment, listCommentsByPost, countComments } from '../db/comments';
 import { runMigrations } from '../db/migrate';
 import { seedAll } from '../db/seed';
-import { generateId } from '../shared/utils';
+import { generateId, parseImportFile } from '../shared/utils';
 
 interface RawCommentItem {
   platform_comment_id?: string;
@@ -26,10 +26,10 @@ export function commentCommands(program: Command): void {
 
   comment
     .command('import')
-    .description('Import comments from a JSONL file')
+    .description('Import comments from a JSON or JSONL file')
     .requiredOption('--platform <id>', 'Platform ID')
     .requiredOption('--post-id <id>', 'Post ID to associate comments with')
-    .option('--file <path>', 'Path to JSONL file')
+    .option('--file <path>', 'Path to JSON or JSONL file')
     .action(async (opts: { platform: string; postId: string; file?: string }) => {
       if (!opts.file) {
         console.log(pc.red('Error: --file is required'));
@@ -43,13 +43,19 @@ export function commentCommands(program: Command): void {
         console.log(pc.red(`File not found: ${opts.file}`));
         process.exit(1);
       }
-      const content = fs.readFileSync(opts.file, 'utf-8');
-      const lines = content.split('\n').filter((l: string) => l.trim());
+
+      let items: unknown[];
+      try {
+        items = parseImportFile(opts.file);
+      } catch (err: unknown) {
+        console.log(pc.red(`Failed to parse import file: ${err instanceof Error ? err.message : String(err)}`));
+        process.exit(1);
+      }
       let imported = 0;
       let skipped = 0;
-      for (const line of lines) {
+      for (const itemRaw of items) {
         try {
-          const item: RawCommentItem = JSON.parse(line);
+          const item = itemRaw as RawCommentItem;
           await createComment({
             post_id: opts.postId,
             platform_id: opts.platform,
