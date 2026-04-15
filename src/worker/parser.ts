@@ -185,7 +185,10 @@ function normalizeFaces(v: unknown): DetectedFace[] | null {
   });
 }
 
-export function parseStrategyResult(rawText: string, schema: StrategyOutputSchema): { columns: Record<string, unknown>; json_fields: Record<string, unknown>; raw: Record<string, unknown> } {
+export function parseStrategyResult(
+  rawText: string,
+  outputSchema: Record<string, unknown>,
+): { values: Record<string, unknown>; raw: Record<string, unknown> } {
   let obj: Record<string, unknown> = {};
   try {
     const json = extractJson(rawText);
@@ -194,45 +197,77 @@ export function parseStrategyResult(rawText: string, schema: StrategyOutputSchem
     // leave obj empty
   }
 
-  const columns: Record<string, unknown> = {};
-  const json_fields: Record<string, unknown> = {};
+  const properties = (outputSchema.properties || {}) as Record<string, Record<string, unknown>>;
+  const values: Record<string, unknown> = {};
 
-  for (const def of schema.columns) {
-    columns[def.name] = normalizeFieldValue(obj[def.name], def);
-  }
-  for (const def of schema.json_fields) {
-    json_fields[def.name] = normalizeFieldValue(obj[def.name], def);
+  for (const [key, def] of Object.entries(properties)) {
+    values[key] = coerceJsonSchemaValue(obj[key], def);
   }
 
-  return { columns, json_fields, raw: obj };
+  return { values, raw: obj };
 }
 
-function normalizeFieldValue(value: unknown, def: StrategyColumnDef | StrategyJsonFieldDef): unknown {
+function coerceJsonSchemaValue(value: unknown, def: Record<string, unknown>): unknown {
   if (value === undefined || value === null) {
-    if (def.type === 'array') return [];
+    if ((def.type as string) === 'array') return [];
+    if ((def.type as string) === 'boolean') return null;
     return null;
   }
-  switch (def.type) {
-    case 'number': {
-      if (typeof value === 'number') return value;
-      const parsed = parseFloat(String(value));
-      return isNaN(parsed) ? null : parsed;
-    }
-    case 'enum': {
-      const str = String(value).toLowerCase();
-      if (def.enum_values && def.enum_values.length > 0) {
-        const lowerValues = def.enum_values.map((v: string) => v.toLowerCase());
-        const idx = lowerValues.indexOf(str);
-        if (idx !== -1) return lowerValues[idx];
-      }
-      return null;
-    }
-    case 'array': {
-      if (Array.isArray(value)) return value;
-      return [value];
-    }
-    case 'string':
-    default:
-      return String(value);
+
+  const type = def.type as string;
+  const enumValues = def.enum as string[] | undefined;
+
+  if (type === 'number' || type === 'integer') {
+    if (typeof value === 'number') return value;
+    const parsed = parseFloat(String(value));
+    return isNaN(parsed) ? null : parsed;
   }
+
+  if (type === 'string') {
+    const str = String(value);
+    if (enumValues && enumValues.length > 0) {
+      const lower = str.toLowerCase();
+      const loweredEnums = enumValues.map(v => v.toLowerCase());
+      const idx = loweredEnums.indexOf(lower);
+      return idx >= 0 ? enumValues[idx] : null;
+    }
+    return str;
+  }
+
+  if (type === 'boolean') {
+    if (typeof value === 'boolean') return value;
+    if (value === 1 || value === '1' || String(value).toLowerCase() === 'true') return true;
+    if (value === 0 || value === '0' || String(value).toLowerCase() === 'false') return false;
+    return null;
+  }
+
+  if (type === 'array') {
+    if (Array.isArray(value)) {
+      const itemType = (def.items as Record<string, unknown> | undefined)?.type as string | undefined;
+      return value.map(v => coerceItemType(v, itemType));
+    }
+    return [coerceItemType(value, (def.items as Record<string, unknown> | undefined)?.type as string | undefined)];
+  }
+
+  if (type === 'object') {
+    if (typeof value === 'object' && value !== null) return value;
+    return null;
+  }
+
+  return value;
+}
+
+function coerceItemType(value: unknown, itemType: string | undefined): unknown {
+  if (itemType === 'string') return String(value);
+  if (itemType === 'number' || itemType === 'integer') {
+    const parsed = parseFloat(String(value));
+    return isNaN(parsed) ? null : parsed;
+  }
+  if (itemType === 'boolean') {
+    if (typeof value === 'boolean') return value;
+    if (value === 1 || value === '1' || String(value).toLowerCase() === 'true') return true;
+    if (value === 0 || value === '0' || String(value).toLowerCase() === 'false') return false;
+    return null;
+  }
+  return value;
 }

@@ -24,6 +24,7 @@ import {
 import * as testPath from 'path';
 import * as testFs from 'fs';
 import { getHandlers } from '../dist/daemon/handlers.js';
+import { parseStrategyResult } from '../dist/worker/parser.js';
 
 describe('strategy system', { timeout: 15000 }, () => {
   before(async () => {
@@ -273,6 +274,66 @@ describe('strategy system', { timeout: 15000 }, () => {
       () => syncStrategyResultTable('test_schema_1', [{ name: 'score', sqlType: 'TEXT', indexable: false }]),
       /DuckDB does not support ALTER COLUMN/
     );
+  });
+
+  it('should parse strategy result with JSON Schema', async () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        score: { type: 'number' },
+        level: { type: 'string', enum: ['low', 'medium', 'high'] },
+        tags: { type: 'array', items: { type: 'string' } },
+        summary: { type: 'string' },
+        verified: { type: 'boolean' },
+      },
+    };
+    const raw = JSON.stringify({ score: 4.5, level: 'medium', tags: ['a', 'b'], summary: 'ok', verified: true });
+    const result = parseStrategyResult(raw, schema);
+    assert.equal(result.values.score, 4.5);
+    assert.equal(result.values.level, 'medium');
+    assert.deepEqual(result.values.tags, ['a', 'b']);
+    assert.equal(result.values.summary, 'ok');
+    assert.equal(result.values.verified, true);
+  });
+
+  it('should handle missing fields with defaults', async () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        score: { type: 'number' },
+        tags: { type: 'array', items: { type: 'string' } },
+      },
+    };
+    const result = parseStrategyResult('{}', schema);
+    assert.equal(result.values.score, null);
+    assert.deepEqual(result.values.tags, []);
+  });
+
+  it('should coerce boolean values', async () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        active: { type: 'boolean' },
+      },
+    };
+    assert.equal(parseStrategyResult('{"active": true}', schema).values.active, true);
+    assert.equal(parseStrategyResult('{"active": "true"}', schema).values.active, true);
+    assert.equal(parseStrategyResult('{"active": 1}', schema).values.active, true);
+    assert.equal(parseStrategyResult('{"active": false}', schema).values.active, false);
+    assert.equal(parseStrategyResult('{"active": "false"}', schema).values.active, false);
+    assert.equal(parseStrategyResult('{"active": 0}', schema).values.active, false);
+    assert.equal(parseStrategyResult('{"active": "maybe"}', schema).values.active, null);
+  });
+
+  it('should wrap scalar into array', async () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        tags: { type: 'array', items: { type: 'string' } },
+      },
+    };
+    const result = parseStrategyResult('{"tags": "a"}', schema);
+    assert.deepEqual(result.values.tags, ['a']);
   });
 
   it('should insert and list strategy results dynamically', async () => {
