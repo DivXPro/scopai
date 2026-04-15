@@ -13,12 +13,7 @@ function findSchemaPath(): string {
   throw new Error(`schema.sql not found. Searched: ${distSchema}, ${srcSchema}`);
 }
 
-export async function runMigrations(): Promise<void> {
-  const schemaPath = findSchemaPath();
-  const schema = fs.readFileSync(schemaPath, 'utf-8');
-  await exec(schema);
-
-  // Migration: add cli_templates column to tasks if missing
+async function migrateCliTemplates(): Promise<void> {
   const columns = await query<{ name: string }>(
     "SELECT column_name as name FROM information_schema.columns WHERE table_name = 'tasks'"
   );
@@ -26,8 +21,9 @@ export async function runMigrations(): Promise<void> {
   if (!hasCliTemplates) {
     await exec('ALTER TABLE tasks ADD COLUMN cli_templates TEXT');
   }
+}
 
-  // Migration: ensure strategies table exists
+async function migrateStrategiesTable(): Promise<void> {
   const hasStrategies = await query<{ name: string }>(
     "SELECT table_name as name FROM information_schema.tables WHERE table_name = 'strategies'"
   );
@@ -45,6 +41,14 @@ export async function runMigrations(): Promise<void> {
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     )`);
+  }
+}
+
+async function migrateAnalysisResultsTable(): Promise<void> {
+  const hasAnalysisResults = await query<{ name: string }>(
+    "SELECT table_name as name FROM information_schema.tables WHERE table_name = 'analysis_results'"
+  );
+  if (hasAnalysisResults.length === 0) {
     await exec(`CREATE TABLE analysis_results (
       id TEXT PRIMARY KEY,
       task_id TEXT REFERENCES tasks(id),
@@ -65,8 +69,9 @@ export async function runMigrations(): Promise<void> {
     await exec(`CREATE INDEX idx_analysis_results_target ON analysis_results(target_type, target_id)`);
     await exec(`CREATE INDEX idx_analysis_results_post ON analysis_results(post_id)`);
   }
+}
 
-  // Migration: add strategy_id to queue_jobs if missing
+async function migrateQueueJobsStrategyId(): Promise<void> {
   const queueColumns = await query<{ name: string }>(
     "SELECT column_name as name FROM information_schema.columns WHERE table_name = 'queue_jobs'"
   );
@@ -74,4 +79,15 @@ export async function runMigrations(): Promise<void> {
   if (!hasStrategyId) {
     await exec("ALTER TABLE queue_jobs ADD COLUMN strategy_id TEXT");
   }
+}
+
+export async function runMigrations(): Promise<void> {
+  const schemaPath = findSchemaPath();
+  const schema = fs.readFileSync(schemaPath, 'utf-8');
+  await exec(schema);
+
+  await migrateCliTemplates();
+  await migrateStrategiesTable();
+  await migrateAnalysisResultsTable();
+  await migrateQueueJobsStrategyId();
 }

@@ -27,4 +27,32 @@ describe('strategy system', { timeout: 15000 }, () => {
     );
     assert.equal(rows.length, 1);
   });
+
+  it('should have expected columns in strategies table', async () => {
+    const rows = await query<{ column_name: string }>(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'strategies'"
+    );
+    const columns = rows.map(r => r.column_name);
+    assert.ok(columns.includes('id'));
+    assert.ok(columns.includes('name'));
+    assert.ok(columns.includes('target'));
+  });
+
+  it('should have expected columns in analysis_results table', async () => {
+    const rows = await query<{ column_name: string }>(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'analysis_results'"
+    );
+    const columns = rows.map(r => r.column_name);
+    assert.ok(columns.includes('task_id'));
+    assert.ok(columns.includes('strategy_id'));
+  });
+
+  it('should allow queue_jobs status waiting_media', async () => {
+    await query("INSERT INTO tasks (id, name, status) VALUES ('test-task', 'Test Task', 'pending')");
+    const rows = await query<{ status: string }>(
+      "INSERT INTO queue_jobs (id, task_id, status) VALUES ('test-waiting-media-job', 'test-task', 'waiting_media') RETURNING status"
+    );
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].status, 'waiting_media');
+  });
 });
