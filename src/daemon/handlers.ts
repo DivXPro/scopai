@@ -10,7 +10,7 @@ import { createPlatform, listPlatforms } from '../db/platforms';
 import { createFieldMapping, listFieldMappings } from '../db/field-mappings';
 import { createTemplate, listTemplates, getTemplateById, updateTemplate, setDefaultTemplate } from '../db/templates';
 import { listResultsByTask, aggregateStats, getResultById } from '../db/analysis-results';
-import { enqueueJobs, getQueueStats } from '../db/queue-jobs';
+import { enqueueJobs, getQueueStats, syncWaitingMediaJobs } from '../db/queue-jobs';
 import { getDbPath, query } from '../db/client';
 import { generateId, now, parseImportFile } from '../shared/utils';
 import { fetchViaOpencli } from '../data-fetcher/opencli';
@@ -331,6 +331,7 @@ export function getHandlers(): Record<string, Handler> {
           const mediaCount = await importMediaToDb(result.data ?? [], postId, platformId, noteId);
           await upsertTaskPostStatus(taskId, postId, { media_fetched: true, media_count: mediaCount });
           await createMediaQueueJobs(taskId, postId, mediaCount);
+          await syncWaitingMediaJobs(taskId, postId);
         }
 
         await upsertTaskPostStatus(taskId, postId, { status: 'done' });
