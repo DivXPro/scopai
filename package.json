@@ -13,6 +13,7 @@
     "test:offline": "node --test --experimental-strip-types 'test/opencli.test.ts' 'test/import-offline.test.ts' 'test/prepare-data-offline.test.ts'",
     "test:integration": "node --test --experimental-strip-types 'test/task-post-status.test.ts' 'test/prepare-data.test.ts'",
     "test:xhs": "node --test --experimental-strip-types 'test/xhs-shanghai-food.test.ts'",
+    "test:record": "npx tsx scripts/record-e2e-fixture.ts --platform xhs --query '上海美食' --limit 2 --output test-data/recorded/$(date +%Y-%m-%d)-xhs-shanghai",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
