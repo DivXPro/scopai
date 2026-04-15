@@ -5,7 +5,7 @@ const { query, close: closeDb } = db;
 import * as migrate from '../dist/db/migrate.js';
 const { runMigrations } = migrate;
 import * as strategies from '../dist/db/strategies.js';
-const { createStrategy, getStrategyById, validateStrategyJson } = strategies;
+const { createStrategy, getStrategyById, validateStrategyJson, getStrategyResultTableName, parseJsonSchemaToColumns, createStrategyResultTable } = strategies;
 import * as postsMod from '../dist/db/posts.js';
 const { createPost } = postsMod;
 import * as platformsMod from '../dist/db/platforms.js';
@@ -89,7 +89,7 @@ describe('strategy system', { timeout: 15000 }, () => {
       target: 'post' as const,
       needs_media: { enabled: false },
       prompt: 'Analyze {{content}}',
-      output_schema: { columns: [], json_fields: [] },
+      output_schema: { type: 'object', properties: {} },
       file_path: null,
     };
     await createStrategy(strategy);
@@ -97,17 +97,17 @@ describe('strategy system', { timeout: 15000 }, () => {
     assert.ok(found);
     assert.equal(found.name, 'Test Strategy');
     assert.deepEqual(found.needs_media, { enabled: false });
-    assert.deepEqual(found.output_schema, { columns: [], json_fields: [] });
+    assert.deepEqual(found.output_schema, { type: 'object', properties: {} });
   });
 
   it('should validate strategy JSON', () => {
-    assert.ok(validateStrategyJson({ id: 's', name: 'S', version: '1.0.0', target: 'post', prompt: 'P', output_schema: { columns: [], json_fields: [] } }).valid);
+    assert.ok(validateStrategyJson({ id: 's', name: 'S', version: '1.0.0', target: 'post', prompt: 'P', output_schema: { type: 'object', properties: {} } }).valid);
     assert.ok(!validateStrategyJson({ name: 'S' }).valid);
-    assert.ok(!validateStrategyJson({ id: null, name: 'S', version: '1.0.0', target: 'post', prompt: 'P', output_schema: { columns: [], json_fields: [] } }).valid);
+    assert.ok(!validateStrategyJson({ id: null, name: 'S', version: '1.0.0', target: 'post', prompt: 'P', output_schema: { type: 'object', properties: {} } }).valid);
   });
 
   it('should reject invalid target in validateStrategyJson', () => {
-    const result = validateStrategyJson({ id: 's', name: 'S', version: '1.0.0', target: 'user', prompt: 'P', output_schema: { columns: [], json_fields: [] } });
+    const result = validateStrategyJson({ id: 's', name: 'S', version: '1.0.0', target: 'user', prompt: 'P', output_schema: { type: 'object', properties: {} } });
     assert.ok(!result.valid);
     assert.ok(result.error?.includes("Invalid target"));
   });
@@ -146,7 +146,7 @@ describe('strategy system', { timeout: 15000 }, () => {
       target: 'post' as const,
       needs_media: { enabled: false },
       prompt: 'Content: {{content}} Author: {{author_name}}',
-      output_schema: { columns: [], json_fields: [] },
+      output_schema: { type: 'object', properties: {} },
       file_path: null,
     };
 
@@ -172,8 +172,11 @@ describe('strategy system', { timeout: 15000 }, () => {
       target: 'post',
       prompt: 'Analyze: {{content}}',
       output_schema: {
-        columns: [{ name: 'score', type: 'number', label: 'Score' }],
-        json_fields: [{ name: 'tags', type: 'array', label: 'Tags' }],
+        type: 'object',
+        properties: {
+          score: { type: 'number' },
+          tags: { type: 'array', items: { type: 'string' } },
+        },
       },
     }));
     try {
@@ -199,6 +202,48 @@ describe('strategy system', { timeout: 15000 }, () => {
     assert.equal(result.name, 'Daemon Strategy');
   });
 
+  it('should generate table name from strategy id', () => {
+    assert.equal(getStrategyResultTableName('sentiment_v1'), 'analysis_results_strategy_sentiment_v1');
+  });
+
+  it('should reject illegal strategy ids', () => {
+    assert.throws(() => getStrategyResultTableName('bad;id'), /Strategy ID must only contain/);
+  });
+
+  it('should parse JSON Schema to columns', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        score: { type: 'number' },
+        level: { type: 'string', enum: ['low', 'medium', 'high'] },
+        tags: { type: 'array', items: { type: 'string' } },
+        scores: { type: 'array', items: { type: 'number' } },
+        mixed: { type: 'array' },
+        meta: { type: 'object' },
+      },
+    };
+    const cols = parseJsonSchemaToColumns(schema);
+    assert.equal(cols.find(c => c.name === 'score')?.sqlType, 'DOUBLE');
+    assert.equal(cols.find(c => c.name === 'level')?.sqlType, 'TEXT');
+    assert.equal(cols.find(c => c.name === 'tags')?.sqlType, 'VARCHAR[]');
+    assert.equal(cols.find(c => c.name === 'scores')?.sqlType, 'DOUBLE[]');
+    assert.equal(cols.find(c => c.name === 'mixed')?.sqlType, 'JSON');
+    assert.equal(cols.find(c => c.name === 'meta')?.sqlType, 'JSON');
+    assert.ok(cols.find(c => c.name === 'score')?.indexable);
+    assert.ok(cols.find(c => c.name === 'level')?.indexable);
+    assert.ok(!cols.find(c => c.name === 'tags')?.indexable);
+  });
+
+  it('should create a strategy result table', async () => {
+    await createStrategyResultTable('test_schema_1', [
+      { name: 'score', sqlType: 'DOUBLE', indexable: true },
+      { name: 'level', sqlType: 'TEXT', indexable: true },
+    ]);
+    const rows = await query(
+      "SELECT table_name FROM information_schema.tables WHERE table_name = 'analysis_results_strategy_test_schema_1'"
+    );
+    assert.equal(rows.length, 1);
+  });
 
   after(async () => {
     await query("DELETE FROM queue_jobs WHERE task_id = 'daemon-analyze-task'");
