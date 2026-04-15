@@ -48,8 +48,11 @@ export function postCommands(program: Command): void {
         console.log(pc.red(`File not found: ${opts.file}`));
         process.exit(1);
       }
-      const result = await daemonCall('post.import', { platform: opts.platform, file: opts.file }) as { imported: number; skipped: number };
+      const result = await daemonCall('post.import', { platform: opts.platform, file: opts.file }) as { imported: number; skipped: number; postIds?: string[] };
       console.log(pc.green(`Imported: ${result.imported}, Skipped (duplicate): ${result.skipped}`));
+      if (result.postIds && result.postIds.length > 0) {
+        console.log(`Post IDs: ${result.postIds.join(',')}`);
+      }
     });
 
   post

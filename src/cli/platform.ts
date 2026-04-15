@@ -6,6 +6,17 @@ export function platformCommands(program: Command): void {
   const platform = program.command('platform').description('Platform management');
 
   platform
+    .command('add')
+    .description('Add a new platform')
+    .requiredOption('--id <id>', 'Platform ID')
+    .requiredOption('--name <name>', 'Platform name')
+    .option('--description <desc>', 'Platform description')
+    .action(async (opts: { id: string; name: string; description?: string }) => {
+      await daemonCall('platform.add', { id: opts.id, name: opts.name, description: opts.description ?? null });
+      console.log(pc.green(`Platform added: ${opts.id}`));
+    });
+
+  platform
     .command('list')
     .alias('ls')
     .description('List all registered platforms')

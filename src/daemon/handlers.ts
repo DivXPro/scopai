@@ -77,9 +77,10 @@ export function getHandlers(): Record<string, Handler> {
       }
       let imported = 0;
       let skipped = 0;
+      const postIds: string[] = [];
       for (const item of items) {
         try {
-          await createPost({
+          const post = await createPost({
             platform_id: platformId,
             platform_post_id: item.platform_post_id ?? item.noteId ?? item.id ?? generateId(),
             title: item.title ?? null,
@@ -102,11 +103,12 @@ export function getHandlers(): Record<string, Handler> {
             metadata: item.metadata as Record<string, unknown> | null ?? null,
           });
           imported++;
+          postIds.push(post.id);
         } catch {
           skipped++;
         }
       }
-      return { imported, skipped };
+      return { imported, skipped, postIds };
     },
 
     async 'post.list'(params) {
