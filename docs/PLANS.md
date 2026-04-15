@@ -20,6 +20,8 @@
 - `exec-plans/completed/2026-04-13-social-media-analysis-implementation.md`
 - `exec-plans/completed/2026-04-13-manual-e2e-test-plan.md`
 - `exec-plans/completed/2026-04-13-manual-e2e-test-report.md`
+- `exec-plans/completed/2026-04-14-two-phase-task-pipeline.md` — 两阶段任务流水线实施计划（已完成）
+- `exec-plans/completed/2026-04-15-json-import-plan.md` — JSON 数组导入支持实施计划（已完成）
 
 ## 维护规则
 
