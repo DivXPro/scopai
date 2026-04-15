@@ -204,6 +204,7 @@ export function getHandlers(): Record<string, Handler> {
         const jobs = targetsToProcess.map(t => ({
           id: generateId(),
           task_id: taskId,
+          strategy_id: null as string | null,
           target_type: t.target_type as 'post' | 'comment' | null,
           target_id: t.target_id,
           status: 'pending' as const,
@@ -604,6 +605,7 @@ async function enqueueMediaJobsForTask(taskId: string): Promise<number> {
   const jobs = newMediaJobs.map(m => ({
     id: generateId(),
     task_id: taskId,
+    strategy_id: null as string | null,
     target_type: 'media' as const,
     target_id: m.id,
     status: 'pending' as const,
@@ -709,6 +711,7 @@ async function createMediaQueueJobs(taskId: string, postId: string, mediaCount: 
   const jobs = recentMedia.map(m => ({
     id: generateId(),
     task_id: taskId,
+    strategy_id: null as string | null,
     target_type: 'media' as const,
     target_id: m.id,
     status: 'pending' as const,

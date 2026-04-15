@@ -226,11 +226,12 @@ export interface PromptTemplate {
 }
 
 // === Queue ===
-export type QueueStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type QueueStatus = 'pending' | 'waiting_media' | 'processing' | 'completed' | 'failed';
 
 export interface QueueJob {
   id: string;
   task_id: string;
+  strategy_id: string | null;
   target_type: 'post' | 'comment' | 'media' | null;
   target_id: string | null;
   status: QueueStatus;
@@ -281,4 +282,65 @@ export interface JsonRpcResponse {
   result?: unknown;
   error?: { code: number; message: string; data?: unknown };
   id: number | string;
+}
+
+// === Strategy System ===
+
+export interface NeedsMediaConfig {
+  enabled: boolean;
+  media_types?: MediaType[];
+  max_media?: number;
+  mode?: 'all' | 'first_n' | 'best_quality';
+}
+
+export interface StrategyColumnDef {
+  name: string;
+  type: 'number' | 'enum' | 'array' | 'string';
+  label: string;
+  min?: number;
+  max?: number;
+  enum_values?: string[];
+  items_label?: string;
+}
+
+export interface StrategyJsonFieldDef {
+  name: string;
+  type: 'number' | 'enum' | 'array' | 'string';
+  label: string;
+  enum_values?: string[];
+  items_label?: string;
+}
+
+export interface StrategyOutputSchema {
+  columns: StrategyColumnDef[];
+  json_fields: StrategyJsonFieldDef[];
+}
+
+export interface Strategy {
+  id: string;
+  name: string;
+  description: string | null;
+  version: string;
+  target: 'post' | 'comment';
+  needs_media: NeedsMediaConfig | null;
+  prompt: string;
+  output_schema: StrategyOutputSchema;
+  file_path: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface AnalysisResult {
+  id: string;
+  task_id: string;
+  strategy_id: string;
+  strategy_version: string;
+  target_type: 'post' | 'comment';
+  target_id: string;
+  post_id: string | null;
+  columns: Record<string, unknown>;
+  json_fields: Record<string, unknown>;
+  raw_response: Record<string, unknown> | null;
+  error: string | null;
+  analyzed_at: Date;
 }

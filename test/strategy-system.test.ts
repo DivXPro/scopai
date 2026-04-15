@@ -55,4 +55,9 @@ describe('strategy system', { timeout: 15000 }, () => {
     assert.equal(rows.length, 1);
     assert.equal(rows[0].status, 'waiting_media');
   });
+
+  it('should import strategy types without error', async () => {
+    const { Strategy, StrategyOutputSchema } = await import('../dist/shared/types.js');
+    assert.ok(Strategy === undefined); // interfaces are erased at runtime
+  });
 });
