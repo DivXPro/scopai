@@ -112,5 +112,6 @@ Development agents are defined in `agents/`:
 - `db-developer.md` — Database and schema work
 - `integration-developer.md` — External tool integrations
 - `test-engineer.md` — Testing and quality
+- `code-reviewer.md` — Architecture consistency, code quality, security, and logic review
 
 See `agents/README.md` for the full harness documentation.

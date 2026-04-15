@@ -70,7 +70,7 @@ CLI command
 3. **计划编写**：`orchestrator` 或 `project-architect` 产出 `docs/superpowers/plans/`
 4. **任务实现**：派发 `feature-developer`、`cli-developer`、`db-developer` 或 `integration-developer`
 5. **测试验证**：`test-engineer` 补充测试并执行
-6. **代码审查**：`superpowers:requesting-code-review`
+6. **代码审查**：`code-reviewer` 检查架构一致性、代码质量、逻辑正确性、安全性、可测试性
 7. **合并收尾**：`superpowers:finishing-a-development-branch`
 
 ## 文档管理
@@ -116,6 +116,7 @@ CLI command
 - `agents/db-developer.md` — 数据库 schema、migration、数据流
 - `agents/integration-developer.md` — opencli 集成、外部 API 对接
 - `agents/test-engineer.md` — 测试策略、测试实现、测试执行
+- `agents/code-reviewer.md` — 代码审查、架构一致性、安全与质量检查
 
 ## Agent 职责
 
@@ -161,6 +162,14 @@ CLI command
 - 测试策略制定
 - 测试用例编写
 - 测试执行与回归验证
+
+### code-reviewer
+
+- 架构一致性审查
+- 代码质量与冗余检查
+- 逻辑正确性验证
+- 安全隐患排查（SQL 注入、命令注入、路径遍历等）
+- 可测试性评估
 
 ## 给 Claude 的工作约束
 

@@ -11,7 +11,8 @@ orchestrator
   |- cli-developer
   |- db-developer
   |- integration-developer
-  `- test-engineer
+  |- test-engineer
+  `- code-reviewer
 ```
 
 ## Orchestration Flow
@@ -55,10 +56,19 @@ Outputs:
 
 **Recommended skill:** `superpowers:verification-before-completion`
 
-### Phase 4: Review & Merge
+### Phase 4: Review
+**Agent:** `orchestrator` dispatches `code-reviewer`
+
+- Check architectural consistency against design
+- Identify redundant code, logic errors, and security issues
+- Output a structured review report with blocking vs non-blocking items
+- Require fixes for blocking issues before approval
+
+**Recommended skill:** `superpowers:requesting-code-review`
+
+### Phase 5: Merge
 **Agent:** `orchestrator`
 
-- Code review via `superpowers:requesting-code-review`
 - Merge or create PR via `superpowers:finishing-a-development-branch`
 
 ## Agent Responsibilities
@@ -72,6 +82,7 @@ Outputs:
 | `db-developer` | DuckDB schema, migrations, CRUD modules, data flow |
 | `integration-developer` | opencli integration, external APIs, test data |
 | `test-engineer` | Test design, test implementation, test execution |
+| `code-reviewer` | Code review, architecture consistency, security, quality |
 
 ## Design Principles
 
