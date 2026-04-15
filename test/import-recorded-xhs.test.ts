@@ -12,7 +12,7 @@ import { createMediaFile, listMediaFilesByPost } from '../dist/db/media-files.js
 import { config } from '../dist/config/index.js';
 import { expandPath } from '../dist/shared/utils.js';
 
-const FIXTURE_DIR = path.join(process.cwd(), 'test-data/recorded/2026-04-16-xhs-gen');
+const FIXTURE_DIR = path.join(process.cwd(), 'test-data/recorded/2026-04-16-xhs-shanghai');
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, 'manifest.json'), 'utf-8'));
 
 describe('import — recorded xhs fixture', { timeout: 30000 }, () => {

@@ -1,0 +1,21 @@
+{
+  "platform": "xhs",
+  "query": "上海美食",
+  "limit": 2,
+  "recordedAt": "2026-04-15T17:43:25.099Z",
+  "posts": [
+    "4014f4b9-0a32-4678-b950-2b6601219a07"
+  ],
+  "fixtures": {
+    "posts": "posts_transformed.jsonl",
+    "comments": [
+      "comments_4014f4b9-0a32-4678-b950-2b6601219a07.jsonl",
+      "comments_unknown_1.jsonl"
+    ],
+    "media": [
+      "media_4014f4b9-0a32-4678-b950-2b6601219a07.jsonl",
+      "media_unknown_1.jsonl"
+    ]
+  },
+  "failures": []
+}
