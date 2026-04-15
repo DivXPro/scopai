@@ -26,6 +26,7 @@ const testDir = path.join(process.cwd(), 'test-data', 'mock');
 const postsFile = path.join(testDir, 'xhs_posts.jsonl');
 const commentsFile1 = path.join(testDir, 'xhs_comments_post1.jsonl');
 const commentsFile2 = path.join(testDir, 'xhs_comments_post2.jsonl');
+const postsJsonFile = path.join(testDir, 'xhs_posts.json');
 
 describe('import — offline mock data', { timeout: 15000 }, () => {
   let postIds: string[] = [];
@@ -89,6 +90,56 @@ describe('import — offline mock data', { timeout: 15000 }, () => {
     assert.equal(imported, lines.length, `expected ${lines.length} posts imported`);
     assert.equal(skipped, 0, 'expected no skipped posts');
     assert.equal(postIds.length, 5);
+  });
+
+  it('should import posts from mock JSON file', async () => {
+    const content = fs.readFileSync(postsJsonFile, 'utf-8');
+    const items = JSON.parse(content);
+    assert.ok(Array.isArray(items), 'JSON file should contain an array');
+
+    let imported = 0;
+    let skipped = 0;
+    const jsonPostIds: string[] = [];
+
+    for (const item of items) {
+      try {
+        const post = await createPost({
+          platform_id: TEST_PLATFORM,
+          // Append _json to avoid unique-constraint collision with the JSONL test above
+          platform_post_id: `${item.noteId ?? item.id ?? `json_post_${imported}`}_json`,
+          title: item.displayTitle ?? item.title ?? null,
+          content: item.desc ?? item.content ?? '',
+          author_id: item.user?.userId ?? null,
+          author_name: item.user?.nickname ?? null,
+          author_url: null,
+          url: null,
+          cover_url: null,
+          post_type: (item.type ?? null) as any,
+          like_count: Number(item.interactInfo?.likedCount ?? 0),
+          collect_count: Number(item.interactInfo?.collectedCount ?? 0),
+          comment_count: Number(item.interactInfo?.commentCount ?? 0),
+          share_count: 0,
+          play_count: 0,
+          score: null,
+          tags: null,
+          media_files: null,
+          published_at: item.lastUpdateTime ? new Date(item.lastUpdateTime) : null,
+          metadata: item,
+        });
+        jsonPostIds.push(post.id);
+        imported++;
+      } catch {
+        skipped++;
+      }
+    }
+
+    assert.equal(imported, items.length, `expected ${items.length} posts imported from JSON`);
+    assert.equal(skipped, 0, 'expected no skipped posts from JSON');
+    assert.equal(jsonPostIds.length, 5);
+
+    const firstPost = await getPostById(jsonPostIds[0]);
+    assert.ok(firstPost, 'first imported JSON post should be queryable');
+    assert.ok(firstPost.content?.length > 0, 'imported JSON post should have content');
   });
 
   it('should verify imported posts are queryable', async () => {
