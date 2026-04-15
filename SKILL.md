@@ -60,6 +60,21 @@ analyze-cli task create \
 - `{post_id}` / `{note_id}`：运行时会被替换为实际帖子 ID
 - `{limit}`：可选，抓取数量限制
 
+### 媒体文件下载目录
+
+当任务包含媒体抓取时，下载的文件默认存放在当前工作目录的 `downloads/` 下，按平台和帖子 ID 组织：
+
+```
+downloads/
+└── <platform>/
+    └── <noteId>/
+        ├── <noteId>_1.jpg
+        ├── <noteId>_2.jpg
+        └── <noteId>_3.mp4
+```
+
+例如，平台为 `xhs`，帖子 `noteId` 为 `abc123` 时，媒体文件将保存在 `downloads/xhs/abc123/abc123_1.jpg`。
+
 ## 快速开始
 
 ### 第一步：导入帖子数据
