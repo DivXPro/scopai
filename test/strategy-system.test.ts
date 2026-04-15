@@ -16,6 +16,8 @@ import * as platformsMod from '../dist/db/platforms.js';
 const { createPlatform } = platformsMod;
 import * as tasksMod from '../dist/db/tasks.js';
 const { createTask } = tasksMod;
+import * as taskTargetsMod from '../dist/db/task-targets.js';
+const { addTaskTargets } = taskTargetsMod;
 import * as anthropic from '../dist/worker/anthropic.js';
 const { buildStrategyPrompt } = anthropic;
 import * as queueJobs from '../dist/db/queue-jobs.js';
@@ -30,10 +32,14 @@ describe('strategy system', { timeout: 15000 }, () => {
     closeDb();
     await runMigrations();
     await query("DELETE FROM analysis_results WHERE task_id = 'test-task'");
+    await query("DELETE FROM analysis_results WHERE task_id = 'daemon-analyze-task'");
+    await query("DELETE FROM queue_jobs WHERE task_id = 'daemon-analyze-task'");
+    await query("DELETE FROM task_targets WHERE task_id = 'daemon-analyze-task'");
     await query("DELETE FROM queue_jobs WHERE id = 'test-waiting-media-job'");
     await query("DELETE FROM queue_jobs WHERE id = 'sync-job-1'");
     await query("DELETE FROM posts WHERE platform_id LIKE 'plt_%'");
     await query("DELETE FROM tasks WHERE id = 'test-task'");
+    await query("DELETE FROM tasks WHERE id = 'daemon-analyze-task'");
     await query("DELETE FROM strategies WHERE id = 'test-strategy-1'");
     await query("DELETE FROM strategies WHERE id = 'daemon-strategy-1'");
     await query("DELETE FROM platforms WHERE name = 'Test Platform'");
@@ -293,12 +299,38 @@ describe('strategy system', { timeout: 15000 }, () => {
     testFs.unlinkSync(strategyFile);
   });
 
+  it('should list strategies via daemon', async () => {
+    const handlers = getHandlers();
+    const result = await handlers['strategy.list']() as any[];
+    const ids = result.map((s: any) => s.id);
+    assert.ok(ids.includes('daemon-strategy-1'));
+  });
+
+  it('should show strategy via daemon', async () => {
+    const handlers = getHandlers();
+    const result = await handlers['strategy.show']({ id: 'daemon-strategy-1' }) as any;
+    assert.equal(result.id, 'daemon-strategy-1');
+    assert.equal(result.name, 'Daemon Strategy');
+  });
+
+  it('should run analyze via daemon', async () => {
+    await query("INSERT INTO tasks (id, name, status) VALUES ('daemon-analyze-task', 'Daemon Analyze Task', 'pending')");
+    await addTaskTargets('daemon-analyze-task', 'post', ['post-1']);
+    const handlers = getHandlers();
+    const result = await handlers['analyze.run']({ task_id: 'daemon-analyze-task', strategy: 'daemon-strategy-1' }) as any;
+    assert.ok(result.enqueued > 0);
+  });
+
   after(async () => {
     await query("DELETE FROM analysis_results WHERE task_id = 'test-task'");
+    await query("DELETE FROM analysis_results WHERE task_id = 'daemon-analyze-task'");
+    await query("DELETE FROM queue_jobs WHERE task_id = 'daemon-analyze-task'");
+    await query("DELETE FROM task_targets WHERE task_id = 'daemon-analyze-task'");
     await query("DELETE FROM queue_jobs WHERE id = 'test-waiting-media-job'");
     await query("DELETE FROM queue_jobs WHERE id = 'sync-job-1'");
     await query("DELETE FROM posts WHERE platform_id LIKE 'plt_%'");
     await query("DELETE FROM tasks WHERE id = 'test-task'");
+    await query("DELETE FROM tasks WHERE id = 'daemon-analyze-task'");
     await query("DELETE FROM strategies WHERE id = 'test-strategy-1'");
     await query("DELETE FROM strategies WHERE id = 'daemon-strategy-1'");
     await query("DELETE FROM platforms WHERE name = 'Test Platform'");
