@@ -11,7 +11,12 @@ export function analyzeCommands(program: Command): void {
     .requiredOption('--task-id <id>', 'Task ID')
     .requiredOption('--strategy <id>', 'Strategy ID')
     .action(async (opts: { taskId: string; strategy: string }) => {
-      const result = await daemonCall('analyze.run', { task_id: opts.taskId, strategy: opts.strategy }) as { enqueued: number };
-      console.log(pc.green(`Enqueued ${result.enqueued} jobs for analysis`));
+      try {
+        const result = await daemonCall('analyze.run', { task_id: opts.taskId, strategy: opts.strategy }) as { enqueued: number };
+        console.log(pc.green(`Enqueued ${result.enqueued} jobs for analysis`));
+      } catch (err: unknown) {
+        console.log(pc.red(`Error: ${(err as Error).message}`));
+        process.exit(1);
+      }
     });
 }

@@ -43,10 +43,8 @@ templateCommands(program);
 resultCommands(program);
 resultMediaCommands(program);
 
-// Strategy commands
 strategyCommands(program);
 
-// Analyze commands
 analyzeCommands(program);
 
 program.parse(process.argv);
