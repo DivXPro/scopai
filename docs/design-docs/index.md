@@ -10,6 +10,7 @@
 - `2026-04-13-social-media-analysis-design.md`
 - `2026-04-14-two-phase-task-pipeline-design.md`
 - `2026-04-15-json-import-design.md`
+- `2026-04-15-json-schema-dynamic-tables.md`
 
 ## 如何使用
 
