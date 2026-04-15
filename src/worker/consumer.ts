@@ -164,10 +164,10 @@ async function processStrategyJob(
     if (!post) throw new Error(`Post ${job.target_id} not found`);
 
     const rawResponse = await analyzeWithStrategy(post, strategy);
-    const parsed = parseStrategyResult(rawResponse, strategy.output_schema as any);
+    const parsed = parseStrategyResult(rawResponse, strategy.output_schema);
 
-    const dynamicColumns = Object.keys(parsed.values ?? {});
-    const dynamicValues = dynamicColumns.map(k => (parsed.values as Record<string, unknown>)[k]);
+    const dynamicColumns = Object.keys(parsed.values);
+    const dynamicValues = dynamicColumns.map(k => parsed.values[k]);
     await insertStrategyResult(strategy.id, {
       task_id: task.id,
       target_type: 'post',
