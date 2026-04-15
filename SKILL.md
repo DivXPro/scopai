@@ -20,6 +20,9 @@
 ```bash
 # 快速验证 opencli 是否可用
 opencli --help
+
+# 确认浏览器环境已就绪（关键）
+opencli doctor
 ```
 
 ### 2. 安装依赖
