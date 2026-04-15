@@ -8,6 +8,8 @@ import * as strategies from '../dist/db/strategies.js';
 const { createStrategy, getStrategyById, validateStrategyJson } = strategies;
 import * as analysisResults from '../dist/db/analysis-results.js';
 const { createAnalysisResult, getExistingResultIds, listAnalysisResultsByTask } = analysisResults;
+import * as parser from '../dist/worker/parser.js';
+const { parseStrategyResult } = parser;
 
 describe('strategy system', { timeout: 15000 }, () => {
   before(async () => {
@@ -127,6 +129,35 @@ describe('strategy system', { timeout: 15000 }, () => {
     assert.equal(typeof result.json_fields, 'object');
     assert.deepEqual(result.columns, { sentiment: 'positive' });
     assert.deepEqual(result.json_fields, { topics: ['a', 'b'] });
+  });
+
+  it('should parse strategy result dynamically', async () => {
+    const schema = {
+      columns: [
+        { name: 'score', type: 'number', label: 'Score' },
+        { name: 'level', type: 'enum', label: 'Level', enum_values: ['low', 'medium', 'high'] },
+      ],
+      json_fields: [
+        { name: 'tags', type: 'array', label: 'Tags' },
+        { name: 'summary', type: 'string', label: 'Summary' },
+      ],
+    };
+    const raw = JSON.stringify({ score: 4.5, level: 'medium', tags: ['a', 'b'], summary: 'ok' });
+    const result = parseStrategyResult(raw, schema as any);
+    assert.equal(result.columns.score, 4.5);
+    assert.equal(result.columns.level, 'medium');
+    assert.deepEqual(result.json_fields.tags, ['a', 'b']);
+    assert.equal(result.json_fields.summary, 'ok');
+  });
+
+  it('should handle missing fields with defaults', async () => {
+    const schema = {
+      columns: [{ name: 'score', type: 'number', label: 'Score' }],
+      json_fields: [{ name: 'tags', type: 'array', label: 'Tags' }],
+    };
+    const result = parseStrategyResult('{}', schema as any);
+    assert.equal(result.columns.score, null);
+    assert.deepEqual(result.json_fields.tags, []);
   });
 
   after(async () => {

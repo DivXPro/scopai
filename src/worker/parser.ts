@@ -1,6 +1,7 @@
 import {
   SentimentLabel, CommentIntent, RiskLevel, MediaContentType,
-  TopicTag, EmotionTag, DetectedObject, DetectedLogo, DetectedFace
+  TopicTag, EmotionTag, DetectedObject, DetectedLogo, DetectedFace,
+  StrategyOutputSchema, StrategyColumnDef, StrategyJsonFieldDef
 } from '../shared/types';
 
 export interface ParsedCommentResult {
@@ -160,4 +161,53 @@ function normalizeFaces(v: unknown): DetectedFace[] | null {
       emotion: typeof obj.emotion === 'string' ? obj.emotion : undefined,
     };
   });
+}
+
+export function parseStrategyResult(rawText: string, schema: StrategyOutputSchema): { columns: Record<string, unknown>; json_fields: Record<string, unknown>; raw: Record<string, unknown> } {
+  let obj: Record<string, unknown> = {};
+  try {
+    const json = extractJson(rawText);
+    obj = typeof json === 'object' && json !== null ? (json as Record<string, unknown>) : {};
+  } catch {
+    // leave obj empty
+  }
+
+  const columns: Record<string, unknown> = {};
+  const json_fields: Record<string, unknown> = {};
+
+  for (const def of schema.columns) {
+    columns[def.name] = normalizeFieldValue(obj[def.name], def);
+  }
+  for (const def of schema.json_fields) {
+    json_fields[def.name] = normalizeFieldValue(obj[def.name], def);
+  }
+
+  return { columns, json_fields, raw: obj };
+}
+
+function normalizeFieldValue(value: unknown, def: StrategyColumnDef | StrategyJsonFieldDef): unknown {
+  if (value === undefined || value === null) {
+    if (def.type === 'array') return [];
+    return null;
+  }
+  switch (def.type) {
+    case 'number': {
+      if (typeof value === 'number') return value;
+      const parsed = parseFloat(String(value));
+      return isNaN(parsed) ? null : parsed;
+    }
+    case 'enum': {
+      const str = String(value).toLowerCase();
+      if (def.enum_values?.includes(str)) return str;
+      if (def.enum_values?.includes(String(value))) return String(value);
+      return null;
+    }
+    case 'array': {
+      if (Array.isArray(value)) return value;
+      return [value];
+    }
+    case 'string':
+    default:
+      return String(value);
+  }
 }
