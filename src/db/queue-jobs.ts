@@ -49,3 +49,18 @@ export async function getQueueStats(): Promise<{ pending: number; processing: nu
   }
   return stats;
 }
+
+export async function syncWaitingMediaJobs(taskId: string, postId: string): Promise<number> {
+  await run(
+    `UPDATE queue_jobs
+     SET status = 'pending'
+     WHERE task_id = ? AND target_id = ? AND status = 'waiting_media'`,
+    [taskId, postId]
+  );
+  // DuckDB run() may not return changes directly; query to confirm
+  const rows = await query<{ cnt: bigint }>(
+    `SELECT COUNT(*) as cnt FROM queue_jobs WHERE task_id = ? AND target_id = ? AND status = 'pending'`,
+    [taskId, postId]
+  );
+  return Number(rows[0]?.cnt ?? 0);
+}

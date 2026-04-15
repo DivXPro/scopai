@@ -5,9 +5,11 @@ import { getCommentById } from '../db/comments';
 import { getMediaFileById } from '../db/media-files';
 import { getPlatformById } from '../db/platforms';
 import { getTemplateById } from '../db/templates';
-import { createAnalysisResultComment, createAnalysisResultMedia } from '../db/analysis-results';
-import { analyzeComment, analyzeMedia } from './anthropic';
-import { parseCommentResult, parseMediaResult } from './parser';
+import { getPostById } from '../db/posts';
+import { getStrategyById } from '../db/strategies';
+import { createAnalysisResultComment, createAnalysisResultMedia, createAnalysisResult } from '../db/analysis-results';
+import { analyzeComment, analyzeMedia, analyzeWithStrategy } from './anthropic';
+import { parseCommentResult, parseMediaResult, parseStrategyResult } from './parser';
 import { QueueJob } from '../shared/types';
 import { sleep } from '../shared/utils';
 
@@ -52,16 +54,19 @@ export async function runConsumer(workerId: number): Promise<void> {
 async function processJob(job: QueueJob): Promise<void> {
   const task = await getTaskById(job.task_id);
   if (!task) throw new Error(`Task ${job.task_id} not found`);
-  if (!task.template_id) throw new Error(`Task ${job.task_id} has no template`);
 
+  if (job.strategy_id) {
+    await processStrategyJob(job, task);
+    return;
+  }
+
+  if (!task.template_id) throw new Error(`Task ${job.task_id} has no template`);
   const template = await getTemplateById(task.template_id);
   if (!template) throw new Error(`Template ${task.template_id} not found`);
 
   if (job.target_type === 'comment') {
     await processCommentJob(job, task, template);
   } else if (job.target_type === 'post') {
-    // For post-level analysis, we could handle it similarly
-    // For now, treat as comment
     throw new Error(`Unsupported target_type: ${job.target_type}`);
   } else if (job.target_type === 'media') {
     await processMediaJob(job, task, template);
@@ -156,6 +161,44 @@ async function processMediaJob(
     error: null,
     analyzed_at: new Date(),
   });
+}
+
+async function processStrategyJob(
+  job: QueueJob,
+  task: { id: string; name: string },
+): Promise<void> {
+  if (!job.strategy_id) throw new Error('Job has no strategy_id');
+  if (!job.target_id) throw new Error('Job has no target_id');
+
+  const strategy = await getStrategyById(job.strategy_id);
+  if (!strategy) throw new Error(`Strategy ${job.strategy_id} not found`);
+
+  if (strategy.target === 'post') {
+    const post = await getPostById(job.target_id);
+    if (!post) throw new Error(`Post ${job.target_id} not found`);
+
+    const rawResponse = await analyzeWithStrategy(post, strategy);
+    const parsed = parseStrategyResult(rawResponse, strategy.output_schema);
+
+    await createAnalysisResult({
+      task_id: task.id,
+      strategy_id: strategy.id,
+      strategy_version: strategy.version,
+      target_type: 'post',
+      target_id: job.target_id,
+      post_id: job.target_id,
+      columns: parsed.columns,
+      json_fields: parsed.json_fields,
+      raw_response: parsed.raw,
+      error: null,
+      analyzed_at: new Date(),
+    });
+  } else if (strategy.target === 'comment') {
+    // P2 scope; for now throw
+    throw new Error('Comment-level strategy analysis not yet implemented');
+  } else {
+    throw new Error(`Unknown strategy target: ${strategy.target}`);
+  }
 }
 
 async function updateTaskStatsForTask(taskId: string): Promise<void> {

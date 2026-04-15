@@ -10,6 +10,14 @@ import * as analysisResults from '../dist/db/analysis-results.js';
 const { createAnalysisResult, getExistingResultIds, listAnalysisResultsByTask } = analysisResults;
 import * as parser from '../dist/worker/parser.js';
 const { parseStrategyResult } = parser;
+import * as postsMod from '../dist/db/posts.js';
+const { createPost } = postsMod;
+import * as platformsMod from '../dist/db/platforms.js';
+const { createPlatform } = platformsMod;
+import * as tasksMod from '../dist/db/tasks.js';
+const { createTask } = tasksMod;
+import * as anthropic from '../dist/worker/anthropic.js';
+const { buildStrategyPrompt } = anthropic;
 import type { StrategyOutputSchema } from '../dist/shared/types.js';
 
 describe('strategy system', { timeout: 15000 }, () => {
@@ -204,6 +212,49 @@ describe('strategy system', { timeout: 15000 }, () => {
     };
     const result = parseStrategyResult(JSON.stringify({ tags: 'a' }), schema);
     assert.deepEqual(result.json_fields.tags, ['a']);
+  });
+
+  it('should build strategy prompt with media placeholders', async () => {
+    const platformId = `plt_${Date.now()}`;
+    await createPlatform({ id: platformId, name: 'Test Platform', description: null });
+    const post = await createPost({
+      platform_id: platformId,
+      platform_post_id: 'p1',
+      title: 'Title',
+      content: 'Hello world',
+      author_id: null,
+      author_name: 'Alice',
+      author_url: null,
+      url: null,
+      cover_url: null,
+      post_type: 'text',
+      like_count: 0,
+      collect_count: 0,
+      comment_count: 0,
+      share_count: 0,
+      play_count: 0,
+      score: null,
+      tags: null,
+      media_files: null,
+      published_at: new Date('2024-01-01'),
+      metadata: null,
+    });
+
+    const strategy = {
+      id: 'prompt-test',
+      name: 'Prompt Test',
+      description: null,
+      version: '1.0.0',
+      target: 'post' as const,
+      needs_media: { enabled: false },
+      prompt: 'Content: {{content}} Author: {{author_name}}',
+      output_schema: { columns: [], json_fields: [] },
+      file_path: null,
+    };
+
+    const prompt = await buildStrategyPrompt(post, strategy as any);
+    assert.ok(prompt.includes('Hello world'));
+    assert.ok(prompt.includes('Alice'));
   });
 
   after(async () => {
