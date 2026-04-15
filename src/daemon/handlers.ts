@@ -14,6 +14,9 @@ import { enqueueJobs, getQueueStats } from '../db/queue-jobs';
 import { getDbPath, query } from '../db/client';
 import { generateId, now, parseImportFile } from '../shared/utils';
 import { fetchViaOpencli } from '../data-fetcher/opencli';
+import { createStrategy, getStrategyById, listStrategies, validateStrategyJson, updateStrategy } from '../db/strategies';
+import { getExistingResultIds } from '../db/analysis-results';
+import { getTaskPostStatus } from '../db/task-post-status';
 
 type Handler = (params: Record<string, unknown>) => Promise<unknown>;
 
@@ -531,6 +534,103 @@ export function getHandlers(): Record<string, Handler> {
       }
 
       return { posts, totalMedia, totalAnalyzed };
+    },
+
+    async 'strategy.import'(params) {
+      const filePath = params.file as string;
+      if (!fs.existsSync(filePath)) throw new Error(`File not found: ${filePath}`);
+      const content = fs.readFileSync(filePath, 'utf-8');
+      let data: unknown;
+      try {
+        data = JSON.parse(content);
+      } catch {
+        throw new Error('Invalid JSON file');
+      }
+      const validation = validateStrategyJson(data);
+      if (!validation.valid) throw new Error(validation.error);
+
+      const obj = data as Record<string, unknown>;
+      const existing = await getStrategyById(obj.id as string);
+      if (existing && existing.version === obj.version) {
+        return { imported: false, reason: 'same version already exists' };
+      }
+
+      const strategy = {
+        id: obj.id as string,
+        name: obj.name as string,
+        description: (obj.description ?? null) as string | null,
+        version: (obj.version ?? '1.0.0') as string,
+        target: obj.target as 'post' | 'comment',
+        needs_media: (obj.needs_media ?? { enabled: false }) as any,
+        prompt: obj.prompt as string,
+        output_schema: obj.output_schema as any,
+        file_path: filePath,
+      };
+
+      if (existing) {
+        await updateStrategy(strategy.id, strategy);
+      } else {
+        await createStrategy(strategy);
+      }
+      return { imported: true, id: strategy.id };
+    },
+
+    async 'strategy.list'() {
+      return listStrategies();
+    },
+
+    async 'strategy.show'(params) {
+      const strategy = await getStrategyById(params.id as string);
+      if (!strategy) throw new Error(`Strategy not found: ${params.id}`);
+      return strategy;
+    },
+
+    async 'analyze.run'(params) {
+      const taskId = params.task_id as string;
+      const strategyId = params.strategy as string;
+      const task = await getTaskById(taskId);
+      if (!task) throw new Error(`Task not found: ${taskId}`);
+      const strategy = await getStrategyById(strategyId);
+      if (!strategy) throw new Error(`Strategy not found: ${strategyId}`);
+
+      const { listTaskTargets } = await import('../db/task-targets');
+      const targets = (await listTaskTargets(taskId)).filter(t => t.target_type === strategy.target);
+      if (targets.length === 0) throw new Error('No matching targets for this strategy');
+
+      const targetIds = targets.map(t => t.target_id);
+      const existingIds = new Set(await getExistingResultIds(taskId, strategyId, strategy.target, targetIds));
+      const newTargets = targets.filter(t => !existingIds.has(t.target_id));
+
+      const jobs = [];
+      for (const t of newTargets) {
+        let status: 'pending' | 'waiting_media' = 'pending';
+        if (strategy.needs_media?.enabled && strategy.target === 'post') {
+          const postStatus = await getTaskPostStatus(taskId, t.target_id);
+          if (!postStatus || !postStatus.media_fetched) {
+            status = 'waiting_media';
+          }
+        }
+        jobs.push({
+          id: generateId(),
+          task_id: taskId,
+          strategy_id: strategyId,
+          target_type: strategy.target,
+          target_id: t.target_id,
+          status,
+          priority: 0,
+          attempts: 0,
+          max_attempts: 3,
+          error: null,
+          created_at: now(),
+          processed_at: null,
+        });
+      }
+
+      if (jobs.length > 0) {
+        await enqueueJobs(jobs as any);
+      }
+
+      return { enqueued: jobs.length, skipped: newTargets.length - jobs.length };
     },
 
     async 'daemon.status'() {

@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { fork } from 'child_process';
+import { spawn } from 'child_process';
 import { DAEMON_PID_FILE, IPC_SOCKET_PATH } from '../shared/constants';
 import { sendIpcRequest } from '../daemon/ipc-server';
 
@@ -28,7 +28,7 @@ function isDaemonRunning(): boolean {
 async function startDaemon(): Promise<void> {
   if (isDaemonRunning()) return;
   const daemonPath = path.join(__dirname, '../daemon/index.js');
-  const child = fork(daemonPath, [], {
+  const child = spawn('node', [daemonPath], {
     env: { ...process.env, WORKER_ID: '0' },
     detached: true,
     stdio: 'ignore',
