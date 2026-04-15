@@ -5,7 +5,7 @@ const { query, close: closeDb } = db;
 import * as migrate from '../dist/db/migrate.js';
 const { runMigrations } = migrate;
 import * as strategies from '../dist/db/strategies.js';
-const { createStrategy, getStrategyById, listStrategies, validateStrategyJson } = strategies;
+const { createStrategy, getStrategyById, validateStrategyJson } = strategies;
 import * as analysisResults from '../dist/db/analysis-results.js';
 const { createAnalysisResult, getExistingResultIds } = analysisResults;
 
@@ -13,6 +13,10 @@ describe('strategy system', { timeout: 15000 }, () => {
   before(async () => {
     closeDb();
     await runMigrations();
+    await query("DELETE FROM analysis_results WHERE task_id = 'test-task'");
+    await query("DELETE FROM queue_jobs WHERE id = 'test-waiting-media-job'");
+    await query("DELETE FROM tasks WHERE id = 'test-task'");
+    await query("DELETE FROM strategies WHERE id = 'test-strategy-1'");
   });
 
   it('should have strategies table', async () => {
@@ -81,10 +85,31 @@ describe('strategy system', { timeout: 15000 }, () => {
     const found = await getStrategyById('test-strategy-1');
     assert.ok(found);
     assert.equal(found.name, 'Test Strategy');
+    assert.deepEqual(found.needs_media, { enabled: false });
+    assert.deepEqual(found.output_schema, { columns: [], json_fields: [] });
   });
 
   it('should validate strategy JSON', () => {
     assert.ok(validateStrategyJson({ id: 's', name: 'S', target: 'post', prompt: 'P', output_schema: { columns: [], json_fields: [] } }).valid);
     assert.ok(!validateStrategyJson({ name: 'S' }).valid);
+    assert.ok(!validateStrategyJson({ id: null, name: 'S', target: 'post', prompt: 'P', output_schema: { columns: [], json_fields: [] } }).valid);
+  });
+
+  it('should create an analysis result and retrieve existing result ids', async () => {
+    await createAnalysisResult({
+      task_id: 'test-task',
+      strategy_id: 'test-strategy-1',
+      strategy_version: '1.0.0',
+      target_type: 'post',
+      target_id: 'post-1',
+      post_id: null,
+      columns: { sentiment: 'positive' },
+      json_fields: { topics: ['a', 'b'] },
+      raw_response: null,
+      error: null,
+      analyzed_at: new Date().toISOString(),
+    });
+    const existing = await getExistingResultIds('test-task', 'test-strategy-1', 'post', ['post-1', 'post-2']);
+    assert.deepEqual(existing, ['post-1']);
   });
 });

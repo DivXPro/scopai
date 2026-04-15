@@ -105,10 +105,20 @@ export async function createAnalysisResult(result: Omit<AnalysisResult, 'id'>): 
 }
 
 export async function listAnalysisResultsByTask(taskId: string, limit = 100): Promise<AnalysisResult[]> {
-  return query<AnalysisResult>(
+  const rows = await query<AnalysisResult>(
     'SELECT * FROM analysis_results WHERE task_id = ? ORDER BY analyzed_at DESC LIMIT ?',
     [taskId, limit]
   );
+  return rows.map(parseAnalysisResultRow);
+}
+
+function parseAnalysisResultRow(row: AnalysisResult): AnalysisResult {
+  return {
+    ...row,
+    columns: typeof row.columns === 'string' ? JSON.parse(row.columns) : row.columns,
+    json_fields: typeof row.json_fields === 'string' ? JSON.parse(row.json_fields) : row.json_fields,
+    raw_response: typeof row.raw_response === 'string' ? JSON.parse(row.raw_response) : row.raw_response,
+  } as AnalysisResult;
 }
 
 export async function getExistingResultIds(taskId: string, strategyId: string, targetType: string, targetIds: string[]): Promise<string[]> {
