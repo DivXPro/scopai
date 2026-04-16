@@ -1,6 +1,5 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
-import { getTemplateByName } from '../db/templates';
 import { generateId } from '../shared/utils';
 import { daemonCall } from './ipc-client';
 
@@ -17,7 +16,7 @@ export function taskCommands(program: Command): void {
     .action(async (opts: { name: string; description?: string; template?: string; cliTemplates?: string }) => {
       let templateId: string | null = null;
       if (opts.template) {
-        const tpl = await getTemplateByName(opts.template);
+        const tpl = await daemonCall('template.getByName', { name: opts.template }) as { id: string } | null;
         if (!tpl) {
           console.log(pc.red(`Template not found: ${opts.template}`));
           process.exit(1);

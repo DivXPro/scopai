@@ -650,6 +650,11 @@ export function getHandlers(): Record<string, Handler> {
       return getTemplateById(params.id as string);
     },
 
+    async 'template.getByName'(params) {
+      const { getTemplateByName } = await import('../db/templates');
+      return getTemplateByName(params.name as string);
+    },
+
     async 'template.add'(params) {
       const id = generateId();
       await createTemplate({
