@@ -15,7 +15,7 @@ const DEFAULT_CONFIG: Config = {
     temperature: 0.3,
   },
   worker: {
-    concurrency: 1,
+    concurrency: 3,
     max_retries: 3,
     retry_delay_ms: 2000,
   },

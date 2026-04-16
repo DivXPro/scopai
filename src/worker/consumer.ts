@@ -1,6 +1,6 @@
-import { getNextJob, updateJobStatus, requeueJob, listJobsByTask } from '../db/queue-jobs';
+import { getNextJobs, updateJobStatus, requeueJob, listJobsByTask } from '../db/queue-jobs';
 import { getTaskById, updateTaskStatus, updateTaskStats } from '../db/tasks';
-import { getTargetStats, updateTargetStatus } from '../db/task-targets';
+import { updateTargetStatus, getTargetStats } from '../db/task-targets';
 import { getCommentById } from '../db/comments';
 import { getMediaFileById } from '../db/media-files';
 import { getPlatformById } from '../db/platforms';
@@ -18,52 +18,75 @@ import { config } from '../config';
 const POLL_INTERVAL_MS = 2000;
 
 export async function runConsumer(workerId: number): Promise<void> {
-  console.log(`[Worker-${workerId}] Consumer started, polling every ${POLL_INTERVAL_MS}ms`);
+  const concurrency = config.worker.concurrency ?? 1;
+  console.log(`[Worker-${workerId}] Consumer started, concurrency=${concurrency}, polling every ${POLL_INTERVAL_MS}ms`);
+
+  const active = new Set<Promise<void>>();
+  let buffer: QueueJob[] = [];
 
   while (true) {
     try {
-      const job = await getNextJob();
-      if (!job) {
-        await sleep(POLL_INTERVAL_MS);
-        continue;
+      // Fill buffer with pending jobs up to the concurrency limit
+      while (buffer.length === 0 && active.size < concurrency) {
+        const need = concurrency - active.size;
+        const jobs = await getNextJobs(need);
+        if (jobs.length === 0) break;
+        buffer.push(...jobs);
       }
 
-      console.log(`[Worker-${workerId}] Processing job ${job.id} for task ${job.task_id}`);
+      // Start new jobs until we hit the concurrency limit
+      while (active.size < concurrency && buffer.length > 0) {
+        const job = buffer.shift()!;
+        const promise = processJobWithLifecycle(job, workerId).finally(() => {
+          active.delete(promise);
+        });
+        active.add(promise);
+      }
 
-      try {
-        await processJob(job);
-        await updateJobStatus(job.id, 'completed');
-        if (job.target_type && job.target_id) {
-          await updateTargetStatus(job.task_id, job.target_type, job.target_id, 'done');
-        }
-        await updateTaskStatsForTask(job.task_id);
-        if (job.strategy_id) {
-          await syncStepStats(job.task_id, job.strategy_id);
-        }
-        console.log(`[Worker-${workerId}] Job ${job.id} completed`);
-      } catch (err) {
-        const error = String(err);
-        const isRateLimit = /429|rate_limit|engine is currently overloaded/i.test(error);
-
-        if (isRateLimit && job.attempts < job.max_attempts) {
-          const backoffMs = (config.worker.retry_delay_ms ?? 2000) * Math.pow(2, job.attempts);
-          console.error(`[Worker-${workerId}] Job ${job.id} hit rate limit, requeueing after ${backoffMs}ms (attempt ${job.attempts}/${job.max_attempts})`);
-          await requeueJob(job.id, error);
-          await sleep(backoffMs);
-        } else {
-          console.error(`[Worker-${workerId}] Job ${job.id} failed:`, error);
-          await updateJobStatus(job.id, 'failed');
-          if (job.target_type && job.target_id) {
-            await updateTargetStatus(job.task_id, job.target_type, job.target_id, 'failed', error);
-          }
-          if (job.strategy_id) {
-            await syncStepStats(job.task_id, job.strategy_id);
-          }
-        }
+      if (active.size > 0) {
+        await Promise.race(active);
+      } else {
+        await sleep(POLL_INTERVAL_MS);
       }
     } catch (err) {
       console.error(`[Worker-${workerId}] Error in consumer loop:`, err);
       await sleep(POLL_INTERVAL_MS);
+    }
+  }
+}
+
+async function processJobWithLifecycle(job: QueueJob, workerId: number): Promise<void> {
+  console.log(`[Worker-${workerId}] Processing job ${job.id} for task ${job.task_id}`);
+
+  try {
+    await processJob(job);
+    await updateJobStatus(job.id, 'completed');
+    if (job.target_type && job.target_id) {
+      await updateTargetStatus(job.task_id, job.target_type, job.target_id, 'done');
+    }
+    await updateTaskStatsForTask(job.task_id);
+    if (job.strategy_id) {
+      await syncStepStats(job.task_id, job.strategy_id);
+    }
+    console.log(`[Worker-${workerId}] Job ${job.id} completed`);
+  } catch (err) {
+    const error = String(err);
+    const isRateLimit = /429|rate_limit|engine is currently overloaded/i.test(error);
+
+    if (isRateLimit && job.attempts < job.max_attempts) {
+      const backoffMs = (config.worker.retry_delay_ms ?? 2000) * Math.pow(2, job.attempts);
+      console.error(`[Worker-${workerId}] Job ${job.id} hit rate limit, requeueing after ${backoffMs}ms (attempt ${job.attempts}/${job.max_attempts})`);
+      await requeueJob(job.id, error);
+      await sleep(backoffMs);
+    } else {
+      console.error(`[Worker-${workerId}] Job ${job.id} failed:`, error);
+      await updateJobStatus(job.id, 'failed');
+      if (job.target_type && job.target_id) {
+        await updateTargetStatus(job.task_id, job.target_type, job.target_id, 'failed', error);
+      }
+      if (job.strategy_id) {
+        await syncStepStats(job.task_id, job.strategy_id);
+      }
     }
   }
 }

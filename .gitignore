@@ -21,4 +21,5 @@ test-data/reports/
 
 # Downloads (media files by platform)
 downloads/
+xiaohongshu-downloads/
 .worktrees/

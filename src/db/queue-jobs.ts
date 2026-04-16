@@ -28,6 +28,19 @@ export async function getNextJob(): Promise<QueueJob | null> {
   return rows[0] ?? null;
 }
 
+export async function getNextJobs(limit: number): Promise<QueueJob[]> {
+  const rows = await query<QueueJob>(
+    `UPDATE queue_jobs
+     SET status = 'processing', attempts = attempts + 1
+     WHERE id IN (
+       SELECT id FROM queue_jobs WHERE status = 'pending' ORDER BY priority DESC, created_at ASC LIMIT ?
+     )
+     RETURNING *`,
+    [limit]
+  );
+  return rows;
+}
+
 export async function updateJobStatus(jobId: string, status: string): Promise<void> {
   const processedAt = (status === 'completed' || status === 'failed') ? now() : null;
   await run(`UPDATE queue_jobs SET status = ?, processed_at = ? WHERE id = ?`, [status, processedAt, jobId]);
