@@ -1,5 +1,5 @@
 import { query, run } from './client';
-import { AnalysisResult } from '../shared/types';
+import { AnalysisResult, UnifiedAnalysisResult } from '../shared/types';
 import { generateId } from '../shared/utils';
 import { getStrategyResultTableName } from './strategies';
 
@@ -120,4 +120,19 @@ export async function getExistingResultIds(
     [taskId, targetType, ...targetIds],
   );
   return rows.map(r => r.target_id);
+}
+
+export async function listAnalysisResults(taskId: string): Promise<UnifiedAnalysisResult[]> {
+  const commentRows = await query<UnifiedAnalysisResult>(
+    `SELECT * FROM analysis_results_comments WHERE task_id = ? ORDER BY analyzed_at DESC`,
+    [taskId],
+  );
+  const mediaRows = await query<UnifiedAnalysisResult>(
+    `SELECT * FROM analysis_results_media WHERE task_id = ? ORDER BY analyzed_at DESC`,
+    [taskId],
+  );
+  return [
+    ...commentRows.map(r => ({ ...r, target_type: 'comment' })),
+    ...mediaRows.map(r => ({ ...r, target_type: 'media' })),
+  ] as UnifiedAnalysisResult[];
 }

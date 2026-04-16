@@ -335,3 +335,13 @@ export interface AnalysisResult {
   analyzed_at: Date;
   [key: string]: unknown;
 }
+
+export interface UnifiedAnalysisResult {
+  id: string;
+  task_id: string;
+  target_type: string;
+  target_id: string | null;
+  summary: string | null;
+  raw_response: Record<string, unknown> | null;
+  analyzed_at: Date;
+}

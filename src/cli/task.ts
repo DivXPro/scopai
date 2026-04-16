@@ -207,4 +207,99 @@ export function taskCommands(program: Command): void {
       console.log(`    Pending:   ${aj.pendingJobs ?? 0}`);
       console.log();
     });
+
+  const stepCmd = task.command('step').description('Task step management');
+
+  stepCmd
+    .command('add')
+    .description('Add an analysis step to a task')
+    .requiredOption('--task-id <id>', 'Task ID')
+    .requiredOption('--strategy-id <id>', 'Strategy ID')
+    .option('--name <name>', 'Step name')
+    .option('--order <n>', 'Step order (auto-increment if omitted)')
+    .action(async (opts: { taskId: string; strategyId: string; name?: string; order?: string }) => {
+      const result = await daemonCall('task.step.add', {
+        task_id: opts.taskId,
+        strategy_id: opts.strategyId,
+        name: opts.name,
+        order: opts.order ? parseInt(opts.order, 10) : undefined,
+      }) as { stepId: string; stepOrder: number };
+      console.log(pc.green(`Step added: ${result.stepId} (order=${result.stepOrder})`));
+    });
+
+  stepCmd
+    .command('list')
+    .alias('ls')
+    .description('List steps for a task')
+    .requiredOption('--task-id <id>', 'Task ID')
+    .action(async (opts: { taskId: string }) => {
+      const steps = await daemonCall('task.step.list', { task_id: opts.taskId }) as any[];
+      if (steps.length === 0) {
+        console.log(pc.yellow('No steps found'));
+        return;
+      }
+      console.log(pc.bold(`\nSteps for task ${opts.taskId.slice(0, 8)}:`));
+      console.log(pc.dim('─'.repeat(70)));
+      for (const s of steps) {
+        const statusColor = s.status === 'completed' ? pc.green : s.status === 'running' ? pc.cyan : s.status === 'failed' ? pc.red : pc.gray;
+        console.log(`  [${s.step_order}] ${statusColor(s.status.padEnd(10))} ${pc.cyan(s.strategy_id?.slice(0, 16) ?? '-')} ${s.name}`);
+      }
+      console.log(pc.dim('─'.repeat(70)));
+      console.log(`Total: ${steps.length}\n`);
+    });
+
+  stepCmd
+    .command('run')
+    .description('Run a specific task step')
+    .requiredOption('--task-id <id>', 'Task ID')
+    .requiredOption('--step-id <id>', 'Step ID')
+    .action(async (opts: { taskId: string; stepId: string }) => {
+      const result = await daemonCall('task.step.run', {
+        task_id: opts.taskId,
+        step_id: opts.stepId,
+      }) as { enqueued: number; status: string };
+      console.log(pc.green(`Step status: ${result.status}`));
+      if (result.enqueued > 0) {
+        console.log(`  Enqueued ${result.enqueued} jobs`);
+      }
+    });
+
+  task
+    .command('run-all-steps')
+    .description('Run all pending/failed steps for a task in order')
+    .requiredOption('--task-id <id>', 'Task ID')
+    .action(async (opts: { taskId: string }) => {
+      const result = await daemonCall('task.runAllSteps', { task_id: opts.taskId }) as {
+        completed: number;
+        failed: number;
+        skipped: number;
+      };
+      console.log(pc.green('All steps processed'));
+      console.log(`  Completed: ${result.completed}`);
+      console.log(`  Failed:    ${result.failed}`);
+      console.log(`  Skipped:   ${result.skipped}`);
+    });
+
+  task
+    .command('results')
+    .description('Show analysis results for a completed task')
+    .requiredOption('--task-id <id>', 'Task ID')
+    .action(async (opts: { taskId: string }) => {
+      const full = await daemonCall('task.status', { task_id: opts.taskId }) as Record<string, any>;
+      if (!full.id) {
+        console.log(pc.red(`Task not found: ${opts.taskId}`));
+        process.exit(1);
+      }
+      const { listAnalysisResults } = await import('../db/analysis-results');
+      const results = await listAnalysisResults(opts.taskId);
+      console.log(pc.bold(`\nAnalysis results for task ${opts.taskId.slice(0, 8)}:`));
+      console.log(`  Total result records: ${results.length}`);
+      for (const r of results.slice(0, 5)) {
+        console.log(`  - ${r.target_type} ${r.target_id?.slice(0, 8) ?? '-'}: ${JSON.stringify(r.summary ?? r.raw_response ?? {}).slice(0, 80)}`);
+      }
+      if (results.length > 5) {
+        console.log(pc.dim(`  ... and ${results.length - 5} more`));
+      }
+      console.log();
+    });
 }
