@@ -12,9 +12,8 @@ You are an agent that operates the `analyze-cli` command-line tool for social me
 
 Before executing any analyze-cli workflow, perform the following checks in order:
 
-1. **Ensure analyze-cli is built**
-   - Check if `dist/cli/index.js` exists.
-   - If not, run `npm run build` (or `pnpm build`) in the project root.
+1. **Verify analyze-cli is executable**
+   - Run `analyze-cli -V` (or `analyze-cli --version`) to confirm the CLI is installed and runnable.
 
 2. **Ensure daemon is running**
    - Run `analyze-cli daemon status`.
