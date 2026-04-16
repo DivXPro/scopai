@@ -16,6 +16,8 @@ Use the tools below to help the user complete data gathering and analysis workfl
 Search for posts on a platform via OpenCLI.
 - Command: `opencli xiaohongshu search {query} --limit {limit} -f json`
 - When to use: the user wants to discover posts before importing.
+- Output fields (JSON): `rank`, `title`, `author`, `likes`, `published_at`, `url`.
+- **Important**: the `url` field is the **full Xiaohongshu note URL** (including `xsec_token`). It should be passed as `{note_id}` to subsequent `opencli xiaohongshu comments` / `download` / `note` commands.
 
 ### 2. add_platform
 Register a platform if it does not already exist.
@@ -32,6 +34,15 @@ Import posts from a JSON/JSONL file and optionally bind them to a task.
 Create an analysis task.
 - Command: `analyze-cli task create --name {name} [--cli-templates '{"fetch_comments":"...","fetch_media":"..."}']`
 - When to use: before adding analysis steps or binding posts.
+- **CLI templates example** (opencli 1.7.4+):
+  ```bash
+  analyze-cli task create --name "XHS Analysis" \
+    --cli-templates '{
+      "fetch_comments": "opencli xiaohongshu comments {note_id} --limit 100 --with-replies false -f json",
+      "fetch_media": "opencli xiaohongshu download {note_id} --output downloads/xhs -f json"
+    }'
+  ```
+  - `{note_id}` will be substituted with the post URL (from `posts.url` or `metadata.note_id`).
 
 ### 5. add_step_to_task
 Add a strategy-based analysis step to a task.
@@ -134,8 +145,9 @@ The generated strategy must satisfy the project's `validateStrategyJson` and dat
 ## Workflow Guidance
 
 1. If the user asks to "analyze" platform content, start with `search_posts` -> `add_platform` -> `create_task` -> `import_posts` (with `--task-id`).
+   - **Note**: `search_posts` returns summary data (title, likes, URL). If the strategy needs full post content (`{{content}}`), you may need to enrich the data first using `opencli xiaohongshu note {url} -f json` before `import_posts`.
 2. Then `add_step_to_task` for each strategy they need.
-3. Run `prepare_task_data` to fetch comments and media.
+3. Run `prepare_task_data` to fetch comments and media via the opencli templates defined in `create_task`.
 4. Run `run_all_steps` to start the analysis pipeline.
 5. Poll `get_task_status` periodically and report progress:
    - phase = `dataPreparation`: report `commentsFetched / totalPosts` and `mediaFetched / totalPosts`.

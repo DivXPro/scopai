@@ -1048,7 +1048,9 @@ async function runPrepareDataAsync(
   for (const item of pending) {
     const postId = item.post_id;
     const postMeta = await getPostById(postId);
-    const noteId = (postMeta?.metadata as Record<string, unknown> | null)?.note_id as string | undefined;
+    const noteId = (postMeta?.metadata as Record<string, unknown> | null)?.note_id as string | undefined
+      ?? postMeta?.url
+      ?? undefined;
     const fetchVars: Record<string, string> = {
       post_id: postId,
       note_id: noteId ?? postId,
