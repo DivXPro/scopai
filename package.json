@@ -33,6 +33,8 @@
     "node": ">=20.0.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["duckdb"]
+    "onlyBuiltDependencies": [
+      "duckdb"
+    ]
   }
 }

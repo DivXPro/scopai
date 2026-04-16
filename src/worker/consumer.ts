@@ -184,7 +184,19 @@ async function processStrategyJob(
     const parsed = parseStrategyResult(rawResponse, strategy.output_schema);
 
     const dynamicColumns = Object.keys(parsed.values);
-    const dynamicValues = dynamicColumns.map(k => parsed.values[k]);
+    const schemaProperties = (strategy.output_schema.properties || {}) as Record<string, Record<string, unknown>>;
+    const dynamicValues = dynamicColumns.map((k) => {
+      const val = parsed.values[k];
+      const def = schemaProperties[k];
+      if (def?.type === 'array' && Array.isArray(val)) {
+        const items = val.map((v: unknown) => {
+          if (typeof v === 'string') return `'${String(v).replace(/'/g, "''")}'`;
+          return String(v);
+        });
+        return `[${items.join(',')}]`;
+      }
+      return val;
+    });
     await insertStrategyResult(strategy.id, {
       task_id: task.id,
       target_type: 'post',

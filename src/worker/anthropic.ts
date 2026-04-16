@@ -68,9 +68,25 @@ export async function analyzeWithStrategy(
     model: config.anthropic.model,
     max_tokens: config.anthropic.max_tokens,
     temperature: config.anthropic.temperature,
+    tools: [
+      {
+        name: 'output_analysis',
+        description: 'Return the analysis result in the required JSON structure',
+        input_schema: strategy.output_schema as any,
+      },
+    ],
+    tool_choice: { type: 'tool', name: 'output_analysis' },
     messages: [{ role: 'user', content: prompt }],
   });
-  return response.content[0].type === 'text' ? response.content[0].text : '';
+
+  const toolUse = response.content.find(c => c.type === 'tool_use');
+  if (toolUse && 'input' in toolUse) {
+    return JSON.stringify(toolUse.input);
+  }
+
+  // fallback to text response if model did not use tool
+  const text = response.content.find(c => c.type === 'text');
+  return text && 'text' in text ? text.text : '';
 }
 
 export async function buildStrategyPrompt(target: Post, strategy: Strategy): Promise<string> {
