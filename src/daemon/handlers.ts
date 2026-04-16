@@ -352,6 +352,12 @@ export function getHandlers(): Record<string, Handler> {
       return { status: 'cancelled' };
     },
 
+    async 'task.results'(params) {
+      const taskId = params.task_id as string;
+      const { listAnalysisResults } = await import('../db/analysis-results');
+      return listAnalysisResults(taskId);
+    },
+
     async 'task.status'(params) {
       const taskId = params.task_id as string;
       const task = await getTaskById(taskId);

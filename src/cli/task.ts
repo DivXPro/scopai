@@ -308,8 +308,7 @@ export function taskCommands(program: Command): void {
         console.log(pc.red(`Task not found: ${opts.taskId}`));
         process.exit(1);
       }
-      const { listAnalysisResults } = await import('../db/analysis-results');
-      const results = await listAnalysisResults(opts.taskId);
+      const results = await daemonCall('task.results', { task_id: opts.taskId }) as { target_type: string; target_id: string | null; summary: string | null; raw_response: Record<string, unknown> | null }[];
       console.log(pc.bold(`\nAnalysis results for task ${opts.taskId.slice(0, 8)}:`));
       console.log(`  Total result records: ${results.length}`);
       for (const r of results.slice(0, 5)) {
