@@ -1,4 +1,4 @@
-import { getNextJob, updateJobStatus } from '../db/queue-jobs';
+import { getNextJob, updateJobStatus, listJobsByTask } from '../db/queue-jobs';
 import { getTaskById, updateTaskStatus, updateTaskStats } from '../db/tasks';
 import { getTargetStats, updateTargetStatus } from '../db/task-targets';
 import { getCommentById } from '../db/comments';
@@ -8,6 +8,7 @@ import { getTemplateById } from '../db/templates';
 import { getPostById } from '../db/posts';
 import { getStrategyById } from '../db/strategies';
 import { insertStrategyResult } from '../db/analysis-results';
+import { updateTaskStepStatus, listTaskSteps } from '../db/task-steps';
 import { analyzeComment, analyzeMedia, analyzeWithStrategy } from './anthropic';
 import { parseCommentResult, parseMediaResult, parseStrategyResult } from './parser';
 import { QueueJob } from '../shared/types';
@@ -35,6 +36,9 @@ export async function runConsumer(workerId: number): Promise<void> {
           await updateTargetStatus(job.task_id, job.target_type, job.target_id, 'done');
         }
         await updateTaskStatsForTask(job.task_id);
+        if (job.strategy_id) {
+          await syncStepStats(job.task_id, job.strategy_id);
+        }
         console.log(`[Worker-${workerId}] Job ${job.id} completed`);
       } catch (err) {
         const error = String(err);
@@ -42,6 +46,9 @@ export async function runConsumer(workerId: number): Promise<void> {
         await updateJobStatus(job.id, 'failed');
         if (job.target_type && job.target_id) {
           await updateTargetStatus(job.task_id, job.target_type, job.target_id, 'failed', error);
+        }
+        if (job.strategy_id) {
+          await syncStepStats(job.task_id, job.strategy_id);
         }
       }
     } catch (err) {
@@ -193,4 +200,21 @@ async function updateTaskStatsForTask(taskId: string): Promise<void> {
   if (stats.done + stats.failed >= stats.total && stats.total > 0) {
     await updateTaskStatus(taskId, 'completed');
   }
+}
+
+async function syncStepStats(taskId: string, strategyId: string): Promise<void> {
+  const jobs = await listJobsByTask(taskId);
+  const strategyJobs = jobs.filter(j => j.strategy_id === strategyId);
+  const total = strategyJobs.length;
+  const done = strategyJobs.filter(j => j.status === 'completed').length;
+  const failed = strategyJobs.filter(j => j.status === 'failed').length;
+  const steps = await listTaskSteps(taskId);
+  const step = steps.find(s => s.strategy_id === strategyId);
+  if (!step) return;
+
+  let status: 'running' | 'completed' | 'failed' = 'running';
+  if (done === total) status = 'completed';
+  else if (failed > 0 && done + failed === total) status = 'failed';
+
+  await updateTaskStepStatus(step.id, status, { total, done, failed });
 }

@@ -375,6 +375,122 @@ export function getHandlers(): Record<string, Handler> {
       };
     },
 
+    async 'task.step.add'(params) {
+      const taskId = params.task_id as string;
+      const strategyId = params.strategy_id as string;
+      const name = (params.name as string | undefined) ?? strategyId;
+      const { createTaskStep, getNextStepOrder } = await import('../db/task-steps');
+      const { getStrategyById } = await import('../db/strategies');
+
+      const strategy = await getStrategyById(strategyId);
+      if (!strategy) throw new Error(`Strategy not found: ${strategyId}`);
+
+      const stepOrder = (params.order as number | undefined) ?? await getNextStepOrder(taskId);
+      const step = await createTaskStep({
+        task_id: taskId,
+        strategy_id: strategyId,
+        name,
+        step_order: stepOrder,
+        status: 'pending',
+        stats: { total: 0, done: 0, failed: 0 },
+        error: null,
+      });
+      return { stepId: step.id, stepOrder: step.step_order };
+    },
+
+    async 'task.step.list'(params) {
+      const taskId = params.task_id as string;
+      const { listTaskSteps } = await import('../db/task-steps');
+      return listTaskSteps(taskId);
+    },
+
+    async 'task.step.run'(params) {
+      const taskId = params.task_id as string;
+      const stepId = params.step_id as string;
+      const { getTaskStepById, updateTaskStepStatus } = await import('../db/task-steps');
+      const { listTaskTargets } = await import('../db/task-targets');
+      const { getStrategyById } = await import('../db/strategies');
+      const { enqueueJobs } = await import('../db/queue-jobs');
+      const { generateId } = await import('../shared/utils');
+
+      const step = await getTaskStepById(stepId);
+      if (!step) throw new Error(`Step not found: ${stepId}`);
+      if (step.task_id !== taskId) throw new Error('Step does not belong to this task');
+      if (step.status === 'completed') {
+        return { status: 'completed', enqueued: 0 };
+      }
+      if (step.status === 'skipped') {
+        return { status: 'skipped', enqueued: 0 };
+      }
+
+      const strategy = await getStrategyById(step.strategy_id ?? '');
+      if (!strategy) throw new Error(`Strategy not found: ${step.strategy_id}`);
+
+      const targets = await listTaskTargets(taskId);
+      const relevantTargets = targets.filter(t => {
+        if (strategy.target === 'post') return t.target_type === 'post';
+        if (strategy.target === 'comment') return t.target_type === 'comment';
+        return true;
+      });
+
+      if (relevantTargets.length === 0) {
+        await updateTaskStepStatus(stepId, 'skipped', { total: 0, done: 0, failed: 0 });
+        return { status: 'skipped', enqueued: 0 };
+      }
+
+      const jobs = relevantTargets.map(t => ({
+        id: generateId(),
+        task_id: taskId,
+        strategy_id: strategy.id,
+        target_type: strategy.target as 'post' | 'comment' | 'media',
+        target_id: t.target_id,
+        status: 'pending' as const,
+        priority: 0,
+        attempts: 0,
+        max_attempts: 3,
+        error: null,
+        created_at: new Date(),
+        processed_at: null,
+      }));
+
+      await enqueueJobs(jobs);
+      await updateTaskStepStatus(stepId, 'running', { total: jobs.length, done: 0, failed: 0 });
+
+      return { status: 'running', enqueued: jobs.length };
+    },
+
+    async 'task.runAllSteps'(params) {
+      const taskId = params.task_id as string;
+      const { listTaskSteps, updateTaskStepStatus } = await import('../db/task-steps');
+      const steps = await listTaskSteps(taskId);
+      const pendingSteps = steps.filter(s => s.status === 'pending' || s.status === 'failed');
+
+      let completed = 0;
+      let failed = 0;
+      let skipped = 0;
+
+      for (const step of pendingSteps) {
+        try {
+          const result = await (this as any)['task.step.run']({ task_id: taskId, step_id: step.id });
+          if (result.status === 'skipped') {
+            skipped++;
+          } else {
+            completed++;
+          }
+        } catch (err: unknown) {
+          await updateTaskStepStatus(step.id, 'failed', undefined, err instanceof Error ? err.message : String(err));
+          failed++;
+        }
+      }
+
+      const remaining = steps.filter(s => s.status === 'pending' || s.status === 'running');
+      if (remaining.length === 0 && steps.every(s => s.status === 'completed' || s.status === 'skipped' || s.status === 'failed')) {
+        await updateTaskStatus(taskId, 'completed');
+      }
+
+      return { completed, failed, skipped };
+    },
+
     async 'task.list'(params) {
       return listTasks(params.status as string | undefined);
     },
