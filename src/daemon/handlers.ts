@@ -292,10 +292,6 @@ export function getHandlers(): Record<string, Handler> {
       if (!firstPost) throw new Error(`Post not found: ${postIds[0]}`);
       const platformId = firstPost.platform_id;
 
-      for (const postId of postIds) {
-        await upsertTaskPostStatus(taskId, postId, { status: 'pending' });
-      }
-
       const pending = await getPendingPostIds(taskId);
       let successCount = 0;
       let failCount = 0;

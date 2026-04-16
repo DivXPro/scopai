@@ -50,7 +50,7 @@ export async function getTaskPostStatus(taskId: string, postId: string): Promise
 export async function getPendingPostIds(taskId: string): Promise<{ post_id: string; comments_fetched: boolean; media_fetched: boolean }[]> {
   return query(
     `SELECT post_id, comments_fetched, media_fetched FROM task_post_status
-     WHERE task_id = ? AND (comments_fetched = FALSE OR media_fetched = FALSE)
+     WHERE task_id = ? AND (comments_fetched = FALSE OR media_fetched = FALSE OR status = 'failed')
      ORDER BY post_id`,
     [taskId],
   );
