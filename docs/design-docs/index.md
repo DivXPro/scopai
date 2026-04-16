@@ -13,6 +13,7 @@
 - `2026-04-15-json-schema-dynamic-tables.md`
 - `2026-04-16-agent-e2e-recording-design.md`
 - `2026-04-16-agent-skill-atomic-tasks-design.md`
+- `2026-04-16-auto-strategy-generation-design.md`
 
 ## 如何使用
 
