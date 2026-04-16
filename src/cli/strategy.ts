@@ -32,15 +32,24 @@ export function strategyCommands(program: Command): void {
 
   strategy
     .command('import')
-    .description('Import a strategy from a JSON file')
-    .requiredOption('--file <file>', 'Path to strategy JSON file')
-    .action(async (opts: { file: string }) => {
-      if (!fs.existsSync(opts.file)) {
+    .description('Import a strategy from a JSON file or string')
+    .option('--file <file>', 'Path to strategy JSON file')
+    .option('--json <json>', 'Strategy JSON string')
+    .action(async (opts: { file?: string; json?: string }) => {
+      if (!opts.file && !opts.json) {
+        console.log(pc.red('Either --file or --json is required'));
+        process.exit(1);
+      }
+      if (opts.file && opts.json) {
+        console.log(pc.red('Cannot use both --file and --json'));
+        process.exit(1);
+      }
+      if (opts.file && !fs.existsSync(opts.file)) {
         console.log(pc.red('File not found'));
         process.exit(1);
       }
       try {
-        const result = await daemonCall('strategy.import', { file: opts.file }) as { imported: boolean; id?: string; reason?: string };
+        const result = await daemonCall('strategy.import', { file: opts.file, json: opts.json }) as { imported: boolean; id?: string; reason?: string };
         if (result.imported) {
           console.log(pc.green(`Strategy imported: ${result.id}`));
         } else {
