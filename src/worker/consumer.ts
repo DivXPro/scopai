@@ -73,13 +73,15 @@ async function processJobWithLifecycle(job: QueueJob, workerId: number): Promise
     const error = String(err);
     const isRateLimit = /429|rate_limit|engine is currently overloaded/i.test(error);
 
-    if (isRateLimit && job.attempts < job.max_attempts) {
-      const backoffMs = (config.worker.retry_delay_ms ?? 2000) * Math.pow(2, job.attempts);
-      console.error(`[Worker-${workerId}] Job ${job.id} hit rate limit, requeueing after ${backoffMs}ms (attempt ${job.attempts}/${job.max_attempts})`);
+    if (job.attempts < job.max_attempts) {
+      console.error(`[Worker-${workerId}] Job ${job.id} failed, requeueing (attempt ${job.attempts}/${job.max_attempts}): ${error}`);
       await requeueJob(job.id, error);
-      await sleep(backoffMs);
+      if (isRateLimit) {
+        const backoffMs = (config.worker.retry_delay_ms ?? 2000) * Math.pow(2, job.attempts);
+        await sleep(backoffMs);
+      }
     } else {
-      console.error(`[Worker-${workerId}] Job ${job.id} failed:`, error);
+      console.error(`[Worker-${workerId}] Job ${job.id} failed permanently after ${job.attempts} attempts:`, error);
       await updateJobStatus(job.id, 'failed');
       if (job.target_type && job.target_id) {
         await updateTargetStatus(job.task_id, job.target_type, job.target_id, 'failed', error);

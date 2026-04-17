@@ -230,6 +230,7 @@ describe('prepare-data — offline mock E2E', { timeout: 15000 }, () => {
     const jobs = stats.pending.map(t => ({
       id: generateId(),
       task_id: TEST_TASK_ID,
+      strategy_id: null,
       target_type: t.target_type as 'post' | 'comment' | null,
       target_id: t.target_id,
       status: 'pending' as const,

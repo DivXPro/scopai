@@ -47,7 +47,30 @@ export async function updateJobStatus(jobId: string, status: string): Promise<vo
 }
 
 export async function requeueJob(jobId: string, error: string): Promise<void> {
-  await run(`UPDATE queue_jobs SET status = 'pending', attempts = 0, error = ?, processed_at = null WHERE id = ?`, [error, jobId]);
+  await run(`UPDATE queue_jobs SET status = 'pending', error = ?, processed_at = null WHERE id = ?`, [error, jobId]);
+}
+
+export async function recoverStalledJobs(taskId?: string): Promise<{ recovered: number; failed: number }> {
+  const whereClause = taskId ? "task_id = ? AND status = 'processing'" : "status = 'processing'";
+  const params = taskId ? [taskId] : [];
+
+  const failedRows = await query<{ id: string }>(
+    `UPDATE queue_jobs
+     SET status = 'failed', error = 'max attempts exceeded after recovery', processed_at = ?
+     WHERE ${whereClause} AND attempts >= max_attempts
+     RETURNING id`,
+    [now(), ...params],
+  );
+
+  const recoveredRows = await query<{ id: string }>(
+    `UPDATE queue_jobs
+     SET status = 'pending', processed_at = null
+     WHERE ${whereClause} AND attempts < max_attempts
+     RETURNING id`,
+    params,
+  );
+
+  return { recovered: recoveredRows.length, failed: failedRows.length };
 }
 
 export async function listJobsByTask(taskId: string): Promise<QueueJob[]> {

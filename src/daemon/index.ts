@@ -4,6 +4,7 @@ import { runConsumer } from '../worker/consumer';
 import { runMigrations } from '../db/migrate';
 import { seedAll } from '../db/seed';
 import { close, query, checkpoint } from '../db/client';
+import { recoverStalledJobs } from '../db/queue-jobs';
 import { IPC_SOCKET_PATH, DEFAULT_WORKERS } from '../shared/constants';
 import { config } from '../config';
 import * as fs from 'fs';
@@ -31,6 +32,12 @@ export class Daemon {
     }
 
     await seedAll();
+
+    const recovered = await recoverStalledJobs();
+    if (recovered.recovered > 0 || recovered.failed > 0) {
+      console.log(`[Daemon] Recovered ${recovered.recovered} stalled jobs, ${recovered.failed} exceeded max attempts`);
+    }
+
     await this.ipcServer.start();
 
     const concurrency = config.worker.concurrency ?? DEFAULT_WORKERS;

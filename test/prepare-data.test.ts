@@ -259,6 +259,7 @@ describe('prepare-data E2E — real opencli data', { timeout: 60000 }, () => {
     const jobs = stats.pending.map(t => ({
       id: generateId(),
       task_id: TEST_TASK_ID,
+      strategy_id: null,
       target_type: t.target_type as 'post' | 'comment' | null,
       target_id: t.target_id,
       status: 'pending' as const,
