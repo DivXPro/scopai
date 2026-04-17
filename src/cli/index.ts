@@ -17,7 +17,7 @@ const program = new Command();
 program
   .name('analyze-cli')
   .description('AI-powered social media content analysis CLI tool')
-  .version('0.1.0');
+  .version('0.1.2');
 
 // Daemon commands
 daemonCommands(program);
