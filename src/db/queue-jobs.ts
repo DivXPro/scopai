@@ -133,7 +133,10 @@ export async function syncWaitingMediaJobs(taskId: string, postId: string): Prom
   return Number(rows[0]?.cnt ?? 0);
 }
 
-export async function getExistingJobTargets(taskId: string, strategyId: string): Promise<Set<string>> {
+export async function getExistingJobTargets(
+  taskId: string,
+  strategyId: string,
+): Promise<Set<string>> {
   const rows = await query<{ target_id: string }>(
     `SELECT target_id FROM queue_jobs WHERE task_id = ? AND strategy_id = ?`,
     [taskId, strategyId],

@@ -43,8 +43,9 @@ export function taskPrepareCommands(program: Command): void {
             console.log(pc.red('Data preparation failed'));
           } else {
             console.log(pc.green('Data preparation complete'));
+            console.log(`  Done: ${dp.commentsFetched ?? 0}/${dp.totalPosts ?? 0} posts, ${dp.failedPosts ?? 0} failed`);
+            console.log(pc.cyan('Analysis jobs have been automatically enqueued. Use "task status" to check progress.'));
           }
-          console.log(`  Done: ${dp.commentsFetched ?? 0}/${dp.totalPosts ?? 0} posts, ${dp.failedPosts ?? 0} failed`);
           console.log();
           return;
         }

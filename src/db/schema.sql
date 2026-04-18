@@ -156,6 +156,7 @@ CREATE TABLE IF NOT EXISTS analysis_results_media (
 CREATE TABLE IF NOT EXISTS queue_jobs (
     id              TEXT PRIMARY KEY,
     task_id         TEXT NOT NULL REFERENCES tasks(id),
+    strategy_id     TEXT REFERENCES strategies(id),
     target_type     TEXT,
     target_id       TEXT,
     status          TEXT DEFAULT 'pending' CHECK(status IN ('pending','waiting_media','processing','completed','failed')),
@@ -166,6 +167,9 @@ CREATE TABLE IF NOT EXISTS queue_jobs (
     created_at      TIMESTAMP DEFAULT NOW(),
     processed_at    TIMESTAMP
 );
+
+-- Migration: add strategy_id to queue_jobs (2026-04-18)
+ALTER TABLE queue_jobs ADD COLUMN IF NOT EXISTS strategy_id TEXT REFERENCES strategies(id);
 
 CREATE TABLE IF NOT EXISTS task_post_status (
   task_id         TEXT NOT NULL REFERENCES tasks(id),

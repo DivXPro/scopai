@@ -491,7 +491,20 @@ export function getHandlers(): Record<string, Handler> {
         return { status: 'skipped', enqueued: 0 };
       }
 
-      const jobs = relevantTargets.map(t => ({
+      // Filter out targets already enqueued for this step by the stream scheduler
+      const { getExistingJobTargets } = await import('../db/queue-jobs');
+      const existingTargets = await getExistingJobTargets(taskId, strategy.id);
+      const newTargets = relevantTargets.filter(t => !existingTargets.has(t.target_id));
+
+      if (newTargets.length === 0) {
+        // All targets already enqueued; ensure step is marked running
+        if (step.status === 'pending') {
+          await updateTaskStepStatus(stepId, 'running', { total: existingTargets.size, done: 0, failed: 0 });
+        }
+        return { status: 'running', enqueued: 0 };
+      }
+
+      const jobs = newTargets.map(t => ({
         id: generateId(),
         task_id: taskId,
         strategy_id: strategy.id,
@@ -507,7 +520,7 @@ export function getHandlers(): Record<string, Handler> {
       }));
 
       await enqueueJobs(jobs);
-      await updateTaskStepStatus(stepId, 'running', { total: jobs.length, done: 0, failed: 0 });
+      await updateTaskStepStatus(stepId, 'running', { total: newTargets.length, done: 0, failed: 0 });
 
       return { status: 'running', enqueued: jobs.length };
     },
@@ -1249,10 +1262,25 @@ async function runPrepareDataAsync(
       }
 
       await upsertTaskPostStatus(taskId, postId, { status: 'done' });
+
+      // Trigger streaming analysis for this post
+      try {
+        const { onPostReady } = await import('./stream-scheduler');
+        const result = await onPostReady(taskId, postId);
+        if (result.enqueued > 0) {
+          console.log(`[stream-scheduler] Post ${postId}: enqueued ${result.enqueued} jobs`);
+        }
+      } catch (schedErr: unknown) {
+        const msg = schedErr instanceof Error ? schedErr.message : String(schedErr);
+        console.error(`[stream-scheduler] Failed to enqueue for post ${postId}:`, msg);
+        // Non-fatal: data preparation continues regardless
+      }
     } catch (err: unknown) {
       await upsertTaskPostStatus(taskId, postId, { status: 'failed', error: err instanceof Error ? err.message : String(err) });
     }
   }
 
-  await updateTaskStatus(taskId, 'pending');
+  // All posts processed; task remains in its current state.
+  // Steps transition to completed via worker job completion.
+  // (Previously: await updateTaskStatus(taskId, 'pending');)
 }
