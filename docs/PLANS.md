@@ -12,6 +12,7 @@
 
 ## 当前活动计划
 
+- `exec-plans/active/2026-04-18-comment-analysis-and-batch.md` — Comment 级策略分析与 Worker 软批量分析实施计划
 - `exec-plans/active/2026-04-16-auto-strategy-generation.md` — AI Agent 自然语言生成并注册分析策略实施计划
 - `exec-plans/active/2026-04-16-agent-e2e-recording-plan.md` — Agent 驱动 E2E 数据录制与离线测试实施计划
 - `exec-plans/active/2026-04-15-strategy-system.md` — 分析套路系统 P0 实施计划（策略导入、动态分析、Worker 支持）
