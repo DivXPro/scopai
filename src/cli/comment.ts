@@ -61,7 +61,7 @@ export function commentCommands(program: Command): void {
       console.log(pc.dim('─'.repeat(80)));
       for (const c of comments) {
         const author = c.author_name ?? 'Anonymous';
-        const content = c.content.length > 80 ? c.content.slice(0, 80) + '...' : c.content;
+        const content = (c.content ?? '').length > 80 ? (c.content ?? '').slice(0, 80) + '...' : (c.content ?? '');
         console.log(`  ${pc.green(c.id.slice(0, 8))} ${pc.cyan(author)}: ${content}`);
         console.log(`    Likes: ${c.like_count} | ${c.published_at ?? 'N/A'}`);
       }

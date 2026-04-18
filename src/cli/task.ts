@@ -292,7 +292,7 @@ export function taskCommands(program: Command): void {
         const final = await waitForTaskStep(
           opts.taskId,
           opts.stepId,
-          (id) => daemonCall('task.status', { task_id: id }) as Promise<Record<string, any>>,
+          (id) => daemonCall('task.show', { task_id: id }) as Promise<Record<string, any>>,
           (p) => {
             const ts = formatTimestamp();
             const stats = p.stats ? `${p.stats.done ?? 0}/${p.stats.total ?? 0} done, ${p.stats.failed ?? 0} failed` : '';
@@ -359,7 +359,7 @@ export function taskCommands(program: Command): void {
       try {
         const final = await waitForTaskSteps(
           opts.taskId,
-          (id) => daemonCall('task.status', { task_id: id }) as Promise<Record<string, any>>,
+          (id) => daemonCall('task.show', { task_id: id }) as Promise<Record<string, any>>,
           (completed, total, running) => {
             const ts = formatTimestamp();
             const progress = total > 0 ? `${completed}/${total}` : '0/0';

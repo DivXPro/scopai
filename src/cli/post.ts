@@ -82,7 +82,7 @@ export function postCommands(program: Command): void {
       console.log(pc.bold(`\nPosts (${total} total):`));
       console.log(pc.dim('─'.repeat(80)));
       for (const p of posts) {
-        const title = p.title ?? p.content.slice(0, 40);
+        const title = p.title ?? (p.content ?? '').slice(0, 40);
         console.log(`  ${pc.green(p.id.slice(0, 8))} ${pc.cyan(p.platform_id)} ${title}`);
         console.log(`    Likes: ${p.like_count} | Comments: ${p.comment_count} | ${p.published_at ?? 'N/A'}`);
       }
@@ -108,7 +108,7 @@ export function postCommands(program: Command): void {
       }
       console.log(pc.bold(`\nSearch results (${posts.length}):`));
       for (const p of posts) {
-        const title = p.title ?? p.content.slice(0, 40);
+        const title = p.title ?? (p.content ?? '').slice(0, 40);
         console.log(`  ${pc.green(p.id.slice(0, 8))} ${title}`);
       }
       console.log();
