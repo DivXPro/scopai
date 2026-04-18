@@ -860,6 +860,7 @@ export function getHandlers(): Record<string, Handler> {
         needs_media: (obj.needs_media ?? { enabled: false }) as any,
         prompt: obj.prompt as string,
         output_schema: obj.output_schema as any,
+        batch_config: (obj.batch_config ?? null) as any,
         file_path: (typeof params.file === 'string' ? params.file : null) as string | null,
       };
 

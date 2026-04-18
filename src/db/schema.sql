@@ -203,6 +203,7 @@ CREATE TABLE IF NOT EXISTS strategies (
     needs_media     JSON,
     prompt          TEXT NOT NULL,
     output_schema   JSON NOT NULL,
+    batch_config    JSON,
     file_path       TEXT,
     created_at      TIMESTAMP DEFAULT NOW(),
     updated_at      TIMESTAMP DEFAULT NOW()

@@ -309,6 +309,11 @@ export interface NeedsMediaConfig {
   mode?: 'all' | 'first_n' | 'best_quality';
 }
 
+export interface BatchConfig {
+  enabled: boolean;
+  size: number;
+}
+
 export interface Strategy {
   id: string;
   name: string;
@@ -318,6 +323,7 @@ export interface Strategy {
   needs_media: NeedsMediaConfig | null;
   prompt: string;
   output_schema: Record<string, unknown>;
+  batch_config: BatchConfig | null;
   file_path: string | null;
   created_at: Date;
   updated_at: Date;

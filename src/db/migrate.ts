@@ -77,6 +77,16 @@ async function migrateTaskStepsTable(): Promise<void> {
   }
 }
 
+async function migrateBatchConfigColumn(): Promise<void> {
+  const columns = await query<{ name: string }>(
+    "SELECT column_name as name FROM information_schema.columns WHERE table_name = 'strategies'"
+  );
+  const hasBatchConfig = columns.some(c => c.name === 'batch_config');
+  if (!hasBatchConfig) {
+    await exec('ALTER TABLE strategies ADD COLUMN batch_config JSON');
+  }
+}
+
 export async function runMigrations(): Promise<void> {
   const schemaPath = findSchemaPath();
   const schema = fs.readFileSync(schemaPath, 'utf-8');
@@ -86,6 +96,7 @@ export async function runMigrations(): Promise<void> {
   await migrateStrategiesTable();
   await migrateQueueJobsStrategyId();
   await migrateTaskStepsTable();
+  await migrateBatchConfigColumn();
 
   // Migration: drop legacy analysis_results table if present
   const hasAnalysisResults = await query<{ name: string }>(

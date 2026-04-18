@@ -4,12 +4,14 @@ import { now } from '../shared/utils';
 
 export async function createStrategy(strategy: Omit<Strategy, 'created_at' | 'updated_at'>): Promise<void> {
   await run(
-    `INSERT INTO strategies (id, name, description, version, target, needs_media, prompt, output_schema, file_path, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO strategies (id, name, description, version, target, needs_media, prompt, output_schema, batch_config, file_path, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       strategy.id, strategy.name, strategy.description, strategy.version, strategy.target,
       strategy.needs_media ? JSON.stringify(strategy.needs_media) : null,
-      strategy.prompt, JSON.stringify(strategy.output_schema), strategy.file_path,
+      strategy.prompt, JSON.stringify(strategy.output_schema),
+      strategy.batch_config ? JSON.stringify(strategy.batch_config) : null,
+      strategy.file_path,
       now(), now(),
     ]
   );
@@ -25,7 +27,7 @@ export async function listStrategies(): Promise<Strategy[]> {
   return rows.map(parseStrategyRow);
 }
 
-export async function updateStrategy(id: string, updates: Partial<Pick<Strategy, 'name' | 'description' | 'version' | 'prompt' | 'output_schema' | 'needs_media' | 'file_path'>>): Promise<void> {
+export async function updateStrategy(id: string, updates: Partial<Pick<Strategy, 'name' | 'description' | 'version' | 'prompt' | 'output_schema' | 'needs_media' | 'batch_config' | 'file_path'>>): Promise<void> {
   const sets: string[] = [];
   const values: unknown[] = [];
   if (updates.name !== undefined) { sets.push('name = ?'); values.push(updates.name); }
@@ -34,6 +36,7 @@ export async function updateStrategy(id: string, updates: Partial<Pick<Strategy,
   if (updates.prompt !== undefined) { sets.push('prompt = ?'); values.push(updates.prompt); }
   if (updates.output_schema !== undefined) { sets.push('output_schema = ?'); values.push(JSON.stringify(updates.output_schema)); }
   if (updates.needs_media !== undefined) { sets.push('needs_media = ?'); values.push(updates.needs_media ? JSON.stringify(updates.needs_media) : null); }
+  if (updates.batch_config !== undefined) { sets.push('batch_config = ?'); values.push(updates.batch_config ? JSON.stringify(updates.batch_config) : null); }
   if (updates.file_path !== undefined) { sets.push('file_path = ?'); values.push(updates.file_path); }
   if (sets.length === 0) return;
   sets.push('updated_at = ?');
@@ -51,6 +54,7 @@ function parseStrategyRow(row: Strategy): Strategy {
     ...row,
     needs_media: typeof row.needs_media === 'string' ? JSON.parse(row.needs_media) : row.needs_media,
     output_schema: typeof row.output_schema === 'string' ? JSON.parse(row.output_schema) : row.output_schema,
+    batch_config: typeof row.batch_config === 'string' ? JSON.parse(row.batch_config) : row.batch_config,
   } as Strategy;
 }
 
@@ -67,6 +71,21 @@ export function validateStrategyJson(data: unknown): { valid: boolean; error?: s
   }
   if (obj.target !== 'post' && obj.target !== 'comment') {
     return { valid: false, error: `Invalid target: ${obj.target}. Must be 'post' or 'comment'` };
+  }
+  if (obj.batch_config !== undefined && obj.batch_config !== null) {
+    const bc = obj.batch_config as Record<string, unknown>;
+    if (typeof bc !== 'object' || bc === null) {
+      return { valid: false, error: 'batch_config must be an object' };
+    }
+    if (typeof bc.enabled !== 'boolean') {
+      return { valid: false, error: 'batch_config.enabled must be a boolean' };
+    }
+    if (bc.size !== undefined) {
+      const size = Number(bc.size);
+      if (!Number.isInteger(size) || size < 1 || size > 100) {
+        return { valid: false, error: 'batch_config.size must be an integer between 1 and 100' };
+      }
+    }
   }
   const schema = obj.output_schema as Record<string, unknown>;
   if (typeof schema !== 'object' || schema === null) {
