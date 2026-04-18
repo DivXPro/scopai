@@ -77,6 +77,13 @@ export function strategyCommands(program: Command): void {
         console.log(`  Target:   ${s.target}`);
         console.log(`  Version:  ${s.version}`);
         if (s.description) console.log(`  Desc:     ${s.description}`);
+        if (s.needs_media) console.log(`  Media:    ${JSON.stringify(s.needs_media)}`);
+        if (s.batch_config) console.log(`  Batch:    ${JSON.stringify(s.batch_config)}`);
+        if (s.file_path) console.log(`  File:     ${s.file_path}`);
+        console.log(`\n  Prompt:\n${pc.dim(s.prompt)}`);
+        console.log(`\n  Output Schema:\n${pc.dim(JSON.stringify(s.output_schema, null, 2))}`);
+        if (s.created_at) console.log(`\n  Created:  ${s.created_at}`);
+        if (s.updated_at) console.log(`  Updated:  ${s.updated_at}`);
       } catch (err: unknown) {
         console.log(pc.red(`Error: ${(err as Error).message}`));
         process.exit(1);
