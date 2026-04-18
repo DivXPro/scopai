@@ -27,7 +27,7 @@ type: tool-use
 
 | # | 工具 | 命令 | 使用场景 |
 |---|------|------|----------|
-| 1 | **search_posts** | `opencli xiaohongshu search {query} --limit {limit} -f json` | 导入前发现帖子。`url` 字段 = 完整笔记 URL（作为 `{url}` 传给 fetch_note/fetch_comments 模板）。 |
+| 1 | **search_posts** | `opencli <site> search {query} --limit {limit} -f json` | 导入前发现帖子。用 `opencli list | grep <keyword>` 查找正确的站点名。 |
 | 2 | **add_platform** | `analyze-cli platform add --id {id} --name {name}` | 如果 `analyze-cli platform list` 中没有该平台，则注册。 |
 | 3 | **import_posts** | `analyze-cli post import --platform {id} --file {path} [--task-id {tid}]` | 导入搜索结果。**不要**在导入前手动获取笔记详情 — 让 `prepare-data` 通过 `fetch_note` 模板来丰富帖子内容。重复帖子会更新而非跳过。 |
 | 4 | **import_comments** | `analyze-cli comment import --platform {id} --post-id {id} --file {path}` | 获取评论后从 JSON/JSONL 导入。重复评论会被跳过。 |
@@ -115,46 +115,79 @@ search_posts(query) → add_platform(如为新平台) → create_task(含 fetch_
   → get_task_results
 ```
 
-### 模板变量
+### 模板动态发现（B 方案）
 
-`fetch_note`、`fetch_comments`、`fetch_media` 模板支持以下占位符：
+OpenCLI 支持 100+ 平台且命令持续更新，**创建任务前必须动态查询命令格式**，不要依赖硬编码示例。
+
+**步骤 1：查找站点名**
+```bash
+opencli list | grep -i <平台名>
+# 例如：opencli list | grep -i xiaohongshu → xiaohongshu
+```
+
+**步骤 2：发现可用命令**
+```bash
+opencli <site> --help
+# 例如：opencli xiaohongshu --help → search, note, comments, download, ...
+```
+
+**步骤 3：检查命令参数（关键！）**
+```bash
+opencli <site> <命令> --help
+# 例如：opencli xiaohongshu note --help
+# 输出："note-id  Full Xiaohongshu note URL with xsec_token"
+#       → 模板必须用 {url} 变量
+```
+
+**步骤 4：根据参数签名构建模板**
+- 如果 help 写 `"<note-id>"` 或 `"<post-id>"`（短 ID）→ 用 `{note_id}`
+- 如果 help 写 `"Full URL"` 或 `"URL"` → 用 `{url}`（有歧义时永远优先）
+
+### 模板变量
 
 | 变量 | 值 | 使用场景 |
 |------|-----|----------|
-| `{post_id}` | 内部帖子 ID | 极少需要 |
-| `{note_id}` | 优先取 `metadata.note_id`，其次 `url`，最后 `post_id` | 接受短 ID 的平台 |
-| `{url}` | 导入数据中的完整帖子 URL | **需要完整 URL 的平台必须用它**（如小红书） |
-| `{limit}` | 固定值 `100` | 分页限制 |
+| `{post_id}` | 数据库内部帖子 ID | 外部命令极少需要 |
+| `{note_id}` | `metadata.note_id` → `url` → `post_id`（回退链） | 命令接受短 ID 的平台 |
+| `{url}` | 导入数据中的完整帖子 URL | **默认选择** — 大多数 OpenCLI 命令接受完整 URL |
+| `{limit}` | 固定值 `100` | fetch_comments 分页限制 |
 | `{download_dir}` | 配置的下载目录 | 媒体文件存储路径 |
 
-### 示例：完整分析流程（小红书）
+> **经验法则**：不确定时永远用 `{url}`，它是跨平台最通用的格式。
+
+### 示例：完整分析流程（动态发现）
 
 ```bash
-# 1. 搜索
+# 1. 发现平台命令
+opencli list | grep -i xiaohongshu        # → xiaohongshu
+opencli xiaohongshu --help                # → search, note, comments, ...
+opencli xiaohongshu note --help           # → 要求 "Full note URL"
+
+# 2. 搜索
 opencli xiaohongshu search "上海美食" --limit 10 -f json > posts.json
 
-# 2. 设置
+# 3. 设置
 analyze-cli platform add --id xhs --name "小红书"
 analyze-cli task create --name "上海美食分析" \
   --cli-templates '{"fetch_note":"opencli xiaohongshu note {url} -f json","fetch_comments":"opencli xiaohongshu comments {url} --limit 100 -f json"}'
 
-# 3. 导入
+# 4. 导入
 analyze-cli post import --platform xhs --file posts.json --task-id <task_id>
 
-# 4. 添加策略
+# 5. 添加策略
 analyze-cli task step add --task-id <task_id> --strategy-id sentiment-topics --name "情感分析"
 analyze-cli task step add --task-id <task_id> --strategy-id risk-detection --name "风险检测"
 
-# 5. 准备数据（阻塞，可恢复）
+# 6. 准备数据（阻塞，可恢复）
 analyze-cli task prepare-data --task-id <task_id>
 
-# 6. 运行分析（阻塞，带进度输出）
+# 7. 运行分析（阻塞，带进度输出）
 analyze-cli task run-all-steps --task-id <task_id>
 # → [10:23:45] Steps progress: 0/2 completed | running: 情感分析
 # → [10:24:12] Steps progress: 1/2 completed | running: 风险检测
 # → [10:24:45] Steps progress: 2/2 completed
 
-# 7. 查看结果
+# 8. 查看结果
 analyze-cli task results --task-id <task_id>
 ```
 

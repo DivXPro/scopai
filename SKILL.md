@@ -27,7 +27,7 @@ Run these **in order** before any workflow:
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 1 | **search_posts** | `opencli xiaohongshu search {query} --limit {limit} -f json` | Discover posts before importing. `url` field = full note URL (pass as `{url}` to fetch_note/fetch_comments templates). |
+| 1 | **search_posts** | `opencli <site> search {query} --limit {limit} -f json` | Discover posts before importing. Run `opencli list \| grep <keyword>` to find the correct site name. |
 | 2 | **add_platform** | `analyze-cli platform add --id {id} --name {name}` | Register a platform if not already in `analyze-cli platform list`. |
 | 3 | **import_posts** | `analyze-cli post import --platform {id} --file {path} [--task-id {tid}]` | Import search results. **Do NOT manually fetch note details before import** — let `prepare-data` enrich posts via `fetch_note` template. Duplicates are updated, not skipped. |
 | 4 | **import_comments** | `analyze-cli comment import --platform {id} --post-id {id} --file {path}` | Import comments from JSON/JSONL after fetching. Duplicates skipped. |
@@ -115,46 +115,79 @@ search_posts(query) → add_platform(if new) → create_task(with fetch_note tem
   → get_task_results
 ```
 
-### Template Variables
+### Template Discovery (Dynamic Query)
 
-`fetch_note`, `fetch_comments`, and `fetch_media` templates support these placeholders:
+Since OpenCLI supports 100+ platforms and commands change over time, **always discover the correct commands dynamically** instead of relying on hard-coded examples.
+
+**Step 1: Find the site name**
+```bash
+opencli list | grep -i <platform_name>
+# e.g., opencli list | grep -i xiaohongshu → xiaohongshu
+```
+
+**Step 2: Discover available commands**
+```bash
+opencli <site> --help
+# e.g., opencli xiaohongshu --help → search, note, comments, download, ...
+```
+
+**Step 3: Check command signature (critical!)**
+```bash
+opencli <site> <command> --help
+# e.g., opencli xiaohongshu note --help
+# Output: "note-id  Full Xiaohongshu note URL with xsec_token"
+#         → requires {url} variable
+```
+
+**Step 4: Build templates based on command signature**
+- If help says `"<note-id>"` or `"<post-id>"` (short ID) → use `{note_id}`
+- If help says `"Full URL"` or `"URL"` → use `{url}` (always preferred when ambiguous)
+
+### Template Variables
 
 | Variable | Value | Use When |
 |----------|-------|----------|
-| `{post_id}` | Internal post ID | Rarely needed |
-| `{note_id}` | `metadata.note_id` if set, else `url`, else `post_id` | Platforms that accept short IDs (e.g., some APIs) |
-| `{url}` | Full post URL from import data | **Always preferred for platforms requiring full URL** (e.g., xiaohongshu) |
-| `{limit}` | Hardcoded `100` | Pagination limit |
+| `{post_id}` | Internal database post ID | Rarely needed by external commands |
+| `{note_id}` | `metadata.note_id` → `url` → `post_id` (fallback chain) | Commands that accept short IDs |
+| `{url}` | Full post URL from import data | **Default choice** — most OpenCLI commands accept full URLs |
+| `{limit}` | Hardcoded `100` | Pagination limit for fetch_comments |
 | `{download_dir}` | Configured download directory | Media file storage path |
 
-### Example: Full Analysis Flow (Xiaohongshu)
+> **Rule of thumb**: When in doubt, use `{url}`. It is the most universally accepted format across platforms.
+
+### Example: Full Analysis Flow (Dynamic Discovery)
 
 ```bash
-# 1. Search
+# 1. Discover platform commands
+opencli list | grep -i xiaohongshu        # → xiaohongshu
+opencli xiaohongshu --help                # → search, note, comments, ...
+opencli xiaohongshu note --help           # → requires "Full note URL"
+
+# 2. Search
 opencli xiaohongshu search "上海美食" --limit 10 -f json > posts.json
 
-# 2. Setup
+# 3. Setup
 analyze-cli platform add --id xhs --name "小红书"
 analyze-cli task create --name "上海美食分析" \
   --cli-templates '{"fetch_note":"opencli xiaohongshu note {url} -f json","fetch_comments":"opencli xiaohongshu comments {url} --limit 100 -f json"}'
 
-# 3. Import
+# 4. Import
 analyze-cli post import --platform xhs --file posts.json --task-id <task_id>
 
-# 4. Add strategies
+# 5. Add strategies
 analyze-cli task step add --task-id <task_id> --strategy-id sentiment-topics --name "情感分析"
 analyze-cli task step add --task-id <task_id> --strategy-id risk-detection --name "风险检测"
 
-# 5. Prepare data (blocks, resumable)
+# 6. Prepare data (blocks, resumable)
 analyze-cli task prepare-data --task-id <task_id>
 
-# 6. Run analysis (blocks with progress output)
+# 7. Run analysis (blocks with progress output)
 analyze-cli task run-all-steps --task-id <task_id>
 # → [10:23:45] Steps progress: 0/2 completed | running: 情感分析
 # → [10:24:12] Steps progress: 1/2 completed | running: 风险检测
 # → [10:24:45] Steps progress: 2/2 completed
 
-# 7. Results
+# 8. Results
 analyze-cli task results --task-id <task_id>
 ```
 
