@@ -19,6 +19,7 @@ import { getTaskPostStatus } from '../db/task-post-status';
 import { config } from '../config';
 import type { QueueJob } from '../shared/types';
 
+// Track in-flight prepare-data tasks to prevent concurrent execution
 type Handler = (params: Record<string, unknown>) => Promise<unknown>;
 
 const FIELD_NAME_MAP: Record<string, string> = {
@@ -96,6 +97,9 @@ interface RawCommentItem {
   published_at?: string;
   metadata?: unknown;
 }
+
+// Prevent concurrent prepare-data for the same task
+const prepareDataRunning = new Set<string>();
 
 export function getHandlers(): Record<string, Handler> {
   return {
@@ -567,6 +571,10 @@ export function getHandlers(): Record<string, Handler> {
       if (!task) throw new Error(`Task not found: ${taskId}`);
       if (!task.cli_templates) throw new Error('Task has no CLI templates');
 
+      if (prepareDataRunning.has(taskId)) {
+        return { started: false, reason: 'Data preparation already in progress for this task' };
+      }
+
       let cliTemplates: { fetch_note: string; fetch_comments?: string; fetch_media?: string };
       try {
         const parsed = JSON.parse(task.cli_templates);
@@ -589,8 +597,11 @@ export function getHandlers(): Record<string, Handler> {
         throw new Error('fetch_media template must contain {post_id} or {note_id} placeholder');
       }
 
+      prepareDataRunning.add(taskId);
       // Run data preparation asynchronously so the CLI can poll status
-      runPrepareDataAsync(taskId, cliTemplates).catch(() => {});
+      runPrepareDataAsync(taskId, cliTemplates).finally(() => {
+        prepareDataRunning.delete(taskId);
+      }).catch(() => {});
       return { started: true };
     },
 
@@ -1175,20 +1186,21 @@ async function runPrepareDataAsync(
 
   for (const item of pending) {
     const postId = item.post_id;
-    const postMeta = await getPostById(postId);
-    const noteId = (postMeta?.metadata as Record<string, unknown> | null)?.note_id as string | undefined
-      ?? postMeta?.url
-      ?? undefined;
-    const fetchVars: Record<string, string> = {
-      post_id: postId,
-      note_id: noteId ?? postId,
-      limit: '100',
-      download_dir: config.paths.download_dir,
-    };
 
     try {
+      const postMeta = await getPostById(postId);
+      const noteId = (postMeta?.metadata as Record<string, unknown> | null)?.note_id as string | undefined
+        ?? postMeta?.url
+        ?? undefined;
+      const fetchVars: Record<string, string> = {
+        post_id: postId,
+        note_id: noteId ?? postId,
+        limit: '100',
+        download_dir: config.paths.download_dir,
+      };
+
       // Step 1: fetch_note — enrich post details (content, full stats, tags, etc.)
-      {
+      try {
         const noteResult = await fetchViaOpencli(cliTemplates.fetch_note, fetchVars);
         if (noteResult.success && noteResult.data && noteResult.data.length > 0) {
           const noteData = normalizeFieldValueArray(noteResult.data[0]) as RawPostItem;
@@ -1234,6 +1246,10 @@ async function runPrepareDataAsync(
             ],
           );
         }
+      } catch (err) {
+        console.error(`[prepare-data] fetch_note failed for post ${postId}:`, err);
+        await upsertTaskPostStatus(taskId, postId, { status: 'failed', error: `fetch_note: ${err}` });
+        continue;
       }
 
       // Step 2: fetch_comments
