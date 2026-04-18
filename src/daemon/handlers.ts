@@ -1249,10 +1249,25 @@ async function runPrepareDataAsync(
       }
 
       await upsertTaskPostStatus(taskId, postId, { status: 'done' });
+
+      // Trigger streaming analysis for this post
+      try {
+        const { onPostReady } = await import('./stream-scheduler');
+        const result = await onPostReady(taskId, postId);
+        if (result.enqueued > 0) {
+          console.log(`[stream-scheduler] Post ${postId}: enqueued ${result.enqueued} jobs`);
+        }
+      } catch (schedErr: unknown) {
+        const msg = schedErr instanceof Error ? schedErr.message : String(schedErr);
+        console.error(`[stream-scheduler] Failed to enqueue for post ${postId}:`, msg);
+        // Non-fatal: data preparation continues regardless
+      }
     } catch (err: unknown) {
       await upsertTaskPostStatus(taskId, postId, { status: 'failed', error: err instanceof Error ? err.message : String(err) });
     }
   }
 
-  await updateTaskStatus(taskId, 'pending');
+  // All posts processed; task remains in its current state.
+  // Steps transition to completed via worker job completion.
+  // (Previously: await updateTaskStatus(taskId, 'pending');)
 }
