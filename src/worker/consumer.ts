@@ -1,7 +1,7 @@
-import { getNextJobs, updateJobStatus, requeueJob, listJobsByTask } from '../db/queue-jobs';
+import { getNextJobs, updateJobStatus, requeueJob, listJobsByTask, lockPendingJobs, completeJobs, unlockJobs } from '../db/queue-jobs';
 import { getTaskById, updateTaskStatus, updateTaskStats } from '../db/tasks';
 import { updateTargetStatus, getTargetStats } from '../db/task-targets';
-import { getCommentById } from '../db/comments';
+import { getCommentById, listCommentsByIds } from '../db/comments';
 import { getMediaFileById } from '../db/media-files';
 import { getPlatformById } from '../db/platforms';
 import { getTemplateById } from '../db/templates';
@@ -9,9 +9,9 @@ import { getPostById } from '../db/posts';
 import { getStrategyById } from '../db/strategies';
 import { insertStrategyResult } from '../db/analysis-results';
 import { updateTaskStepStatus, listTaskSteps } from '../db/task-steps';
-import { analyzeComment, analyzeMedia, analyzeWithStrategy } from './anthropic';
-import { parseCommentResult, parseMediaResult, parseStrategyResult } from './parser';
-import { QueueJob } from '../shared/types';
+import { analyzeComment, analyzeMedia, analyzeWithStrategy, analyzeBatchWithStrategy } from './anthropic';
+import { parseCommentResult, parseMediaResult, parseStrategyResult, parseBatchStrategyResult } from './parser';
+import { QueueJob, Comment } from '../shared/types';
 import { sleep } from '../shared/utils';
 import { waitForJob } from '../shared/job-events';
 import {
@@ -99,7 +99,7 @@ async function processJobWithLifecycle(job: QueueJob, workerId: number): Promise
   logger.info(`[Worker-${workerId}] Processing job ${job.id} for task ${job.task_id}`);
 
   try {
-    await processJob(job);
+    await processJob(job, workerId);
     await updateJobStatus(job.id, 'completed');
     if (job.target_type && job.target_id) {
       await updateTargetStatus(job.task_id, job.target_type, job.target_id, 'done');
@@ -133,12 +133,12 @@ async function processJobWithLifecycle(job: QueueJob, workerId: number): Promise
   }
 }
 
-async function processJob(job: QueueJob): Promise<void> {
+async function processJob(job: QueueJob, workerId: number): Promise<void> {
   const task = await getTaskById(job.task_id);
   if (!task) throw new Error(`Task ${job.task_id} not found`);
 
   if (job.strategy_id) {
-    await processStrategyJob(job, task);
+    await processStrategyJob(job, task, workerId);
     return;
   }
 
@@ -234,6 +234,7 @@ async function processMediaJob(
 async function processStrategyJob(
   job: QueueJob,
   task: { id: string; name: string },
+  workerId: number,
 ): Promise<void> {
   if (!job.strategy_id) throw new Error('Job has no strategy_id');
   if (!job.target_id) throw new Error('Job has no target_id');
@@ -273,10 +274,145 @@ async function processStrategyJob(
       analyzed_at: new Date(),
     }, dynamicColumns, dynamicValues);
   } else if (strategy.target === 'comment') {
-    // P2 scope; for now throw
-    throw new Error('Comment-level strategy analysis not yet implemented');
+    const comment = await getCommentById(job.target_id);
+    if (!comment) throw new Error(`Comment ${job.target_id} not found`);
+
+    // Batch analysis
+    if (strategy.batch_config?.enabled && strategy.batch_config.size > 1) {
+      await processCommentBatch(job, strategy, comment, task, workerId);
+      return;
+    }
+
+    // Single comment analysis
+    const rawResponse = await analyzeWithStrategy(comment, strategy);
+    const parsed = parseStrategyResult(rawResponse, strategy.output_schema);
+
+    const dynamicColumns = Object.keys(parsed.values);
+    const schemaProperties = (strategy.output_schema.properties || {}) as Record<string, Record<string, unknown>>;
+    const dynamicValues = dynamicColumns.map((k) => {
+      const val = parsed.values[k];
+      const def = schemaProperties[k];
+      if (def?.type === 'array' && Array.isArray(val)) {
+        const items = val.map((v: unknown) => {
+          if (typeof v === 'string') return `'${String(v).replace(/'/g, "''")}'`;
+          return String(v);
+        });
+        return `[${items.join(',')}]`;
+      }
+      return val;
+    });
+
+    await insertStrategyResult(strategy.id, {
+      task_id: task.id,
+      target_type: 'comment',
+      target_id: job.target_id,
+      post_id: comment.post_id,
+      strategy_version: strategy.version,
+      raw_response: parsed.raw,
+      error: null,
+      analyzed_at: new Date(),
+    }, dynamicColumns, dynamicValues);
   } else {
     throw new Error(`Unknown strategy target: ${strategy.target}`);
+  }
+}
+
+async function processCommentBatch(
+  job: QueueJob,
+  strategy: { id: string; version: string; batch_config: { enabled: boolean; size: number } | null; output_schema: Record<string, unknown> },
+  seedComment: Comment,
+  task: { id: string; name: string },
+  workerId: number,
+): Promise<void> {
+  const logger = getLogger();
+  const batchSize = Math.min(strategy.batch_config!.size, 20);
+  const postId = seedComment.post_id;
+
+  const allJobs = await listJobsByTask(job.task_id);
+  const candidateIds = allJobs
+    .filter(j =>
+      j.strategy_id === strategy.id &&
+      j.target_type === 'comment' &&
+      j.status === 'pending' &&
+      j.id !== job.id,
+    )
+    .slice(0, batchSize - 1)
+    .map(j => j.target_id!)
+    .filter(Boolean);
+
+  // Lock the batch atomically
+  const locked = await lockPendingJobs(job.task_id, strategy.id, candidateIds);
+  const lockedTargetIds = locked.map(l => l.target_id);
+  const lockedJobIds = locked.map(l => l.id);
+
+  // Fetch all comments in batch
+  const comments = await listCommentsByIds([seedComment.id, ...lockedTargetIds]);
+  const ordered = [seedComment, ...comments.filter(c => c.id !== seedComment.id)];
+
+  logger.info(`[Worker-${workerId}] Batch analyzing ${ordered.length} comments for post ${postId}`);
+
+  try {
+    const rawResponse = await analyzeBatchWithStrategy(ordered, strategy as any);
+    const parsed = parseBatchStrategyResult(rawResponse, strategy.output_schema);
+
+    if (parsed.values.length !== ordered.length) {
+      throw new Error(`Batch result count mismatch: expected ${ordered.length}, got ${parsed.values.length}`);
+    }
+
+    const dynamicColumns = Object.keys(parsed.values[0] ?? {});
+    const schemaProperties = (strategy.output_schema.properties || {}) as Record<string, Record<string, unknown>>;
+
+    for (let i = 0; i < ordered.length; i++) {
+      const comment = ordered[i];
+      const values = parsed.values[i];
+      const dynamicValues = dynamicColumns.map((k) => {
+        const val = values[k];
+        const def = schemaProperties[k];
+        if (def?.type === 'array' && Array.isArray(val)) {
+          const items = val.map((v: unknown) => {
+            if (typeof v === 'string') return `'${String(v).replace(/'/g, "''")}'`;
+            return String(v);
+          });
+          return `[${items.join(',')}]`;
+        }
+        return val;
+      });
+
+      await insertStrategyResult(strategy.id, {
+        task_id: task.id,
+        target_type: 'comment',
+        target_id: comment.id,
+        post_id: comment.post_id,
+        strategy_version: strategy.version,
+        raw_response: values,
+        error: null,
+        analyzed_at: new Date(),
+      }, dynamicColumns, dynamicValues);
+    }
+
+    // Mark other batch jobs as completed
+    if (lockedJobIds.length > 0) {
+      await completeJobs(lockedJobIds);
+      for (const lid of lockedJobIds) {
+        const lockedJob = allJobs.find(j => j.id === lid);
+        if (lockedJob?.target_type && lockedJob?.target_id) {
+          await updateTargetStatus(job.task_id, lockedJob.target_type, lockedJob.target_id, 'done');
+        }
+      }
+      await updateTaskStatsForTask(job.task_id);
+      if (job.strategy_id) {
+        await syncStepStats(job.task_id, strategy.id);
+      }
+    }
+
+    logger.info(`[Worker-${workerId}] Batch complete: ${ordered.length} comments analyzed`);
+  } catch (err: unknown) {
+    // Unlock other jobs so they can retry individually
+    if (lockedJobIds.length > 0) {
+      logger.warn(`[Worker-${workerId}] Unlocking ${lockedJobIds.length} jobs after batch failure`);
+      await unlockJobs(lockedJobIds);
+    }
+    throw err;
   }
 }
 

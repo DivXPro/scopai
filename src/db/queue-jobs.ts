@@ -71,6 +71,25 @@ export async function updateJobStatus(jobId: string, status: string): Promise<vo
   await run(`UPDATE queue_jobs SET status = ?, processed_at = ? WHERE id = ?`, [status, processedAt, jobId]);
 }
 
+export async function completeJobs(jobIds: string[]): Promise<void> {
+  if (jobIds.length === 0) return;
+  const placeholders = jobIds.map(() => '?').join(',');
+  const processedAt = now();
+  await run(
+    `UPDATE queue_jobs SET status = 'completed', processed_at = ? WHERE id IN (${placeholders})`,
+    [processedAt, ...jobIds],
+  );
+}
+
+export async function unlockJobs(jobIds: string[]): Promise<void> {
+  if (jobIds.length === 0) return;
+  const placeholders = jobIds.map(() => '?').join(',');
+  await run(
+    `UPDATE queue_jobs SET status = 'pending', processed_at = null WHERE id IN (${placeholders})`,
+    jobIds,
+  );
+}
+
 export async function requeueJob(jobId: string, error: string): Promise<void> {
   await run(`UPDATE queue_jobs SET status = 'pending', error = ?, processed_at = null WHERE id = ?`, [error, jobId]);
 }
