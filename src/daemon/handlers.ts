@@ -283,6 +283,12 @@ export function getHandlers(): Record<string, Handler> {
       const targetType = params.target_type as 'post' | 'comment';
       const targetIds = params.target_ids as string[];
       await addTaskTargets(taskId, targetType, targetIds);
+      if (targetType === 'post') {
+        const { upsertTaskPostStatus } = await import('../db/task-post-status');
+        for (const postId of targetIds) {
+          await upsertTaskPostStatus(taskId, postId, { status: 'pending' });
+        }
+      }
       return { added: targetIds.length };
     },
 

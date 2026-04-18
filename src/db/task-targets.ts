@@ -6,7 +6,7 @@ export async function createTaskTarget(taskId: string, targetType: 'post' | 'com
   const id = generateId();
   const ts = now();
   await run(
-    `INSERT INTO task_targets (id, task_id, target_type, target_id, status, error, created_at)
+    `INSERT OR IGNORE INTO task_targets (id, task_id, target_type, target_id, status, error, created_at)
      VALUES (?, ?, ?, ?, 'pending', NULL, ?)`,
     [id, taskId, targetType, targetId, ts]
   );
