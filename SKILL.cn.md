@@ -67,7 +67,7 @@ type: tool-use
 |---|------|------|----------|
 | 13 | **get_task_results** | `analyze-cli task results --task-id {tid}` | 所有步骤完成后查看结果。 |
 | 14 | **get_task_status** | `analyze-cli task show --task-id {tid}` | 显示完整任务详情，包括阶段、步骤、作业和最近的失败。**使用 `--wait` 模式时不需要。** |
-| 15 | **list_tasks** | `analyze-cli task list [--status {s}]` | 查看现有任务。 |
+| 15 | **list_tasks** | `analyze-cli task list [--status {s}] [--query {text}]` | 查看现有任务。可按状态过滤或按名称搜索。 |
 | 16 | **list_task_steps** | `analyze-cli task step list --task-id {tid}` | 运行前检查步骤状态。 |
 | 17 | **strategy_result_list** | `analyze-cli strategy result list --task-id {tid} --strategy {sid}` | 查看每个帖子的分析结果。 |
 | 18 | **strategy_result_export** | `analyze-cli strategy result export --task-id {tid} --strategy {sid} [--format csv|json]` | 导出结果到文件。 |
