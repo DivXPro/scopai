@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsup src/cli/index.ts src/daemon/index.ts src/daemon/stream-scheduler.ts --format cjs --out-dir dist --external duckdb --minify",
     "dev": "tsup src/cli/index.ts src/daemon/index.ts --format cjs --out-dir dist --external duckdb --watch",
-    "test": "node --test --experimental-strip-types 'test/*.test.ts'",
+    "test": "node --test --test-concurrency=1 --experimental-strip-types 'test/*.test.ts'",
     "test:offline": "node --test --experimental-strip-types 'test/opencli.test.ts' 'test/import-offline.test.ts' 'test/prepare-data-offline.test.ts'",
     "test:integration": "node --test --experimental-strip-types 'test/task-post-status.test.ts' 'test/prepare-data.test.ts'",
     "test:xhs": "node --test --experimental-strip-types 'test/xhs-shanghai-food.test.ts'",
