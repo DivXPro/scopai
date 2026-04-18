@@ -14,6 +14,7 @@
 - `2026-04-16-agent-e2e-recording-design.md`
 - `2026-04-16-agent-skill-atomic-tasks-design.md`
 - `2026-04-16-auto-strategy-generation-design.md`
+- `2026-04-18-streaming-analysis-design.md` — 流式分析：帖子数据就绪后立即触发分析，数据准备与分析并行执行
 
 ## 如何使用
 
