@@ -1344,7 +1344,7 @@ async function runPrepareDataAsync(
             if (strategy) strategies.set(step.strategy_id, strategy);
           }
         }
-        const taskTargets = await listTaskTargets(taskId);
+        let taskTargets = await listTaskTargets(taskId);
         const mediaStatus = await query<{ media_fetched: boolean }>(
           `SELECT media_fetched FROM task_post_status WHERE task_id = ? AND post_id = ?`,
           [taskId, postId]
@@ -1354,6 +1354,20 @@ async function runPrepareDataAsync(
           `SELECT id FROM comments WHERE post_id = ?`,
           [postId]
         );
+
+        // Ensure comments are task targets for comment-level strategies
+        const hasCommentStrategy = Array.from(strategies.values()).some((s: any) => s.target === 'comment');
+        if (hasCommentStrategy && comments.length > 0) {
+          const { createTaskTarget } = await import('../db/task-targets');
+          const existingIds = new Set(taskTargets.map(t => t.target_id));
+          for (const c of comments) {
+            if (!existingIds.has(c.id)) {
+              await createTaskTarget(taskId, 'comment', c.id);
+              existingIds.add(c.id);
+            }
+          }
+          taskTargets = await listTaskTargets(taskId);
+        }
 
         const { jobs, stepUpdates } = buildJobsForPost(
           taskId,
