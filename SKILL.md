@@ -27,7 +27,7 @@ Run these **in order** before any workflow:
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 1 | **search_posts** | `opencli xiaohongshu search {query} --limit {limit} -f json` | Discover posts before importing. `url` field = full note URL (pass as `{note_id}` to subsequent commands). |
+| 1 | **search_posts** | `opencli xiaohongshu search {query} --limit {limit} -f json` | Discover posts before importing. `url` field = full note URL (pass as `{url}` to fetch_note/fetch_comments templates). |
 | 2 | **add_platform** | `analyze-cli platform add --id {id} --name {name}` | Register a platform if not already in `analyze-cli platform list`. |
 | 3 | **import_posts** | `analyze-cli post import --platform {id} --file {path} [--task-id {tid}]` | Import search results. **Do NOT manually fetch note details before import** — let `prepare-data` enrich posts via `fetch_note` template. Duplicates are updated, not skipped. |
 | 4 | **import_comments** | `analyze-cli comment import --platform {id} --post-id {id} --file {path}` | Import comments from JSON/JSONL after fetching. Duplicates skipped. |
@@ -115,7 +115,19 @@ search_posts(query) → add_platform(if new) → create_task(with fetch_note tem
   → get_task_results
 ```
 
-### Example: Full Analysis Flow
+### Template Variables
+
+`fetch_note`, `fetch_comments`, and `fetch_media` templates support these placeholders:
+
+| Variable | Value | Use When |
+|----------|-------|----------|
+| `{post_id}` | Internal post ID | Rarely needed |
+| `{note_id}` | `metadata.note_id` if set, else `url`, else `post_id` | Platforms that accept short IDs (e.g., some APIs) |
+| `{url}` | Full post URL from import data | **Always preferred for platforms requiring full URL** (e.g., xiaohongshu) |
+| `{limit}` | Hardcoded `100` | Pagination limit |
+| `{download_dir}` | Configured download directory | Media file storage path |
+
+### Example: Full Analysis Flow (Xiaohongshu)
 
 ```bash
 # 1. Search
@@ -124,7 +136,7 @@ opencli xiaohongshu search "上海美食" --limit 10 -f json > posts.json
 # 2. Setup
 analyze-cli platform add --id xhs --name "小红书"
 analyze-cli task create --name "上海美食分析" \
-  --cli-templates '{"fetch_note":"opencli xiaohongshu note {note_id} -f json","fetch_comments":"opencli xiaohongshu comments {note_id} --limit 100 -f json"}'
+  --cli-templates '{"fetch_note":"opencli xiaohongshu note {url} -f json","fetch_comments":"opencli xiaohongshu comments {url} --limit 100 -f json"}'
 
 # 3. Import
 analyze-cli post import --platform xhs --file posts.json --task-id <task_id>

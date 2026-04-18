@@ -27,7 +27,7 @@ type: tool-use
 
 | # | 工具 | 命令 | 使用场景 |
 |---|------|------|----------|
-| 1 | **search_posts** | `opencli xiaohongshu search {query} --limit {limit} -f json` | 导入前发现帖子。`url` 字段 = 完整笔记 URL（作为 `{note_id}` 传给后续命令）。 |
+| 1 | **search_posts** | `opencli xiaohongshu search {query} --limit {limit} -f json` | 导入前发现帖子。`url` 字段 = 完整笔记 URL（作为 `{url}` 传给 fetch_note/fetch_comments 模板）。 |
 | 2 | **add_platform** | `analyze-cli platform add --id {id} --name {name}` | 如果 `analyze-cli platform list` 中没有该平台，则注册。 |
 | 3 | **import_posts** | `analyze-cli post import --platform {id} --file {path} [--task-id {tid}]` | 导入搜索结果。**不要**在导入前手动获取笔记详情 — 让 `prepare-data` 通过 `fetch_note` 模板来丰富帖子内容。重复帖子会更新而非跳过。 |
 | 4 | **import_comments** | `analyze-cli comment import --platform {id} --post-id {id} --file {path}` | 获取评论后从 JSON/JSONL 导入。重复评论会被跳过。 |
@@ -115,7 +115,19 @@ search_posts(query) → add_platform(如为新平台) → create_task(含 fetch_
   → get_task_results
 ```
 
-### 示例：完整分析流程
+### 模板变量
+
+`fetch_note`、`fetch_comments`、`fetch_media` 模板支持以下占位符：
+
+| 变量 | 值 | 使用场景 |
+|------|-----|----------|
+| `{post_id}` | 内部帖子 ID | 极少需要 |
+| `{note_id}` | 优先取 `metadata.note_id`，其次 `url`，最后 `post_id` | 接受短 ID 的平台 |
+| `{url}` | 导入数据中的完整帖子 URL | **需要完整 URL 的平台必须用它**（如小红书） |
+| `{limit}` | 固定值 `100` | 分页限制 |
+| `{download_dir}` | 配置的下载目录 | 媒体文件存储路径 |
+
+### 示例：完整分析流程（小红书）
 
 ```bash
 # 1. 搜索
@@ -124,7 +136,7 @@ opencli xiaohongshu search "上海美食" --limit 10 -f json > posts.json
 # 2. 设置
 analyze-cli platform add --id xhs --name "小红书"
 analyze-cli task create --name "上海美食分析" \
-  --cli-templates '{"fetch_note":"opencli xiaohongshu note {note_id} -f json","fetch_comments":"opencli xiaohongshu comments {note_id} --limit 100 -f json"}'
+  --cli-templates '{"fetch_note":"opencli xiaohongshu note {url} -f json","fetch_comments":"opencli xiaohongshu comments {url} --limit 100 -f json"}'
 
 # 3. 导入
 analyze-cli post import --platform xhs --file posts.json --task-id <task_id>

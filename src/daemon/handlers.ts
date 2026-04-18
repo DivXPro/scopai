@@ -1241,6 +1241,7 @@ async function runPrepareDataAsync(
       const fetchVars: Record<string, string> = {
         post_id: postId,
         note_id: noteId ?? postId,
+        url: postMeta?.url ?? noteId ?? postId,
         limit: '100',
         download_dir: config.paths.download_dir,
       };
