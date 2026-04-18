@@ -74,7 +74,7 @@ export function taskCommands(program: Command): void {
     .description('Start a task (enqueue jobs for analysis)')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      const full = await daemonCall('task.status', { task_id: opts.taskId }) as Record<string, any>;
+      const full = await daemonCall('task.show', { task_id: opts.taskId }) as Record<string, any>;
       if (!full.id) {
         console.log(pc.red(`Task not found: ${opts.taskId}`));
         process.exit(1);
@@ -159,11 +159,12 @@ export function taskCommands(program: Command): void {
     });
 
   task
-    .command('status')
+    .command('show')
+    .alias('status')
     .description('Show task status and progress')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      const full = await daemonCall('task.status', { task_id: opts.taskId }) as Record<string, any>;
+      const full = await daemonCall('task.show', { task_id: opts.taskId }) as Record<string, any>;
       if (!full.id) {
         console.log(pc.red(`Task not found: ${opts.taskId}`));
         process.exit(1);
@@ -387,7 +388,7 @@ export function taskCommands(program: Command): void {
     .description('Show analysis results for a completed task')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      const full = await daemonCall('task.status', { task_id: opts.taskId }) as Record<string, any>;
+      const full = await daemonCall('task.show', { task_id: opts.taskId }) as Record<string, any>;
       if (!full.id) {
         console.log(pc.red(`Task not found: ${opts.taskId}`));
         process.exit(1);

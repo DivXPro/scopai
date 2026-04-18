@@ -65,7 +65,7 @@ export async function waitForTaskStep(
     const step = steps.find((s: any) => s.stepId === stepId || s.id === stepId);
 
     if (!step) {
-      throw new Error(`Step ${stepId} not found in task status`);
+      throw new Error(`Step ${stepId} not found in task show`);
     }
 
     const progress: StepProgress = {

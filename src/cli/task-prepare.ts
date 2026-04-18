@@ -10,7 +10,7 @@ export function taskPrepareCommands(program: Command): void {
     .description('Download comments and media for task posts via opencli (resumable)')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      const t = await daemonCall('task.status', { task_id: opts.taskId }) as Record<string, any>;
+      const t = await daemonCall('task.show', { task_id: opts.taskId }) as Record<string, any>;
       if (!t.id) {
         console.log(pc.red(`Task not found: ${opts.taskId}`));
         process.exit(1);
@@ -30,7 +30,7 @@ export function taskPrepareCommands(program: Command): void {
       console.log(pc.yellow('Data preparation started. Polling progress...\n'));
 
       const poll = async () => {
-        const status = await daemonCall('task.status', { task_id: opts.taskId }) as Record<string, any>;
+        const status = await daemonCall('task.show', { task_id: opts.taskId }) as Record<string, any>;
         const dp = status.phases?.dataPreparation ?? {};
         const done = dp.status === 'done';
         const failed = dp.status === 'failed';
@@ -44,7 +44,7 @@ export function taskPrepareCommands(program: Command): void {
           } else {
             console.log(pc.green('Data preparation complete'));
             console.log(`  Done: ${dp.commentsFetched ?? 0}/${dp.totalPosts ?? 0} posts, ${dp.failedPosts ?? 0} failed`);
-            console.log(pc.cyan('Analysis jobs have been automatically enqueued. Use "task status" to check progress.'));
+            console.log(pc.cyan('Analysis jobs have been automatically enqueued. Use "task show" to check progress.'));
           }
           console.log();
           return;

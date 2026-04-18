@@ -66,7 +66,7 @@ type: tool-use
 | # | 工具 | 命令 | 使用场景 |
 |---|------|------|----------|
 | 13 | **get_task_results** | `analyze-cli task results --task-id {tid}` | 所有步骤完成后查看结果。 |
-| 14 | **get_task_status** | `analyze-cli task status --task-id {tid}` | 一次性状态检查。**使用 `--wait` 模式时不需要轮询。** |
+| 14 | **get_task_status** | `analyze-cli task show --task-id {tid}` | 显示完整任务详情，包括阶段、步骤、作业和最近的失败。**使用 `--wait` 模式时不需要。** |
 | 15 | **list_tasks** | `analyze-cli task list [--status {s}]` | 查看现有任务。 |
 | 16 | **list_task_steps** | `analyze-cli task step list --task-id {tid}` | 运行前检查步骤状态。 |
 | 17 | **strategy_result_list** | `analyze-cli strategy result list --task-id {tid} --strategy {sid}` | 查看每个帖子的分析结果。 |
@@ -204,7 +204,7 @@ analyze-cli task run-all-steps --task-id <task_id> --no-wait
 # → "All steps processed"（立即返回）
 
 # 稍后检查状态
-analyze-cli task status --task-id <task_id>
+analyze-cli task show --task-id <task_id>
 ```
 
 ### 从失败中恢复
@@ -266,7 +266,7 @@ analyze-cli task step run --task-id <tid> --step-id <sid> --wait
 
 ## 全局规则
 
-1. **永远不要编写临时轮询脚本**循环调用 `analyze-cli task status`。使用内置的 `--wait` 模式。
+1. **永远不要编写临时轮询脚本**循环调用 `analyze-cli task show`。使用内置的 `--wait` 模式。
 2. **永远不要使用直接数据库访问**（例如运行打开 DuckDB 的 `node -e` 脚本）。始终使用 CLI 命令。
 3. **速率限制（429）恢复**：工作进程自动使用指数退避重新入队。只有当状态在所有重试后变为 `failed` 时才需要介入。
 4. **先检查平台**：使用 `analyze-cli platform list` 确认平台是否已注册，避免 "already exists" 错误。

@@ -362,7 +362,7 @@ export function getHandlers(): Record<string, Handler> {
       return listAnalysisResults(taskId);
     },
 
-    async 'task.status'(params) {
+    async 'task.show'(params) {
       const taskId = params.task_id as string;
       const task = await getTaskById(taskId);
       if (!task) throw new Error(`Task not found: ${taskId}`);

@@ -66,7 +66,7 @@ Run these **in order** before any workflow:
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
 | 13 | **get_task_results** | `analyze-cli task results --task-id {tid}` | After all steps complete. |
-| 14 | **get_task_status** | `analyze-cli task status --task-id {tid}` | One-off status check. **Not needed when using `--wait` mode.** |
+| 14 | **get_task_status** | `analyze-cli task show --task-id {tid}` | Show full task details including phases, steps, jobs, and recent failures. **Not needed when using `--wait` mode.** |
 | 15 | **list_tasks** | `analyze-cli task list [--status {s}]` | View existing tasks. |
 | 16 | **list_task_steps** | `analyze-cli task step list --task-id {tid}` | Inspect step states before running. |
 | 17 | **strategy_result_list** | `analyze-cli strategy result list --task-id {tid} --strategy {sid}` | Inspect per-post results. |
