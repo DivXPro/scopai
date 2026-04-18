@@ -6,8 +6,13 @@ import { seedAll } from '../db/seed';
 import { close, query, checkpoint } from '../db/client';
 import { recoverStalledJobs } from '../db/queue-jobs';
 import { IPC_SOCKET_PATH, DEFAULT_WORKERS } from '../shared/constants';
+import { getTotalActiveJobs, requestShutdown, resetShutdown } from '../shared/shutdown';
+import { sleep } from '../shared/utils';
 import { config } from '../config';
 import * as fs from 'fs';
+
+const GRACEFUL_SHUTDOWN_TIMEOUT_MS = 30000;
+const GRACEFUL_SHUTDOWN_POLL_MS = 500;
 
 export class Daemon {
   private ipcServer: IpcServer;
@@ -22,6 +27,7 @@ export class Daemon {
   }
 
   async start(): Promise<void> {
+    resetShutdown();
     await runMigrations();
 
     try {
@@ -52,7 +58,27 @@ export class Daemon {
   }
 
   async stop(): Promise<void> {
+    console.log('[Daemon] Shutting down gracefully...');
     this.ipcServer.stop();
+
+    requestShutdown();
+
+    const start = Date.now();
+    while (Date.now() - start < GRACEFUL_SHUTDOWN_TIMEOUT_MS) {
+      const active = getTotalActiveJobs();
+      if (active === 0) {
+        console.log('[Daemon] All workers idle');
+        break;
+      }
+      console.log(`[Daemon] Waiting for ${active} active job(s)...`);
+      await sleep(GRACEFUL_SHUTDOWN_POLL_MS);
+    }
+
+    const remaining = getTotalActiveJobs();
+    if (remaining > 0) {
+      console.warn(`[Daemon] Timeout: ${remaining} job(s) still active, forcing exit`);
+    }
+
     try {
       await checkpoint();
     } catch (err: unknown) {

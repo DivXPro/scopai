@@ -1,10 +1,10 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
-import * as fs from 'fs';
 import * as path from 'path';
-import { fork, ChildProcess } from 'child_process';
-import { DAEMON_PID_FILE, IPC_SOCKET_PATH } from '../shared/constants';
+import { fork } from 'child_process';
+import { IPC_SOCKET_PATH } from '../shared/constants';
 import { sendIpcRequest } from '../daemon/ipc-server';
+import { isDaemonRunning, getDaemonPid, cleanupStaleDaemonFiles } from '../shared/daemon-status';
 
 export function daemonCommands(program: Command): void {
   const daemon = program.command('daemon').description('Manage the analysis daemon');
@@ -32,6 +32,7 @@ export function daemonCommands(program: Command): void {
           console.log(pc.yellow('Daemon is already running (PID: ' + pid + ')'));
           return;
         }
+        cleanupStaleDaemonFiles();
         console.log(pc.yellow('Starting daemon in background...'));
         const daemonPath = path.join(__dirname, '../daemon/index.js');
         const child = fork(daemonPath, [], {
@@ -53,7 +54,7 @@ export function daemonCommands(program: Command): void {
   daemon
     .command('stop')
     .description('Stop the daemon')
-    .action(() => {
+    .action(async () => {
       const pid = getDaemonPid();
       if (!pid) {
         console.log(pc.yellow('Daemon is not running'));
@@ -67,26 +68,17 @@ export function daemonCommands(program: Command): void {
           try {
             process.kill(pid, 0);
             // Still running, wait
-            const { execSync } = require('child_process');
-            execSync(`sleep 0.2`);
+            await new Promise(resolve => setTimeout(resolve, 200));
             attempts++;
           } catch {
             break;
           }
         }
-        // Clean up PID file
-        if (fs.existsSync(DAEMON_PID_FILE)) {
-          fs.unlinkSync(DAEMON_PID_FILE);
-        }
-        if (fs.existsSync(IPC_SOCKET_PATH)) {
-          fs.unlinkSync(IPC_SOCKET_PATH);
-        }
+        cleanupStaleDaemonFiles();
         console.log(pc.green('Daemon stopped'));
       } catch {
         // Process already dead
-        if (fs.existsSync(DAEMON_PID_FILE)) {
-          fs.unlinkSync(DAEMON_PID_FILE);
-        }
+        cleanupStaleDaemonFiles();
         console.log(pc.green('Daemon stopped (was already dead)'));
       }
     });
@@ -113,25 +105,61 @@ export function daemonCommands(program: Command): void {
         console.log(pc.yellow('Could not connect to daemon via IPC'));
       }
     });
-}
 
-function getDaemonPid(): number | null {
-  if (!fs.existsSync(DAEMON_PID_FILE)) return null;
-  try {
-    const pid = parseInt(fs.readFileSync(DAEMON_PID_FILE, 'utf-8').trim(), 10);
-    return isNaN(pid) ? null : pid;
-  } catch {
-    return null;
-  }
-}
+  daemon
+    .command('restart')
+    .description('Restart the daemon')
+    .option('--fg', 'Run in foreground (debug mode)')
+    .action(async (opts: { fg?: boolean }) => {
+      const pid = getDaemonPid();
+      if (pid) {
+        try {
+          process.kill(pid, 'SIGTERM');
+          let attempts = 0;
+          while (attempts < 30) {
+            try {
+              process.kill(pid, 0);
+              await new Promise(resolve => setTimeout(resolve, 200));
+              attempts++;
+            } catch {
+              break;
+            }
+          }
+          cleanupStaleDaemonFiles();
+          console.log(pc.green('Daemon stopped'));
+        } catch {
+          cleanupStaleDaemonFiles();
+        }
+      }
 
-function isDaemonRunning(): boolean {
-  const pid = getDaemonPid();
-  if (!pid) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
+      if (opts.fg) {
+        console.log(pc.yellow('Starting daemon in foreground (debug mode)...'));
+        const daemonPath = path.join(__dirname, '../daemon/index.js');
+        const child = fork(daemonPath, [], {
+          env: { ...process.env, WORKER_ID: '0' },
+          detached: false,
+          stdio: 'inherit',
+        });
+        child.on('exit', (code) => {
+          console.log(`Daemon exited with code ${code}`);
+          process.exit(code ?? 1);
+        });
+      } else {
+        cleanupStaleDaemonFiles();
+        console.log(pc.yellow('Starting daemon in background...'));
+        const daemonPath = path.join(__dirname, '../daemon/index.js');
+        const child = fork(daemonPath, [], {
+          env: { ...process.env, WORKER_ID: '0' },
+          detached: true,
+          stdio: 'ignore',
+        });
+        child.unref();
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (isDaemonRunning()) {
+          console.log(pc.green(`Daemon started (PID: ${getDaemonPid()})`));
+        } else {
+          console.log(pc.red('Failed to start daemon'));
+        }
+      }
+    });
 }

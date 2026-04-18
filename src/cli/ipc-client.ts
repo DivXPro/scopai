@@ -1,32 +1,11 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import { fork } from 'child_process';
-import { DAEMON_PID_FILE, IPC_SOCKET_PATH } from '../shared/constants';
 import { sendIpcRequest } from '../daemon/ipc-server';
-
-function getDaemonPid(): number | null {
-  if (!fs.existsSync(DAEMON_PID_FILE)) return null;
-  try {
-    const pid = parseInt(fs.readFileSync(DAEMON_PID_FILE, 'utf-8').trim(), 10);
-    return isNaN(pid) ? null : pid;
-  } catch {
-    return null;
-  }
-}
-
-function isDaemonRunning(): boolean {
-  const pid = getDaemonPid();
-  if (!pid) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { isDaemonRunning, cleanupStaleDaemonFiles } from '../shared/daemon-status';
 
 async function startDaemon(): Promise<void> {
   if (isDaemonRunning()) return;
+  cleanupStaleDaemonFiles();
   const daemonPath = path.join(__dirname, '../daemon/index.js');
   const child = fork(daemonPath, [], {
     env: { ...process.env, WORKER_ID: '0' },

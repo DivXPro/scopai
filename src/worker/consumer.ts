@@ -14,6 +14,12 @@ import { parseCommentResult, parseMediaResult, parseStrategyResult } from './par
 import { QueueJob } from '../shared/types';
 import { sleep } from '../shared/utils';
 import { waitForJob } from '../shared/job-events';
+import {
+  registerWorker,
+  unregisterWorker,
+  setWorkerActiveCount,
+  isShuttingDown,
+} from '../shared/shutdown';
 import { config } from '../config';
 
 const POLL_INTERVAL_MS = 2000;
@@ -24,47 +30,64 @@ export async function runConsumer(workerId: number): Promise<void> {
   const concurrency = config.worker.concurrency ?? 1;
   console.log(`[Worker-${workerId}] Consumer started, concurrency=${concurrency}`);
 
+  registerWorker(workerId);
   const active = new Set<Promise<void>>();
   let buffer: QueueJob[] = [];
   let currentWaitMs = POLL_INTERVAL_MS;
 
-  while (true) {
-    try {
-      // Fill buffer with pending jobs up to the concurrency limit
-      while (buffer.length === 0 && active.size < concurrency) {
-        const need = concurrency - active.size;
-        const jobs = await getNextJobs(need);
-        if (jobs.length === 0) break;
-        buffer.push(...jobs);
-        currentWaitMs = POLL_INTERVAL_MS;
-      }
+  try {
+    while (true) {
+      setWorkerActiveCount(workerId, active.size);
 
-      // Start new jobs until we hit the concurrency limit
-      while (active.size < concurrency && buffer.length > 0) {
-        const job = buffer.shift()!;
-        const promise = processJobWithLifecycle(job, workerId).finally(() => {
-          active.delete(promise);
-        });
-        active.add(promise);
-      }
-
-      if (active.size > 0) {
+      if (isShuttingDown()) {
+        // Stop accepting new jobs; drain active jobs then exit
+        if (active.size === 0) {
+          console.log(`[Worker-${workerId}] Graceful shutdown complete`);
+          break;
+        }
         await Promise.race(active);
         continue;
       }
 
-      // Nothing active and nothing in buffer → wait for notification or timeout
-      const gotNotify = await waitForJob(currentWaitMs);
-      if (gotNotify) {
+      try {
+        // Fill buffer with pending jobs up to the concurrency limit
+        while (buffer.length === 0 && active.size < concurrency) {
+          const need = concurrency - active.size;
+          const jobs = await getNextJobs(need);
+          if (jobs.length === 0) break;
+          buffer.push(...jobs);
+          currentWaitMs = POLL_INTERVAL_MS;
+        }
+
+        // Start new jobs until we hit the concurrency limit
+        while (active.size < concurrency && buffer.length > 0) {
+          const job = buffer.shift()!;
+          const promise = processJobWithLifecycle(job, workerId).finally(() => {
+            active.delete(promise);
+          });
+          active.add(promise);
+        }
+
+        if (active.size > 0) {
+          await Promise.race(active);
+          continue;
+        }
+
+        // Nothing active and nothing in buffer → wait for notification or timeout
+        const gotNotify = await waitForJob(currentWaitMs);
+        if (gotNotify) {
+          currentWaitMs = POLL_INTERVAL_MS;
+        } else {
+          currentWaitMs = Math.min(currentWaitMs * EXPONENTIAL_BACKOFF_FACTOR, MAX_WAIT_MS);
+        }
+      } catch (err) {
+        console.error(`[Worker-${workerId}] Error in consumer loop:`, err);
+        await sleep(POLL_INTERVAL_MS);
         currentWaitMs = POLL_INTERVAL_MS;
-      } else {
-        currentWaitMs = Math.min(currentWaitMs * EXPONENTIAL_BACKOFF_FACTOR, MAX_WAIT_MS);
       }
-    } catch (err) {
-      console.error(`[Worker-${workerId}] Error in consumer loop:`, err);
-      await sleep(POLL_INTERVAL_MS);
-      currentWaitMs = POLL_INTERVAL_MS;
     }
+  } finally {
+    unregisterWorker(workerId);
   }
 }
 
