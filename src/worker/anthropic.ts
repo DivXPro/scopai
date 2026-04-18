@@ -3,6 +3,7 @@ import { config } from '../config';
 import { Comment, MediaFile, PromptTemplate, Strategy, Post } from '../shared/types';
 import { listMediaFilesByPost } from '../db/media-files';
 import { getPlatformById } from '../db/platforms';
+import { getCommentById } from '../db/comments';
 
 const client = new Anthropic({
   apiKey: config.anthropic.api_key,
@@ -59,11 +60,46 @@ function fillTemplate(template: string, vars: Record<string, string>): string {
   return result;
 }
 
+export async function buildCommentPrompt(comment: Comment, strategy: Strategy): Promise<string> {
+  const platform = comment.platform_id ? await getPlatformById(comment.platform_id) : null;
+
+  let parentAuthor = '';
+  if (comment.parent_comment_id) {
+    const parent = await getCommentById(comment.parent_comment_id);
+    parentAuthor = parent?.author_name ?? '';
+  }
+
+  const vars: Record<string, string> = {
+    content: comment.content ?? '',
+    author_name: comment.author_name ?? '匿名',
+    platform: platform?.name ?? 'unknown',
+    published_at: comment.published_at?.toISOString() ?? '未知',
+    depth: String(comment.depth ?? 0),
+    parent_author: parentAuthor,
+    reply_count: String(comment.reply_count ?? 0),
+    media_urls: '',
+  };
+
+  let result = strategy.prompt;
+  for (const [key, value] of Object.entries(vars)) {
+    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+  }
+
+  const schemaHint = buildSchemaHint(strategy.output_schema);
+  if (schemaHint) {
+    result += `\n\n${schemaHint}`;
+  }
+  return result;
+}
+
 export async function analyzeWithStrategy(
-  target: Post,
+  target: Post | Comment,
   strategy: Strategy,
 ): Promise<string> {
-  const prompt = await buildStrategyPrompt(target, strategy);
+  const prompt = 'post_id' in target
+    ? await buildCommentPrompt(target, strategy)
+    : await buildStrategyPrompt(target, strategy);
+
   const response = await client.messages.create({
     model: config.anthropic.model,
     max_tokens: config.anthropic.max_tokens,
@@ -85,6 +121,71 @@ export async function analyzeWithStrategy(
   }
 
   // fallback to text response if model did not use tool
+  const text = response.content.find(c => c.type === 'text');
+  return text && 'text' in text ? text.text : '';
+}
+
+export async function analyzeBatchWithStrategy(
+  comments: Comment[],
+  strategy: Strategy,
+): Promise<string> {
+  const platform = comments[0]?.platform_id
+    ? await getPlatformById(comments[0].platform_id)
+    : null;
+
+  const lines = comments.map((c, i) => {
+    const parts = [
+      `\n[评论 ${i + 1}]`,
+      `作者: ${c.author_name ?? '匿名'}`,
+      `内容: ${c.content ?? ''}`,
+      `深度: ${c.depth ?? 0}`,
+    ];
+    if (c.parent_comment_id) {
+      parts.push(`回复对象: ${c.author_name ?? ''}`);
+    }
+    return parts.join('\n');
+  });
+
+  const batchSchema = {
+    type: 'object',
+    properties: {
+      results: {
+        type: 'array',
+        items: strategy.output_schema,
+        description: `分析结果数组，长度必须为 ${comments.length}，顺序与输入评论一致`,
+      },
+    },
+    required: ['results'],
+  };
+
+  let prompt = `请分析以下 ${comments.length} 条评论，逐条返回分析结果。\n\n`;
+  prompt += lines.join('\n');
+  prompt += `\n\n请严格按以下 JSON 格式返回，results 数组长度必须为 ${comments.length}，顺序与上方评论编号一致：`;
+  prompt += `\n${JSON.stringify({ results: [strategy.output_schema] }, null, 2)}`;
+  const schemaHint = buildSchemaHint(strategy.output_schema);
+  if (schemaHint) {
+    prompt += `\n\n${schemaHint}`;
+  }
+
+  const response = await client.messages.create({
+    model: config.anthropic.model,
+    max_tokens: config.anthropic.max_tokens,
+    temperature: config.anthropic.temperature,
+    tools: [
+      {
+        name: 'output_analysis',
+        description: 'Return batch analysis results as an array',
+        input_schema: batchSchema as any,
+      },
+    ],
+    tool_choice: { type: 'tool', name: 'output_analysis' },
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  const toolUse = response.content.find(c => c.type === 'tool_use');
+  if (toolUse && 'input' in toolUse) {
+    return JSON.stringify(toolUse.input);
+  }
   const text = response.content.find(c => c.type === 'text');
   return text && 'text' in text ? text.text : '';
 }
