@@ -282,12 +282,30 @@ export function getHandlers(): Record<string, Handler> {
       const taskId = params.task_id as string;
       const targetType = params.target_type as 'post' | 'comment';
       const targetIds = params.target_ids as string[];
-      await addTaskTargets(taskId, targetType, targetIds);
+
       if (targetType === 'post') {
+        // Convert platform_post_ids to internal post IDs
+        const { query } = await import('../db/client');
+        const internalIds: string[] = [];
+        for (const platformPostId of targetIds) {
+          const rows = await query<{ id: string }>(
+            'SELECT id FROM posts WHERE platform_post_id = ?',
+            [platformPostId],
+          );
+          if (rows.length > 0) {
+            internalIds.push(rows[0].id);
+          } else {
+            // Fallback: assume it's already an internal ID
+            internalIds.push(platformPostId);
+          }
+        }
+        await addTaskTargets(taskId, targetType, internalIds);
         const { upsertTaskPostStatus } = await import('../db/task-post-status');
-        for (const postId of targetIds) {
+        for (const postId of internalIds) {
           await upsertTaskPostStatus(taskId, postId, { status: 'pending' });
         }
+      } else {
+        await addTaskTargets(taskId, targetType, targetIds);
       }
       return { added: targetIds.length };
     },

@@ -34,6 +34,17 @@ export async function getPostById(id: string): Promise<Post | null> {
   return rows[0] ?? null;
 }
 
+export async function getPostByPlatformPostId(platformPostId: string, platformId?: string): Promise<Post | null> {
+  let sql = 'SELECT * FROM posts WHERE platform_post_id = ?';
+  const params: unknown[] = [platformPostId];
+  if (platformId) {
+    sql += ' AND platform_id = ?';
+    params.push(platformId);
+  }
+  const rows = await query<Post>(sql, params);
+  return rows[0] ?? null;
+}
+
 export async function searchPosts(platformId: string, queryText: string, limit = 50): Promise<Post[]> {
   return query<Post>(
     `SELECT * FROM posts WHERE platform_id = ? AND content LIKE ? ORDER BY fetched_at DESC LIMIT ?`,
