@@ -17,6 +17,7 @@
 - `exec-plans/active/2026-04-16-agent-e2e-recording-plan.md` — Agent 驱动 E2E 数据录制与离线测试实施计划
 - `exec-plans/active/2026-04-15-strategy-system.md` — 分析套路系统 P0 实施计划（策略导入、动态分析、Worker 支持）
 - `exec-plans/active/2026-04-14-xhs-ai-pipeline-agent-test-plan.md` — 小红书 AI 热帖 Agent 自动执行测试计划（opencli 抓取 + 导入 + 分析）
+- `exec-plans/active/2026-04-19-e2e-test-suite.md` — E2E 测试套件实施计划：覆盖导入→数据准备→策略分析→队列恢复→daemon 生命周期的真实链路测试
 
 ## 当前已归档内容
 
