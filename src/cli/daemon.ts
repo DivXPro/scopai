@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
 import * as path from 'path';
-import { fork } from 'child_process';
+import { fork, spawn } from 'child_process';
 import { IPC_SOCKET_PATH } from '../shared/constants';
 import { sendIpcRequest } from '../daemon/ipc-server';
 import { isDaemonRunning, getDaemonPid, getDaemonVersion, cleanupStaleDaemonFiles } from '../shared/daemon-status';
@@ -48,7 +48,7 @@ export function daemonCommands(program: Command): void {
         if (opts.verbose) {
           env.ANALYZE_CLI_LOG_LEVEL = 'debug';
         }
-        const child = fork(daemonPath, [], {
+        const child = spawn('node', [daemonPath], {
           env,
           detached: true,
           stdio: 'ignore',
@@ -176,7 +176,7 @@ export function daemonCommands(program: Command): void {
         if (opts.verbose) {
           env.ANALYZE_CLI_LOG_LEVEL = 'debug';
         }
-        const child = fork(daemonPath, [], {
+        const child = spawn('node', [daemonPath], {
           env,
           detached: true,
           stdio: 'ignore',

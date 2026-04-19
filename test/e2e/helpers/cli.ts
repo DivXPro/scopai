@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import * as path from 'path';
 import * as os from 'os';
+import * as fs from 'fs';
 
 const CLI_PATH = path.join(process.cwd(), 'bin', 'analyze-cli.js');
 
@@ -11,16 +12,20 @@ export interface CliResult {
 }
 
 function getTestEnv(): Record<string, string> {
+  // Use existing env vars if already set (e.g., by db.ts), otherwise generate new ones
   const runId = `e2e_${Date.now()}_${process.pid}`;
   const tmpDir = path.join(os.tmpdir(), 'analyze-cli-e2e', runId);
+  fs.mkdirSync(tmpDir, { recursive: true });
   return {
     ...process.env,
-    ANALYZE_CLI_DB_PATH: path.join(tmpDir, 'test.duckdb'),
-    ANALYZE_CLI_IPC_SOCKET: path.join(tmpDir, 'daemon.sock'),
-    ANALYZE_CLI_DAEMON_PID: path.join(tmpDir, 'daemon.pid'),
+    ANALYZE_CLI_DB_PATH: process.env.ANALYZE_CLI_DB_PATH ?? path.join(tmpDir, 'test.duckdb'),
+    ANALYZE_CLI_IPC_SOCKET: process.env.ANALYZE_CLI_IPC_SOCKET ?? path.join(tmpDir, 'daemon.sock'),
+    ANALYZE_CLI_DAEMON_PID: process.env.ANALYZE_CLI_DAEMON_PID ?? path.join(tmpDir, 'daemon.pid'),
     ANALYZE_CLI_LOG_LEVEL: 'error',
   };
 }
+
+const CLI_TIMEOUT_MS = 30000;
 
 export async function runCli(args: string[]): Promise<CliResult> {
   return new Promise((resolve, reject) => {
@@ -32,6 +37,12 @@ export async function runCli(args: string[]): Promise<CliResult> {
 
     let stdout = '';
     let stderr = '';
+    let timedOut = false;
+
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      proc.kill('SIGKILL');
+    }, CLI_TIMEOUT_MS);
 
     proc.stdout.on('data', (data) => {
       stdout += data.toString();
@@ -42,10 +53,12 @@ export async function runCli(args: string[]): Promise<CliResult> {
     });
 
     proc.on('close', (code) => {
+      clearTimeout(timeout);
       resolve({ stdout, stderr, exitCode: code ?? 0 });
     });
 
     proc.on('error', (err) => {
+      clearTimeout(timeout);
       reject(err);
     });
   });

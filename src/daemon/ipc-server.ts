@@ -59,7 +59,16 @@ export async function sendIpcRequest(method: string, params: Record<string, unkn
   return new Promise((resolve, reject) => {
     const socket = net.createConnection(IPC_SOCKET_PATH);
     let buffer = '';
+    let settled = false;
     const req: JsonRpcRequest = { jsonrpc: '2.0', method, params, id: Date.now() };
+
+    function settle(fn: () => void) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      fn();
+    }
+
     socket.on('data', (data) => {
       buffer += data.toString();
       const lines = buffer.split('\n');
@@ -67,28 +76,34 @@ export async function sendIpcRequest(method: string, params: Record<string, unkn
         if (!line.trim()) continue;
         try {
           const resp: JsonRpcResponse = JSON.parse(line);
-          socket.end();
-          if (resp.error) {
-            reject(new Error(resp.error.message));
-          } else {
-            resolve(resp.result);
-          }
+          settle(() => {
+            socket.destroy();
+            if (resp.error) {
+              reject(new Error(resp.error.message));
+            } else {
+              resolve(resp.result);
+            }
+          });
         } catch {
           // ignore
         }
       }
     });
     socket.on('error', (err) => {
-      socket.destroy();
-      reject(err);
+      settle(() => {
+        socket.destroy();
+        reject(err);
+      });
     });
     socket.on('connect', () => {
       socket.write(JSON.stringify(req) + '\n');
     });
     // Timeout fallback in case server is dead and neither connect nor error fires
-    setTimeout(() => {
-      socket.destroy();
-      reject(new Error('IPC request timeout'));
+    const timeout = setTimeout(() => {
+      settle(() => {
+        socket.destroy();
+        reject(new Error('IPC request timeout'));
+      });
     }, 5000);
   });
 }
