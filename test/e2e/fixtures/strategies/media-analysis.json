@@ -1,0 +1,10 @@
+{
+  "name": "E2E 图片内容分析",
+  "description": "分析帖子图片内容",
+  "prompt": "分析以下帖子的图片内容，返回 JSON：{ \"main_subject\": string, \"visual_quality\": string }",
+  "output_schema": {
+    "main_subject": "VARCHAR",
+    "visual_quality": "VARCHAR"
+  },
+  "needs_media": true
+}

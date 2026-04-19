@@ -1,0 +1,18 @@
+{
+  "posts": [
+    {
+      "id": "post_001",
+      "title": "上海美食探店",
+      "content": "今天去了一家超棒的餐厅，味道绝了！服务态度也很好，推荐大家来试试。",
+      "author": "foodie_01",
+      "url": "https://www.xiaohongshu.com/discovery/item/post_001"
+    },
+    {
+      "id": "post_002",
+      "title": "周末去哪儿",
+      "content": "这次去的景点人有点多，体验一般般，不太推荐节假日去。",
+      "author": "traveler_02",
+      "url": "https://www.xiaohongshu.com/discovery/item/post_002"
+    }
+  ]
+}

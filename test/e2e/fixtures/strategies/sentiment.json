@@ -1,0 +1,10 @@
+{
+  "name": "E2E 情感分析",
+  "description": "分析评论情感倾向",
+  "prompt": "分析以下评论的情感倾向（positive/negative/neutral），返回 JSON：{ \"sentiment\": string, \"confidence\": number }",
+  "output_schema": {
+    "sentiment": "VARCHAR",
+    "confidence": "DOUBLE"
+  },
+  "needs_media": false
+}
