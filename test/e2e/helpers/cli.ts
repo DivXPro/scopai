@@ -11,16 +11,17 @@ export interface CliResult {
   exitCode: number;
 }
 
+// Fixed test environment for this process — all runCli calls share the same IPC socket
+const TEST_RUN_ID = `e2e_${Date.now()}_${process.pid}`;
+const TEST_TMP_DIR = path.join(os.tmpdir(), 'analyze-cli-e2e', TEST_RUN_ID);
+fs.mkdirSync(TEST_TMP_DIR, { recursive: true });
+
 function getTestEnv(): Record<string, string> {
-  // Use existing env vars if already set (e.g., by db.ts), otherwise generate new ones
-  const runId = `e2e_${Date.now()}_${process.pid}`;
-  const tmpDir = path.join(os.tmpdir(), 'analyze-cli-e2e', runId);
-  fs.mkdirSync(tmpDir, { recursive: true });
   return {
     ...process.env,
-    ANALYZE_CLI_DB_PATH: process.env.ANALYZE_CLI_DB_PATH ?? path.join(tmpDir, 'test.duckdb'),
-    ANALYZE_CLI_IPC_SOCKET: process.env.ANALYZE_CLI_IPC_SOCKET ?? path.join(tmpDir, 'daemon.sock'),
-    ANALYZE_CLI_DAEMON_PID: process.env.ANALYZE_CLI_DAEMON_PID ?? path.join(tmpDir, 'daemon.pid'),
+    ANALYZE_CLI_DB_PATH: process.env.ANALYZE_CLI_DB_PATH ?? path.join(TEST_TMP_DIR, 'test.duckdb'),
+    ANALYZE_CLI_IPC_SOCKET: process.env.ANALYZE_CLI_IPC_SOCKET ?? path.join(TEST_TMP_DIR, 'daemon.sock'),
+    ANALYZE_CLI_DAEMON_PID: process.env.ANALYZE_CLI_DAEMON_PID ?? path.join(TEST_TMP_DIR, 'daemon.pid'),
     ANALYZE_CLI_LOG_LEVEL: 'error',
   };
 }
