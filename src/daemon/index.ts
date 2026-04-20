@@ -15,9 +15,11 @@ import * as fs from 'fs';
 
 const GRACEFUL_SHUTDOWN_TIMEOUT_MS = 30000;
 const GRACEFUL_SHUTDOWN_POLL_MS = 500;
+const CHECKPOINT_INTERVAL_MS = 5 * 60 * 1000;
 
 export class Daemon {
   private ipcServer: IpcServer;
+  private checkpointTimer: NodeJS.Timeout | null = null;
 
   constructor() {
     const handlers = getHandlers();
@@ -60,6 +62,12 @@ export class Daemon {
       });
     }
 
+    this.checkpointTimer = setInterval(() => {
+      checkpoint().catch((err: unknown) => {
+        logger.warn(`[Daemon] Scheduled checkpoint failed: ${err instanceof Error ? err.message : String(err)}`);
+      });
+    }, CHECKPOINT_INTERVAL_MS);
+
     writePid();
     logger.info(`[Daemon] Started on ${IPC_SOCKET_PATH}`);
   }
@@ -85,6 +93,11 @@ export class Daemon {
     const remaining = getTotalActiveJobs();
     if (remaining > 0) {
       logger.warn(`[Daemon] Timeout: ${remaining} job(s) still active, forcing exit`);
+    }
+
+    if (this.checkpointTimer) {
+      clearInterval(this.checkpointTimer);
+      this.checkpointTimer = null;
     }
 
     try {
@@ -120,7 +133,7 @@ function removePid(): void {
 
 if (require.main === module) {
   const daemon = new Daemon();
-  daemon.start().catch(console.error);
+
   process.on('SIGINT', async () => {
     await daemon.stop();
     process.exit(0);
@@ -129,4 +142,16 @@ if (require.main === module) {
     await daemon.stop();
     process.exit(0);
   });
+  process.on('uncaughtException', (err) => {
+    const logger = getLogger();
+    logger.error('[Daemon] Uncaught exception:', err);
+    void daemon.stop().finally(() => process.exit(1));
+  });
+  process.on('unhandledRejection', (reason) => {
+    const logger = getLogger();
+    logger.error('[Daemon] Unhandled rejection:', reason);
+    void daemon.stop().finally(() => process.exit(1));
+  });
+
+  daemon.start().catch(console.error);
 }

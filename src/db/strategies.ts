@@ -3,6 +3,9 @@ import { Strategy } from '../shared/types';
 import { now } from '../shared/utils';
 
 export async function createStrategy(strategy: Omit<Strategy, 'created_at' | 'updated_at'>): Promise<void> {
+  const columnDefs = parseJsonSchemaToColumns(strategy.output_schema as Record<string, unknown>);
+  await createStrategyResultTable(strategy.id, columnDefs);
+
   await run(
     `INSERT INTO strategies (id, name, description, version, target, needs_media, prompt, output_schema, batch_config, file_path, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,

@@ -11,6 +11,7 @@ import { createFieldMapping, listFieldMappings } from '../db/field-mappings';
 import { createTemplate, listTemplates, getTemplateById, updateTemplate, setDefaultTemplate } from '../db/templates';
 import { enqueueJobs, getQueueStats, syncWaitingMediaJobs } from '../db/queue-jobs';
 import { getDbPath, query, run } from '../db/client';
+import { getLogger } from '../shared/logger';
 import { generateId, now, parseImportFile } from '../shared/utils';
 import { fetchViaOpencli } from '../data-fetcher/opencli';
 import { createStrategy, getStrategyById, listStrategies, validateStrategyJson, updateStrategy, deleteStrategy, parseJsonSchemaToColumns, createStrategyResultTable, syncStrategyResultTable } from '../db/strategies';
@@ -1242,6 +1243,8 @@ async function runPrepareDataAsync(
   taskId: string,
   cliTemplates: { fetch_note: string; fetch_comments?: string; fetch_media?: string },
 ): Promise<void> {
+  const logger = getLogger();
+  logger.info(`[prepare-data] Starting for task ${taskId}`);
   const { listTaskTargets } = await import('../db/task-targets');
   const { getPostById } = await import('../db/posts');
   const postTargets = (await listTaskTargets(taskId)).filter(t => t.target_type === 'post');
@@ -1318,7 +1321,7 @@ async function runPrepareDataAsync(
           );
         }
       } catch (err) {
-        console.error(`[prepare-data] fetch_note failed for post ${postId}:`, err);
+        logger.error(`[prepare-data] fetch_note failed for post ${postId}:`, err);
         await upsertTaskPostStatus(taskId, postId, { status: 'failed', error: `fetch_note: ${err}` });
         continue;
       }
@@ -1411,11 +1414,11 @@ async function runPrepareDataAsync(
           for (const update of stepUpdates) {
             await (await import('../db/task-steps')).updateTaskStepStatus(update.stepId, update.status, update.stats);
           }
-          console.log(`[stream-scheduler] Post ${postId}: enqueued ${jobs.length} jobs`);
+          logger.info(`[stream-scheduler] Post ${postId}: enqueued ${jobs.length} jobs`);
         }
       } catch (schedErr: unknown) {
         const msg = schedErr instanceof Error ? schedErr.message : String(schedErr);
-        console.error(`[stream-scheduler] Failed to enqueue for post ${postId}:`, msg);
+        logger.error(`[stream-scheduler] Failed to enqueue for post ${postId}:`, msg);
         // Non-fatal: data preparation continues regardless
       }
     } catch (err: unknown) {

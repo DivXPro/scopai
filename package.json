@@ -1,6 +1,6 @@
 {
   "name": "analyze-cli",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "AI-powered social media content analysis CLI tool",
   "main": "dist/cli/index.js",
   "bin": {
