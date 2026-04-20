@@ -3,6 +3,53 @@ import * as pc from 'picocolors';
 import * as fs from 'fs';
 import { daemonCall } from './ipc-client';
 
+interface AggregateOpts {
+  taskId: string;
+  strategy: string;
+  groupBy: string;
+  agg?: string;
+  jsonKey?: string;
+  having?: string;
+  limit?: string;
+  format?: string;
+  output?: string;
+}
+
+interface AggregateRow {
+  [key: string]: string | number;
+}
+
+function formatAggregateOutput(rows: AggregateRow[], format: string, outputPath?: string): string {
+  if (format === 'json') {
+    return rows.map(r => JSON.stringify(r)).join('\n') + '\n';
+  }
+  if (format === 'csv') {
+    const headers = Object.keys(rows[0]);
+    const lines = [headers.join(',')];
+    for (const row of rows) {
+      const values = headers.map(h => {
+        const v = row[h];
+        const str = String(v === null || v === undefined ? '' : v);
+        if (str.includes(',') || str.includes('"')) return '"' + str.replace(/"/g, '""') + '"';
+        return str;
+      });
+      lines.push(values.join(','));
+    }
+    return lines.join('\n') + '\n';
+  }
+  // table format
+  const headers = Object.keys(rows[0]);
+  const colWidths = headers.map((h, i) =>
+    Math.max(h.length, ...rows.slice(0, 50).map(r => String(r[h] ?? '').length))
+  );
+  const divider = '  ' + headers.map((h, i) => pc.bold(h.padEnd(colWidths[i]))).join('  ');
+  const headerLine = '  ' + colWidths.map(w => pc.dim('─'.repeat(w))).join('  ');
+  const lines = rows.slice(0, 50).map(row =>
+    '  ' + headers.map((h, i) => String(row[h] ?? '').padEnd(colWidths[i])).join('  ')
+  );
+  return '\n' + divider + '\n' + headerLine + '\n' + lines.join('\n') + '\n\n';
+}
+
 export function strategyCommands(program: Command): void {
   const strategy = program.command('strategy').description('Strategy management');
 
@@ -173,6 +220,37 @@ export function strategyCommands(program: Command): void {
             }
           }
         }
+        // New: call full stats for array field aggregation
+        try {
+          const fullStats = await daemonCall('strategy.result.fullStats', {
+            task_id: opts.taskId,
+            strategy_id: opts.strategy,
+          }) as Record<string, unknown>;
+          const array = fullStats.array as Record<string, unknown> | undefined;
+          if (array && Object.keys(array).length > 0) {
+            console.log('\n  Array Fields:');
+            for (const [col, data] of Object.entries(array)) {
+              if ((data as any)?.skipped) {
+                console.log(`    ${col} (JSON) → ${(data as any).hint}`);
+                continue;
+              }
+              const rows = (data as any)?.varchar_array as AggregateRow[] | undefined;
+              if (rows && rows.length > 0) {
+                const valKey = `${col}_val`;
+                const cntKey = `${col}_count`;
+                console.log(`    ${col}:`);
+                for (const row of rows.slice(0, 10)) {
+                  const val = row[valKey];
+                  const cnt = row[cntKey];
+                  console.log(`      ${val}  ${cnt}`);
+                }
+                if (rows.length > 10) console.log(`      ... (${rows.length} total)`);
+              }
+            }
+          }
+        } catch {
+          // strategy.result.fullStats not available yet, skip silently
+        }
         console.log(pc.dim('─'.repeat(40)));
       } catch (err: unknown) {
         console.error(pc.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
@@ -199,6 +277,48 @@ export function strategyCommands(program: Command): void {
           process.stdout.write(result.content);
         } else {
           console.log(pc.green(`Exported ${result.count} rows to ${opts.output}`));
+        }
+      } catch (err: unknown) {
+        console.error(pc.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
+        process.exit(1);
+      }
+    });
+
+  result
+    .command('aggregate')
+    .description('Aggregate a specific field from strategy results')
+    .requiredOption('--task-id <id>', 'Task ID')
+    .requiredOption('--strategy <id>', 'Strategy ID')
+    .requiredOption('--group-by <field>', 'Field to aggregate')
+    .option('--agg <fn>', 'Aggregation function (count/sum/avg/min/max)', 'count')
+    .option('--json-key <key>', 'JSON key to extract for JSON array fields')
+    .option('--having <condition>', 'Filter aggregated results (e.g. "count > 2")')
+    .option('--limit <n>', 'Max result rows', '50')
+    .option('--format <fmt>', 'Output format (table/csv/json)', 'table')
+    .option('--output <path>', 'Output file path')
+    .action(async (opts: AggregateOpts) => {
+      try {
+        const rows = await daemonCall('strategy.result.aggregate', {
+          task_id: opts.taskId,
+          strategy_id: opts.strategy,
+          field: opts.groupBy,
+          agg: opts.agg,
+          json_key: opts.jsonKey,
+          having: opts.having,
+          limit: parseInt(opts.limit, 10),
+        }) as AggregateRow[];
+
+        if (rows.length === 0) {
+          console.log(pc.yellow('No results'));
+          return;
+        }
+
+        const output = formatAggregateOutput(rows, opts.format ?? 'table', opts.output);
+        if (opts.output) {
+          fs.writeFileSync(opts.output, output);
+          console.log(pc.green(`Wrote ${rows.length} rows to ${opts.output}`));
+        } else {
+          process.stdout.write(output);
         }
       } catch (err: unknown) {
         console.error(pc.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
