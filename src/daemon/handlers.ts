@@ -794,6 +794,29 @@ export function getHandlers(): Record<string, Handler> {
       return { content, writtenTo: outputPath ?? null, count: allResults.length };
     },
 
+    async 'strategy.result.aggregate'(params) {
+      if (typeof params.task_id !== 'string') throw new Error('task_id is required');
+      if (typeof params.strategy_id !== 'string') throw new Error('strategy_id is required');
+      if (typeof params.field !== 'string') throw new Error('field is required');
+      const { runAggregate } = await import('../db/aggregation');
+      const aggFn = (params.agg as 'count' | 'sum' | 'avg' | 'min' | 'max') ?? 'count';
+      const limit = typeof params.limit === 'number' ? params.limit : parseInt(params.limit as string, 10) || 50;
+      return runAggregate(params.strategy_id as string, params.task_id as string, {
+        field: params.field as string,
+        aggFn,
+        jsonKey: params.json_key as string | undefined,
+        having: params.having as string | undefined,
+        limit,
+      });
+    },
+
+    async 'strategy.result.fullStats'(params) {
+      if (typeof params.task_id !== 'string') throw new Error('task_id is required');
+      if (typeof params.strategy_id !== 'string') throw new Error('strategy_id is required');
+      const { getFullStats } = await import('../db/aggregation');
+      return getFullStats(params.strategy_id as string, params.task_id as string);
+    },
+
     async 'result.media'(params) {
       const taskId = params.task_id as string;
       const postIdFilter = params.post_id as string | null;
