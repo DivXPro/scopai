@@ -27,7 +27,7 @@ Run these **in order** before any workflow:
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 1 | **search_posts** | `opencli <site> search {query} --limit {limit} -f json` | Discover posts before importing. Run `opencli list \| grep <keyword>` to find the correct site name. |
+| 1 | **search_posts** | `opencli <site> <command> {query} --limit {limit} -f json` | Discover posts before importing. **Commands vary by platform** — (1) run `opencli list \| grep <keyword>` to find the platform, (2) run `opencli <platform> --help` to list available commands, (3) run `opencli <platform> <command> -h` to understand specific command usage. |
 | 2 | **add_platform** | `analyze-cli platform add --id {id} --name {name}` | Register a platform if not already in `analyze-cli platform list`. |
 | 3 | **import_posts** | `analyze-cli post import --platform {id} --file {path} [--task-id {tid}]` | Import search results. **Do NOT manually fetch note details before import** — let `prepare-data` enrich posts via `fetch_note` template. Duplicates are updated, not skipped. |
 | 4 | **import_comments** | `analyze-cli comment import --platform {id} --post-id {id} --file {path}` | Import comments from JSON/JSONL after fetching. Duplicates skipped. |
