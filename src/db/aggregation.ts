@@ -8,7 +8,8 @@ export interface ColumnMeta {
 }
 
 export interface AggregateOptions {
-  field: string;
+  field?: string;
+  fields?: string[];
   aggFn?: 'count' | 'sum' | 'avg' | 'min' | 'max';
   jsonKey?: string;
   having?: string;
@@ -111,6 +112,9 @@ export async function aggregateArray(
 
   let sql = `SELECT t."${valAlias}" as "${valAlias}", ${metricExpr} as "${metricAlias}" FROM "${tableName}", LATERAL (SELECT unnest("${col}")) AS t("${valAlias}") WHERE "${tableName}".task_id = ? AND t."${valAlias}" IS NOT NULL AND t."${valAlias}" != '' GROUP BY t."${valAlias}"`;
   if (having) {
+    if (!/^[a-zA-Z0-9_\s><=().+-]+$/.test(having)) {
+      throw new Error(`Invalid --having value: only letters, numbers, spaces, underscores, and comparison operators allowed`);
+    }
     sql += ` HAVING ${having}`;
   }
   sql += ` ORDER BY "${metricAlias}" DESC LIMIT ?`;
@@ -151,6 +155,9 @@ export async function aggregateJson(
 
   let sql = `SELECT ${extracted} as "${valAlias}", ${metricExpr} as "${metricAlias}" FROM "${tableName}", json_each("${col}") AS t WHERE "${tableName}".task_id = ? AND ${extracted} IS NOT NULL AND ${extracted} != '' GROUP BY 1`;
   if (having) {
+    if (!/^[a-zA-Z0-9_\s><=().+-]+$/.test(having)) {
+      throw new Error(`Invalid --having value: only letters, numbers, spaces, underscores, and comparison operators allowed`);
+    }
     sql += ` HAVING ${having}`;
   }
   sql += ` ORDER BY "${metricAlias}" DESC LIMIT ?`;
@@ -166,6 +173,7 @@ export async function runAggregate(
   const tableName = getStrategyResultTableName(strategyId);
   const meta = await detectColumnMeta(tableName);
   const { field, aggFn = 'count', jsonKey, limit = 50 } = opts;
+  if (!field) throw new Error('field is required for single-field aggregation');
 
   if (!(field in meta)) {
     const available = Object.keys(meta).join(', ');
@@ -199,6 +207,85 @@ export async function runAggregate(
     [`${field}_val`]: val,
     [`${field}_count`]: count,
   } as AggregateRow));
+}
+
+export interface MultiAggregateOptions {
+  fields: string[];
+  aggFn?: 'count' | 'sum' | 'avg' | 'min' | 'max';
+  jsonKey?: string;
+  having?: string;
+  limit?: number;
+}
+
+export async function runMultiAggregate(
+  strategyId: string,
+  taskId: string,
+  opts: MultiAggregateOptions,
+): Promise<AggregateRow[]> {
+  const tableName = getStrategyResultTableName(strategyId);
+  const meta = await detectColumnMeta(tableName);
+  const { fields, aggFn = 'count', jsonKey, having, limit = 50 } = opts;
+  const effectiveLimit = limit <= 0 ? 50 : limit;
+
+  // Validate all fields exist
+  for (const field of fields) {
+    if (!(field in meta)) {
+      const available = Object.keys(meta).join(', ');
+      throw new Error(`Field '${field}' not found. Available columns: ${available}`);
+    }
+  }
+
+  // Build SELECT list, FROM clause, GROUP BY list
+  const selectParts: string[] = [];
+  const groupByParts: string[] = [];
+  const whereParts: string[] = [`"${tableName}".task_id = ?`];
+  const fromParts: string[] = [`"${tableName}"`];
+
+  for (const field of fields) {
+    const duckDbType = meta[field];
+    if (duckDbType === 'VARCHAR[]' || duckDbType === 'DOUBLE[]' || duckDbType === 'BOOLEAN[]') {
+      // Each array field gets its own LATERAL unnest with unique alias
+      selectParts.push(`u_${field}.v AS "${field}"`);
+      fromParts.push(`LATERAL (SELECT unnest("${tableName}"."${field}")) AS u_${field}(v)`);
+      groupByParts.push(`u_${field}.v`);
+      whereParts.push(`u_${field}.v IS NOT NULL AND u_${field}.v != ''`);
+    } else if (duckDbType === 'JSON' || duckDbType === 'JSON[]') {
+      if (!jsonKey) {
+        throw new Error(`Field '${field}' is JSON. Use --json-key <key> to specify which key to extract for aggregation.`);
+      }
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(jsonKey)) {
+        throw new Error(`Invalid --json-key '${jsonKey}': must be alphanumeric/underscore`);
+      }
+      selectParts.push(`COALESCE(CAST(json_extract_string(je_${field}.value, '$.${jsonKey}') AS VARCHAR), '') AS "${field}"`);
+      fromParts.push(`json_each("${tableName}"."${field}") AS je_${field}`);
+      groupByParts.push(`COALESCE(CAST(json_extract_string(je_${field}.value, '$.${jsonKey}') AS VARCHAR), '')`);
+      whereParts.push(`json_extract_string(je_${field}.value, '$.${jsonKey}') IS NOT NULL`);
+    } else if (NUMERIC_TYPES.includes(duckDbType as typeof NUMERIC_TYPES[number])) {
+      selectParts.push(`"${field}"`);
+      groupByParts.push(`"${field}"`);
+    } else {
+      // VARCHAR / TEXT
+      selectParts.push(`COALESCE("${field}", '') AS "${field}"`);
+      groupByParts.push(`COALESCE("${field}", '')`);
+    }
+  }
+
+  const metricAlias = aggFn === 'count' ? 'count' : aggFn;
+  const metricExpr = aggFn === 'count' ? 'COUNT(*)' : aggFn === 'sum' ? `SUM("${fields[0]}")` : aggFn === 'avg' ? `AVG("${fields[0]}")` : aggFn === 'min' ? `MIN("${fields[0]}")` : `MAX("${fields[0]}")`;
+
+  let sql = `SELECT ${selectParts.join(', ')}, ${metricExpr} AS "${metricAlias}" FROM ${fromParts.join(', ')} WHERE ${whereParts.join(' AND ')} GROUP BY ${groupByParts.join(', ')}`;
+
+  if (having) {
+    if (!/^[a-zA-Z0-9_\s><=().+-]+$/.test(having)) {
+      throw new Error(`Invalid --having value: only letters, numbers, spaces, underscores, and comparison operators allowed`);
+    }
+    sql += ` HAVING ${having}`;
+  }
+
+  sql += ` ORDER BY "${metricAlias}" DESC LIMIT ?`;
+
+  const rows = await query<AggregateRow>(sql, [taskId, effectiveLimit]);
+  return rows;
 }
 
 export async function getFullStats(strategyId: string, taskId: string): Promise<Record<string, unknown>> {

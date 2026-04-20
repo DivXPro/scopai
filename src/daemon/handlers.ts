@@ -798,9 +798,23 @@ export function getHandlers(): Record<string, Handler> {
       if (typeof params.task_id !== 'string') throw new Error('task_id is required');
       if (typeof params.strategy_id !== 'string') throw new Error('strategy_id is required');
       if (typeof params.field !== 'string') throw new Error('field is required');
-      const { runAggregate } = await import('../db/aggregation');
+      const { runAggregate, runMultiAggregate } = await import('../db/aggregation');
       const aggFn = (params.agg as 'count' | 'sum' | 'avg' | 'min' | 'max') ?? 'count';
       const limit = typeof params.limit === 'number' ? params.limit : parseInt(params.limit as string, 10) || 50;
+
+      // Multi-field: comma-separated fields → combination aggregation
+      if (params.field.includes(',')) {
+        const fields = params.field.split(',').map(f => f.trim());
+        return runMultiAggregate(params.strategy_id as string, params.task_id as string, {
+          fields,
+          aggFn,
+          jsonKey: params.json_key as string | undefined,
+          having: params.having as string | undefined,
+          limit,
+        });
+      }
+
+      // Single field → original behavior
       return runAggregate(params.strategy_id as string, params.task_id as string, {
         field: params.field as string,
         aggFn,

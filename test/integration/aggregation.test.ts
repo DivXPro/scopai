@@ -12,6 +12,7 @@ import {
   aggregateArray,
   aggregateJson,
   runAggregate,
+  runMultiAggregate,
   getFullStats,
 } from '../../dist/db/aggregation.js';
 
@@ -145,5 +146,61 @@ describe('aggregation', { timeout: 15000 }, () => {
     }
     assert.strictEqual(byName['美食'], 2);
     assert.strictEqual(byName['生活方式'], 2);
+  });
+
+  it('runMultiAggregate validates all fields exist', async () => {
+    try {
+      await runMultiAggregate(strategyId, 'task-agg-1', { fields: ['tags', 'nonexistent'] });
+      assert.fail('should throw');
+    } catch (e: any) {
+      assert.ok(e.message.includes('nonexistent'));
+      assert.ok(e.message.includes('Available columns'));
+    }
+  });
+
+  it('runMultiAggregate requires --json-key for JSON field', async () => {
+    try {
+      await runMultiAggregate(strategyId, 'task-agg-1', { fields: ['tags', 'topics'] });
+      assert.fail('should throw');
+    } catch (e: any) {
+      assert.ok(e.message.includes('--json-key'));
+    }
+  });
+
+  it('runMultiAggregate combines VARCHAR[] + VARCHAR for combination counts', async () => {
+    const rows = await runMultiAggregate(strategyId, 'task-agg-1', {
+      fields: ['tags', 'sentiment_label'],
+      aggFn: 'count',
+    });
+    // Post1: 美食-positive, 探店-positive
+    // Post2: 美食-positive, 上海-positive
+    // Post3: 探店-negative
+    const combo = (tag: string, sentiment: string) =>
+      rows.find(r => r.tags === tag && r.sentiment_label === sentiment);
+    assert.strictEqual(Number(combo('美食', 'positive')?.count), 2);
+    assert.strictEqual(Number(combo('探店', 'positive')?.count), 1);
+    assert.strictEqual(Number(combo('上海', 'positive')?.count), 1);
+    assert.strictEqual(Number(combo('探店', 'negative')?.count), 1);
+  });
+
+  it('runMultiAggregate with JSON field uses --json-key', async () => {
+    const rows = await runMultiAggregate(strategyId, 'task-agg-1', {
+      fields: ['topics', 'sentiment_label'],
+      jsonKey: 'name',
+      aggFn: 'count',
+    });
+    const combo = (topic: string, sentiment: string) =>
+      rows.find(r => r.topics === topic && r.sentiment_label === sentiment);
+    assert.strictEqual(Number(combo('生活方式', 'positive')?.count), 1);
+    assert.strictEqual(Number(combo('美食', 'positive')?.count), 2);
+    assert.strictEqual(Number(combo('生活方式', 'negative')?.count), 1);
+  });
+
+  it('runMultiAggregate respects limit', async () => {
+    const rows = await runMultiAggregate(strategyId, 'task-agg-1', {
+      fields: ['tags', 'sentiment_label'],
+      limit: 2,
+    });
+    assert.ok(rows.length <= 2, 'should respect limit');
   });
 });

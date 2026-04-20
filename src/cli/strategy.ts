@@ -166,7 +166,7 @@ export function strategyCommands(program: Command): void {
         const rows = await daemonCall('strategy.result.list', {
           task_id: opts.taskId,
           strategy_id: opts.strategy,
-          limit: parseInt(opts.limit, 10),
+          limit: parseInt(opts.limit ?? '50', 10),
         }) as any[];
         if (rows.length === 0) {
           console.log(pc.yellow('No results found'));
@@ -304,8 +304,8 @@ export function strategyCommands(program: Command): void {
           field: opts.groupBy,
           agg: opts.agg,
           json_key: opts.jsonKey,
-          having: opts.having,
-          limit: parseInt(opts.limit, 10),
+          having: opts.having ?? null,
+          limit: parseInt(opts.limit ?? '50', 10),
         }) as AggregateRow[];
 
         if (rows.length === 0) {
