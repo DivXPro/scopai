@@ -272,7 +272,7 @@ export function taskCommands(program: Command): void {
         step_id: opts.stepId,
       }) as { enqueued: number; status: string };
 
-      if (!opts.wait) {
+      if (opts.wait === false) {
         console.log(pc.green(`Step status: ${result.status}`));
         if (result.enqueued > 0) {
           console.log(`  Enqueued ${result.enqueued} jobs`);
@@ -346,7 +346,7 @@ export function taskCommands(program: Command): void {
         skipped: number;
       };
 
-      if (!opts.wait) {
+      if (opts.wait === false) {
         console.log(pc.green('All steps processed'));
         console.log(`  Completed: ${result.completed}`);
         console.log(`  Failed:    ${result.failed}`);
