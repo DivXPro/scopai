@@ -90,6 +90,7 @@ export async function aggregateArray(
   duckDbType: string,
   aggFn: 'count' | 'sum' | 'avg' | 'min' | 'max' = 'count',
   limit = 50,
+  having?: string,
 ): Promise<AggregateRow[]> {
   const valAlias = await resolveAlias(tableName, col, 'val');
   const metricAlias = await resolveAlias(tableName, col, aggFn === 'count' ? 'count' : aggFn);
@@ -108,7 +109,11 @@ export async function aggregateArray(
     metricExpr = `MAX(t."${valAlias}")`;
   }
 
-  const sql = `SELECT t."${valAlias}" as "${valAlias}", ${metricExpr} as "${metricAlias}" FROM "${tableName}", LATERAL (SELECT unnest("${col}")) AS t("${valAlias}") WHERE "${tableName}".task_id = ? AND t."${valAlias}" IS NOT NULL AND t."${valAlias}" != '' GROUP BY t."${valAlias}" ORDER BY "${metricAlias}" DESC LIMIT ?`;
+  let sql = `SELECT t."${valAlias}" as "${valAlias}", ${metricExpr} as "${metricAlias}" FROM "${tableName}", LATERAL (SELECT unnest("${col}")) AS t("${valAlias}") WHERE "${tableName}".task_id = ? AND t."${valAlias}" IS NOT NULL AND t."${valAlias}" != '' GROUP BY t."${valAlias}"`;
+  if (having) {
+    sql += ` HAVING ${having}`;
+  }
+  sql += ` ORDER BY "${metricAlias}" DESC LIMIT ?`;
   const rows = await query<AggregateRow>(sql, [taskId, effectiveLimit]);
   return rows;
 }
@@ -120,6 +125,7 @@ export async function aggregateJson(
   jsonKey: string,
   aggFn: 'count' | 'sum' | 'avg' | 'min' | 'max' = 'count',
   limit = 50,
+  having?: string,
 ): Promise<AggregateRow[]> {
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(jsonKey)) {
     throw new Error(`Invalid --json-key '${jsonKey}': must be alphanumeric/underscore`);
@@ -143,7 +149,11 @@ export async function aggregateJson(
     metricExpr = `MAX(CAST(${extracted} AS DOUBLE))`;
   }
 
-  const sql = `SELECT ${extracted} as "${valAlias}", ${metricExpr} as "${metricAlias}" FROM "${tableName}", json_each("${col}") AS t WHERE "${tableName}".task_id = ? AND ${extracted} IS NOT NULL AND ${extracted} != '' GROUP BY 1 ORDER BY "${metricAlias}" DESC LIMIT ?`;
+  let sql = `SELECT ${extracted} as "${valAlias}", ${metricExpr} as "${metricAlias}" FROM "${tableName}", json_each("${col}") AS t WHERE "${tableName}".task_id = ? AND ${extracted} IS NOT NULL AND ${extracted} != '' GROUP BY 1`;
+  if (having) {
+    sql += ` HAVING ${having}`;
+  }
+  sql += ` ORDER BY "${metricAlias}" DESC LIMIT ?`;
   const rows = await query<AggregateRow>(sql, [taskId, effectiveLimit]);
   return rows;
 }
@@ -168,11 +178,11 @@ export async function runAggregate(
     if (!jsonKey) {
       throw new Error(`Field '${field}' is JSON. Use --json-key <key> to specify which key to extract for aggregation.`);
     }
-    return aggregateJson(tableName, taskId, field, jsonKey, aggFn, limit);
+    return aggregateJson(tableName, taskId, field, jsonKey, aggFn, limit, opts.having);
   }
 
   if (duckDbType === 'VARCHAR[]' || duckDbType === 'DOUBLE[]' || duckDbType === 'BOOLEAN[]') {
-    return aggregateArray(tableName, taskId, field, duckDbType, aggFn, limit);
+    return aggregateArray(tableName, taskId, field, duckDbType, aggFn, limit, opts.having);
   }
 
   if (NUMERIC_TYPES.includes(duckDbType as typeof NUMERIC_TYPES[number])) {
