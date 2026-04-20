@@ -40,10 +40,18 @@ describe('aggregation', { timeout: 15000 }, () => {
       output_schema: schema,
     });
     tableName = getStrategyResultTableName(strategyId);
-    // Insert test data using string concatenation to avoid prepared statement issues
-    await run(`INSERT OR REPLACE INTO "${tableName}" VALUES ('r1', 'task-agg-1', 'post', 'p1', NULL, '1.0.0', 0.8, 'positive', '${JSON.stringify(['美食', '探店'])}', '${JSON.stringify([{name: '生活方式'}, {name: '美食'}])}', NULL, NULL, NULL)`);
-    await run(`INSERT OR REPLACE INTO "${tableName}" VALUES ('r2', 'task-agg-1', 'post', 'p2', NULL, '1.0.0', 0.6, 'positive', '${JSON.stringify(['美食', '上海'])}', '${JSON.stringify([{name: '美食'}])}', NULL, NULL, NULL)`);
-    await run(`INSERT OR REPLACE INTO "${tableName}" VALUES ('r3', 'task-agg-1', 'post', 'p3', NULL, '1.0.0', 0.3, 'negative', '${JSON.stringify(['探店'])}', '${JSON.stringify([{name: '生活方式'}])}', NULL, NULL, NULL)`);
+    // Override tags column to VARCHAR[] so aggregateArray can unnest native DuckDB arrays
+    await run(`CREATE TABLE IF NOT EXISTS "${tableName}" (
+      id TEXT PRIMARY KEY, task_id TEXT NOT NULL, target_type TEXT NOT NULL,
+      target_id TEXT NOT NULL, post_id TEXT, strategy_version TEXT NOT NULL,
+      sentiment_score DOUBLE, sentiment_label TEXT, tags VARCHAR[],
+      topics JSON, raw_response JSON, error TEXT, analyzed_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(task_id, target_type, target_id)
+    )`);
+    // Insert test data with native DuckDB array syntax for tags
+    await run(`INSERT INTO "${tableName}" VALUES ('r1', 'task-agg-1', 'post', 'p1', NULL, '1.0.0', 0.8, 'positive', ['美食', '探店'], '${JSON.stringify([{name: '生活方式'}, {name: '美食'}])}', NULL, NULL, NULL)`);
+    await run(`INSERT INTO "${tableName}" VALUES ('r2', 'task-agg-1', 'post', 'p2', NULL, '1.0.0', 0.6, 'positive', ['美食', '上海'], '${JSON.stringify([{name: '美食'}])}', NULL, NULL, NULL)`);
+    await run(`INSERT INTO "${tableName}" VALUES ('r3', 'task-agg-1', 'post', 'p3', NULL, '1.0.0', 0.3, 'negative', ['探店'], '${JSON.stringify([{name: '生活方式'}])}', NULL, NULL, NULL)`);
   });
 
   after(async () => {
@@ -54,7 +62,7 @@ describe('aggregation', { timeout: 15000 }, () => {
   it('detectColumnMeta returns all column types', async () => {
     const meta = await detectColumnMeta(tableName);
     assert.ok(meta.sentiment_score, 'should detect DOUBLE');
-    assert.ok(meta.tags, 'should detect JSON');
+    assert.ok(meta.tags, 'should detect VARCHAR[]');
     assert.ok(meta.topics, 'should detect JSON');
   });
 
@@ -96,5 +104,46 @@ describe('aggregation', { timeout: 15000 }, () => {
     assert.ok(stats.numeric);
     assert.ok(stats.text);
     assert.ok(stats.array);
+  });
+
+  it('aggregateArray unnests VARCHAR[] and groups by element', async () => {
+    const rows = await aggregateArray(tableName, 'task-agg-1', 'tags', 'VARCHAR[]', 'count', 50);
+    // Should have 美食(2), 探店(2), 上海(1)
+    const byTag: Record<string, number> = {};
+    for (const row of rows) {
+      byTag[String(row[Object.keys(row)[0]])] = Number(row[Object.keys(row)[1]]);
+    }
+    assert.strictEqual(byTag['美食'], 2);
+    assert.strictEqual(byTag['探店'], 2);
+    assert.strictEqual(byTag['上海'], 1);
+  });
+
+  it('aggregateJson rejects invalid jsonKey with SQL injection chars', async () => {
+    try {
+      await aggregateJson(tableName, 'task-agg-1', 'topics', "name'; DROP TABLE--", 'count', 50);
+      assert.fail('should throw');
+    } catch (e: any) {
+      assert.ok(e.message.includes("Invalid --json-key"));
+      assert.ok(e.message.includes("'; DROP TABLE--"));
+    }
+  });
+
+  it('aggregateJson rejects jsonKey with spaces', async () => {
+    try {
+      await aggregateJson(tableName, 'task-agg-1', 'topics', 'has space', 'count', 50);
+      assert.fail('should throw');
+    } catch (e: any) {
+      assert.ok(e.message.includes('Invalid --json-key'));
+    }
+  });
+
+  it('aggregateJson accepts valid jsonKey and groups by extracted field', async () => {
+    const rows = await aggregateJson(tableName, 'task-agg-1', 'topics', 'name', 'count', 50);
+    const byName: Record<string, number> = {};
+    for (const row of rows) {
+      byName[String(row[Object.keys(row)[0]])] = Number(row[Object.keys(row)[1]]);
+    }
+    assert.strictEqual(byName['美食'], 2);
+    assert.strictEqual(byName['生活方式'], 2);
   });
 });

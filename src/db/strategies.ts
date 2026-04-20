@@ -10,11 +10,11 @@ export async function createStrategy(strategy: Omit<Strategy, 'created_at' | 'up
     `INSERT INTO strategies (id, name, description, version, target, needs_media, prompt, output_schema, batch_config, file_path, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      strategy.id, strategy.name, strategy.description, strategy.version, strategy.target,
-      strategy.needs_media ? JSON.stringify(strategy.needs_media) : null,
+      strategy.id, strategy.name ?? null, strategy.description ?? null, strategy.version, strategy.target,
+      strategy.needs_media != null ? JSON.stringify(strategy.needs_media) : null,
       strategy.prompt, JSON.stringify(strategy.output_schema),
-      strategy.batch_config ? JSON.stringify(strategy.batch_config) : null,
-      strategy.file_path,
+      strategy.batch_config != null ? JSON.stringify(strategy.batch_config) : null,
+      strategy.file_path ?? null,
       now(), now(),
     ]
   );

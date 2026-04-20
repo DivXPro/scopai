@@ -1,6 +1,8 @@
 import { query } from './client';
 import { getStrategyResultTableName } from './strategies';
 
+const NUMERIC_TYPES = ['DOUBLE', 'FLOAT', 'INTEGER', 'BIGINT', 'HUGEINT', 'SMALLINT', 'TINYINT'] as const;
+
 export interface ColumnMeta {
   [columnName: string]: string;
 }
@@ -54,13 +56,12 @@ export async function aggregateScalar(
   col: string,
   duckDbType: string,
 ): Promise<Record<string, unknown>> {
-  const numTypes = ['DOUBLE', 'FLOAT', 'INTEGER', 'BIGINT', 'HUGEINT', 'SMALLINT', 'TINYINT'];
-  if (numTypes.includes(duckDbType)) {
+  if (NUMERIC_TYPES.includes(duckDbType as typeof NUMERIC_TYPES[number])) {
     const avgAlias = await resolveAlias(tableName, col, 'avg');
     const minAlias = await resolveAlias(tableName, col, 'min');
     const maxAlias = await resolveAlias(tableName, col, 'max');
     const rows = await query<Record<string, unknown>>(
-      `SELECT AVG(${col}) as ${avgAlias}, MIN(${col}) as ${minAlias}, MAX(${col}) as ${maxAlias} FROM "${tableName}" WHERE task_id = ? AND ${col} IS NOT NULL`,
+      `SELECT AVG("${col}") as "${avgAlias}", MIN("${col}") as "${minAlias}", MAX("${col}") as "${maxAlias}" FROM "${tableName}" WHERE task_id = ? AND "${col}" IS NOT NULL`,
       [taskId],
     );
     return {
@@ -72,7 +73,7 @@ export async function aggregateScalar(
   const valAlias = await resolveAlias(tableName, col, 'val');
   const cntAlias = await resolveAlias(tableName, col, 'count');
   const rows = await query<Record<string, unknown>>(
-    `SELECT ${col} as ${valAlias}, COUNT(*) as ${cntAlias} FROM "${tableName}" WHERE task_id = ? AND ${col} IS NOT NULL GROUP BY ${col} ORDER BY ${cntAlias} DESC`,
+    `SELECT "${col}" as "${valAlias}", COUNT(*) as "${cntAlias}" FROM "${tableName}" WHERE task_id = ? AND "${col}" IS NOT NULL GROUP BY "${col}" ORDER BY "${cntAlias}" DESC`,
     [taskId],
   );
   const distribution: Record<string, number> = {};
@@ -98,16 +99,16 @@ export async function aggregateArray(
   if (aggFn === 'count') {
     metricExpr = 'COUNT(*)';
   } else if (aggFn === 'sum') {
-    metricExpr = `SUM(t.${valAlias})`;
+    metricExpr = `SUM(t."${valAlias}")`;
   } else if (aggFn === 'avg') {
-    metricExpr = `AVG(t.${valAlias})`;
+    metricExpr = `AVG(t."${valAlias}")`;
   } else if (aggFn === 'min') {
-    metricExpr = `MIN(t.${valAlias})`;
+    metricExpr = `MIN(t."${valAlias}")`;
   } else {
-    metricExpr = `MAX(t.${valAlias})`;
+    metricExpr = `MAX(t."${valAlias}")`;
   }
 
-  const sql = `SELECT t.${valAlias} as ${valAlias}, ${metricExpr} as ${metricAlias} FROM "${tableName}", LATERAL (SELECT unnest(${col})) AS t(${valAlias}) WHERE "${tableName}".task_id = ? AND t.${valAlias} IS NOT NULL AND t.${valAlias} != '' GROUP BY t.${valAlias} ORDER BY ${metricAlias} DESC LIMIT ?`;
+  const sql = `SELECT t."${valAlias}" as "${valAlias}", ${metricExpr} as "${metricAlias}" FROM "${tableName}", LATERAL (SELECT unnest("${col}")) AS t("${valAlias}") WHERE "${tableName}".task_id = ? AND t."${valAlias}" IS NOT NULL AND t."${valAlias}" != '' GROUP BY t."${valAlias}" ORDER BY "${metricAlias}" DESC LIMIT ?`;
   const rows = await query<AggregateRow>(sql, [taskId, effectiveLimit]);
   return rows;
 }
@@ -120,10 +121,14 @@ export async function aggregateJson(
   aggFn: 'count' | 'sum' | 'avg' | 'min' | 'max' = 'count',
   limit = 50,
 ): Promise<AggregateRow[]> {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(jsonKey)) {
+    throw new Error(`Invalid --json-key '${jsonKey}': must be alphanumeric/underscore`);
+  }
   const valAlias = await resolveAlias(tableName, jsonKey, 'val');
   const metricAlias = await resolveAlias(tableName, jsonKey, aggFn === 'count' ? 'count' : aggFn);
   const effectiveLimit = limit <= 0 ? 50 : limit;
-  const extracted = `json_extract_string(j.${valAlias}, '$.${jsonKey}')`;
+  // json_each produces a 'value' column per array element
+  const extracted = `json_extract_string(t.value, '$.${jsonKey}')`;
 
   let metricExpr: string;
   if (aggFn === 'count') {
@@ -138,7 +143,7 @@ export async function aggregateJson(
     metricExpr = `MAX(CAST(${extracted} AS DOUBLE))`;
   }
 
-  const sql = `SELECT ${extracted} as ${valAlias}, ${metricExpr} as ${metricAlias} FROM "${tableName}", LATERAL (SELECT unnest(${col})) AS t, LATERAL (SELECT ${extracted} as ${valAlias}) AS j WHERE "${tableName}".task_id = ? AND j.${valAlias} IS NOT NULL AND j.${valAlias} != '' GROUP BY j.${valAlias} ORDER BY ${metricAlias} DESC LIMIT ?`;
+  const sql = `SELECT ${extracted} as "${valAlias}", ${metricExpr} as "${metricAlias}" FROM "${tableName}", json_each("${col}") AS t WHERE "${tableName}".task_id = ? AND ${extracted} IS NOT NULL AND ${extracted} != '' GROUP BY 1 ORDER BY "${metricAlias}" DESC LIMIT ?`;
   const rows = await query<AggregateRow>(sql, [taskId, effectiveLimit]);
   return rows;
 }
@@ -170,8 +175,7 @@ export async function runAggregate(
     return aggregateArray(tableName, taskId, field, duckDbType, aggFn, limit);
   }
 
-  const numTypes = ['DOUBLE', 'FLOAT', 'INTEGER', 'BIGINT', 'HUGEINT', 'SMALLINT', 'TINYINT'];
-  if (numTypes.includes(duckDbType)) {
+  if (NUMERIC_TYPES.includes(duckDbType as typeof NUMERIC_TYPES[number])) {
     const result = await aggregateScalar(tableName, taskId, field, duckDbType);
     return [{
       [`${field}_avg`]: result.avg,
@@ -199,10 +203,8 @@ export async function getFullStats(strategyId: string, taskId: string): Promise<
   const numeric: Record<string, Record<string, number>> = {};
   const text: Record<string, Record<string, number>> = {};
   const array: Record<string, unknown> = {};
-  const numTypes = ['DOUBLE', 'FLOAT', 'INTEGER', 'BIGINT', 'HUGEINT', 'SMALLINT', 'TINYINT'];
-
   for (const [col, duckDbType] of Object.entries(meta)) {
-    if (numTypes.includes(duckDbType)) {
+    if (NUMERIC_TYPES.includes(duckDbType as typeof NUMERIC_TYPES[number])) {
       const result = await aggregateScalar(tableName, taskId, col, duckDbType);
       numeric[col] = { avg: result.avg as number, min: result.min as number, max: result.max as number };
     } else if (duckDbType === 'VARCHAR' || duckDbType === 'TEXT') {
