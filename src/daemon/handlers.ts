@@ -1248,6 +1248,7 @@ async function runPrepareDataAsync(
   const { listTaskTargets } = await import('../db/task-targets');
   const { getPostById } = await import('../db/posts');
   const postTargets = (await listTaskTargets(taskId)).filter(t => t.target_type === 'post');
+  logger.info(`[prepare-data] Task ${taskId}: ${postTargets.length} post targets`);
   if (postTargets.length === 0) return;
 
   const postIds = postTargets.map(t => t.target_id);
@@ -1256,13 +1257,24 @@ async function runPrepareDataAsync(
   const platformId = firstPost.platform_id;
 
   const pending = await getPendingPostIds(taskId);
+  logger.info(`[prepare-data] Task ${taskId}: ${pending.length} pending posts`);
 
   for (const item of pending) {
     const postId = item.post_id;
+    logger.info(`[prepare-data] Task ${taskId}: processing post ${postId}`);
 
     try {
       const postMeta = await getPostById(postId);
-      const noteId = (postMeta?.metadata as Record<string, unknown> | null)?.note_id as string | undefined;
+      // metadata may be stored as a JSON string in DuckDB — parse it if needed
+      let metadataObj: Record<string, unknown> | null = null;
+      if (postMeta?.metadata) {
+        if (typeof postMeta.metadata === 'string') {
+          try { metadataObj = JSON.parse(postMeta.metadata); } catch { /* ignore */ }
+        } else if (typeof postMeta.metadata === 'object' && postMeta.metadata !== null) {
+          metadataObj = postMeta.metadata as Record<string, unknown>;
+        }
+      }
+      const noteId = metadataObj?.note_id as string | undefined;
       const postUrl = postMeta?.url ?? undefined;
       const fetchVars: Record<string, string> = {
         post_id: postId,
@@ -1271,10 +1283,13 @@ async function runPrepareDataAsync(
         limit: '100',
         download_dir: config.paths.download_dir,
       };
+      logger.info(`[prepare-data] Task ${taskId} post ${postId}: fetchVars note_id=${fetchVars.note_id}, url=${fetchVars.url}`);
 
       // Step 1: fetch_note — enrich post details (content, full stats, tags, etc.)
       try {
+        logger.info(`[prepare-data] Task ${taskId} post ${postId}: Step 1 fetch_note with template "${cliTemplates.fetch_note}"`);
         const noteResult = await fetchViaOpencli(cliTemplates.fetch_note, fetchVars);
+        logger.info(`[prepare-data] Task ${taskId} post ${postId}: fetch_note result success=${noteResult.success}`);
         if (!noteResult.success) {
           logger.error(`[prepare-data] fetch_note failed for post ${postId}: ${noteResult.error ?? 'unknown'}`);
           await upsertTaskPostStatus(taskId, postId, { status: 'failed', error: noteResult.error ?? 'fetch_note failed' });
@@ -1323,6 +1338,7 @@ async function runPrepareDataAsync(
               postId,
             ],
           );
+          logger.info(`[prepare-data] Task ${taskId} post ${postId}: post updated from fetch_note`);
         }
       } catch (err) {
         logger.error(`[prepare-data] fetch_note failed for post ${postId}: ${err instanceof Error ? err.message : String(err)}`);
@@ -1333,30 +1349,37 @@ async function runPrepareDataAsync(
       // Step 2: fetch_comments
       if (cliTemplates.fetch_comments) {
         if (!item.comments_fetched) {
+          logger.info(`[prepare-data] Task ${taskId} post ${postId}: Step 2 fetch_comments`);
           await upsertTaskPostStatus(taskId, postId, { status: 'fetching' });
           const result = await fetchViaOpencli(cliTemplates.fetch_comments, fetchVars);
+          logger.info(`[prepare-data] Task ${taskId} post ${postId}: fetch_comments result success=${result.success}`);
           if (!result.success) {
             logger.error(`[prepare-data] fetch_comments failed for post ${postId}: ${result.error ?? 'unknown'}`);
             await upsertTaskPostStatus(taskId, postId, { error: result.error ?? 'fetch_comments failed' });
           } else {
             const commentCount = await importCommentsToDb(result.data ?? [], postId, platformId);
+            logger.info(`[prepare-data] Task ${taskId} post ${postId}: imported ${commentCount} comments`);
             await upsertTaskPostStatus(taskId, postId, { comments_fetched: true, comments_count: commentCount });
           }
         }
       } else {
         // No fetch_comments template configured — mark as done for this step
+        logger.info(`[prepare-data] Task ${taskId} post ${postId}: Step 2 skip (no template)`);
         await upsertTaskPostStatus(taskId, postId, { comments_fetched: true });
       }
 
       // Step 3: fetch_media
       if (cliTemplates.fetch_media) {
         if (!item.media_fetched) {
+          logger.info(`[prepare-data] Task ${taskId} post ${postId}: Step 3 fetch_media`);
           const result = await fetchViaOpencli(cliTemplates.fetch_media, fetchVars);
+          logger.info(`[prepare-data] Task ${taskId} post ${postId}: fetch_media result success=${result.success}`);
           if (!result.success) {
             logger.error(`[prepare-data] fetch_media failed for post ${postId}: ${result.error ?? 'unknown'}`);
             await upsertTaskPostStatus(taskId, postId, { error: result.error ?? 'fetch_media failed' });
           } else {
             const mediaCount = await importMediaToDb(result.data ?? [], postId, platformId, noteId);
+            logger.info(`[prepare-data] Task ${taskId} post ${postId}: imported ${mediaCount} media files`);
             await upsertTaskPostStatus(taskId, postId, { media_fetched: true, media_count: mediaCount });
             await createMediaQueueJobs(taskId, postId, mediaCount);
             await syncWaitingMediaJobs(taskId, postId);
@@ -1364,9 +1387,11 @@ async function runPrepareDataAsync(
         }
       } else {
         // No fetch_media template configured — mark as done for this step
+        logger.info(`[prepare-data] Task ${taskId} post ${postId}: Step 3 skip (no template)`);
         await upsertTaskPostStatus(taskId, postId, { media_fetched: true });
       }
 
+      logger.info(`[prepare-data] Task ${taskId} post ${postId}: marking status=done`);
       await upsertTaskPostStatus(taskId, postId, { status: 'done' });
 
       // Trigger streaming analysis for this post
@@ -1442,6 +1467,7 @@ async function runPrepareDataAsync(
     }
   }
 
+  logger.info(`[prepare-data] Task ${taskId}: all ${pending.length} pending posts processed`);
   // All posts processed; task remains in its current state.
   // Steps transition to completed via worker job completion.
   // (Previously: await updateTaskStatus(taskId, 'pending');)

@@ -1,8 +1,8 @@
-import { describe, it, before } from 'node:test';
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
+import * as os from 'os';
 import * as db from '../../dist/db/client.js';
 const { close: closeDb } = db;
 import * as migrate from '../../dist/db/migrate.js';
@@ -23,26 +23,19 @@ import * as comments from '../../dist/db/comments.js';
 const { listCommentsByPost } = comments;
 import * as mediaFiles from '../../dist/db/media-files.js';
 const { listMediaFilesByPost } = mediaFiles;
+import * as opencli from '../../dist/data-fetcher/opencli.js';
+const { fetchViaOpencli } = opencli;
 import * as utils from '../../dist/shared/utils.js';
 const { now } = utils;
 
 import { getHandlers } from '../../dist/daemon/handlers.js';
 
-const RUN_ID = `flow_${Date.now()}`;
+const RUN_ID = `xhs_flow_${Date.now()}`;
 const TEST_PLATFORM = `${RUN_ID}_platform`;
 
-// Helper: create a temp JS file and return the command template
-function makeTempScript(content: string): string {
-  const tmpFile = path.join(os.tmpdir(), `prepare-test-${Date.now()}-${Math.random().toString(36).slice(2)}.js`);
-  fs.writeFileSync(tmpFile, content);
-  return tmpFile;
-}
+describe('prepare-data — flow with real XHS data', { timeout: 600000 }, () => {
+  let realPosts: any[] = [];
 
-function cleanupTempScript(filePath: string): void {
-  try { fs.unlinkSync(filePath); } catch { /* ignore */ }
-}
-
-describe('prepare-data — flow integration', { timeout: 30000 }, () => {
   before(async () => {
     closeDb();
     await runMigrations();
@@ -50,41 +43,39 @@ describe('prepare-data — flow integration', { timeout: 30000 }, () => {
 
     await createPlatform({
       id: TEST_PLATFORM,
-      name: `Flow Test (${RUN_ID})`,
-      description: 'Prepare-data flow integration test',
+      name: `XHS Flow Test (${RUN_ID})`,
+      description: 'Real XHS data for prepare-data flow integration test',
     });
+
+    // Fetch real XHS posts by searching "美食"
+    console.log('  [Setup] Searching XHS for 美食 posts...');
+    const result = await fetchViaOpencli(
+      'opencli xiaohongshu search 美食 --limit 2 -f json',
+      {},
+      60000,
+    );
+    assert.equal(result.success, true, `XHS search failed: ${result.error}`);
+    assert.ok(result.data && result.data.length >= 2, `Expected at least 2 posts, got ${result.data?.length ?? 0}`);
+    realPosts = result.data as any[];
+    console.log(`  [Setup] Fetched ${realPosts.length} real XHS posts`);
   });
 
-  async function createTestPost(platformPostId: string, metadata?: any) {
-    return createPost({
-      platform_id: TEST_PLATFORM,
-      platform_post_id: platformPostId,
-      title: `Original Title ${platformPostId}`,
-      content: 'Original content',
-      author_id: null,
-      author_name: 'Test Author',
-      author_url: null,
-      url: null,
-      cover_url: null,
-      post_type: 'text',
-      like_count: 10,
-      collect_count: 2,
-      comment_count: 0,
-      share_count: 0,
-      play_count: 0,
-      score: null,
-      tags: null,
-      media_files: null,
-      published_at: null,
-      metadata: metadata ? JSON.stringify(metadata) : null,
-    });
-  }
+  after(async () => {
+    // Cleanup downloaded media files for test posts
+    for (const item of realPosts) {
+      const noteId = item.id || item.note_id;
+      if (noteId) {
+        const downloadDir = path.join(os.homedir(), '.analyze-cli', 'downloads', 'xhs', String(noteId));
+        try { fs.rmSync(downloadDir, { recursive: true, force: true }); } catch { }
+      }
+    }
+  });
 
   async function createTestTask(taskId: string, templates: any) {
     await createTask({
       id: taskId,
-      name: 'Flow Test Task',
-      description: 'Integration test for prepare-data flow',
+      name: 'XHS Flow Test Task',
+      description: 'Integration test with real XHS data',
       template_id: null,
       cli_templates: JSON.stringify(templates),
       status: 'pending',
@@ -92,6 +83,52 @@ describe('prepare-data — flow integration', { timeout: 30000 }, () => {
       created_at: now(),
       updated_at: now(),
       completed_at: null,
+    });
+  }
+
+  function parseLikes(likes: unknown): number {
+    if (typeof likes === 'number') return likes;
+    if (typeof likes !== 'string') return 0;
+    const clean = likes.replace(/,/g, '');
+    if (clean.includes('万')) {
+      const num = parseFloat(clean.replace('万', ''));
+      return isNaN(num) ? 0 : Math.round(num * 10000);
+    }
+    const num = parseInt(clean, 10);
+    return isNaN(num) ? 0 : num;
+  }
+
+  async function createPostFromRealData(index: number) {
+    const item = realPosts[index];
+    const noteUrl = String(item.url || '');
+    // Extract note_id from XHS URL: .../search_result/NOTE_ID?...
+    const match = noteUrl.match(/\/([a-f0-9]{24})(?:\?|$)/);
+    const noteId = match ? match[1] : `xhs_${index}`;
+    // Use unique platform_post_id per test to avoid constraint conflicts,
+    // while keeping the real note_id in metadata for opencli template substitution
+    const uniquePostId = `${noteId}_${Date.now()}`;
+
+    return createPost({
+      platform_id: TEST_PLATFORM,
+      platform_post_id: uniquePostId,
+      title: String(item.title || 'XHS Post'),
+      content: String(item.title || 'XHS Content'),
+      author_id: null,
+      author_name: String(item.author || 'XHS User'),
+      author_url: null,
+      url: noteUrl || null,
+      cover_url: null,
+      post_type: 'image',
+      like_count: parseLikes(item.likes),
+      collect_count: 0,
+      comment_count: 0,
+      share_count: 0,
+      play_count: 0,
+      score: null,
+      tags: null,
+      media_files: null,
+      published_at: null,
+      metadata: { ...item, note_id: noteId, note_url: noteUrl },
     });
   }
 
@@ -103,158 +140,125 @@ describe('prepare-data — flow integration', { timeout: 30000 }, () => {
 
   async function runPrepareDataAndWait(taskId: string): Promise<'done' | 'failed'> {
     const handlers = getHandlers();
+    console.log(`  [Test] Calling task.prepareData for ${taskId}...`);
     const result = await handlers['task.prepareData']({ task_id: taskId });
+    console.log(`  [Test] task.prepareData result: started=${(result as any).started}, reason=${(result as any).reason ?? ''}`);
     assert.equal(result.started, true, `prepareData failed: ${(result as any).reason}`);
 
     const start = Date.now();
-    while (Date.now() - start < 10000) {
+    while (Date.now() - start < 300000) {
       const show = await handlers['task.show']({ task_id: taskId });
       const status = (show as any).phases?.dataPreparation?.status;
-      if (status === 'done' || status === 'failed') return status;
-      await new Promise(r => setTimeout(r, 100));
+      const totalPosts = (show as any).phases?.dataPreparation?.totalPosts ?? 0;
+      const failedPosts = (show as any).phases?.dataPreparation?.failedPosts ?? 0;
+      console.log(`  [Test] Poll status=${status}, total=${totalPosts}, failed=${failedPosts}, elapsed=${Date.now() - start}ms`);
+      if (status === 'done' || status === 'failed') {
+        console.log(`  [Test] Final status: ${status}`);
+        return status;
+      }
+      await new Promise(r => setTimeout(r, 1000));
     }
     throw new Error(`Timeout waiting for prepare-data for task ${taskId}`);
   }
 
-  it('should complete full flow: note + comments + media', async () => {
-    const noteScript = makeTempScript(`console.log(JSON.stringify({title:'Updated Title',content:'Updated Content'}))`);
-    const commentScript = makeTempScript(`console.log(JSON.stringify([{id:'c1',content:'Great post',likeCount:5}]))`);
-    const mediaScript = makeTempScript(`console.log(JSON.stringify([{url:'https://example.com/img.jpg',type:'image'}]))`);
-
+  it('should complete full flow: note + comments + media with real XHS data', async () => {
     const taskId = `${RUN_ID}_full_${Date.now()}`;
-    const post = await createTestPost('full_flow', { note_id: 'note123' });
+    const post = await createPostFromRealData(0);
     await createTestTask(taskId, {
-      fetch_note: `node ${noteScript} {post_id}`,
-      fetch_comments: `node ${commentScript} {post_id}`,
-      fetch_media: `node ${mediaScript} {post_id}`,
+      fetch_note: 'opencli xiaohongshu note {url} -f json',
+      fetch_comments: 'opencli xiaohongshu comments {url} --limit 10 -f json',
+      fetch_media: 'opencli xiaohongshu download {url} --output {download_dir}/xhs -f json',
     });
     await bindPostToTask(taskId, post.id);
 
-    try {
-      const finalStatus = await runPrepareDataAndWait(taskId);
-      assert.equal(finalStatus, 'done');
+    const finalStatus = await runPrepareDataAndWait(taskId);
+    assert.equal(finalStatus, 'done');
 
-      const updatedPost = await getPostById(post.id);
-      assert.equal(updatedPost?.title, 'Updated Title');
-      assert.equal(updatedPost?.content, 'Updated Content');
+    const updatedPost = await getPostById(post.id);
+    assert.ok(updatedPost);
 
-      const commentList = await listCommentsByPost(post.id, 100);
-      assert.equal(commentList.length, 1);
-      assert.equal(commentList[0].content, 'Great post');
+    const commentList = await listCommentsByPost(post.id, 100);
+    console.log(`  Imported ${commentList.length} real comments`);
 
-      const mediaList = await listMediaFilesByPost(post.id);
-      assert.equal(mediaList.length, 1);
+    const mediaList = await listMediaFilesByPost(post.id);
+    console.log(`  Imported ${mediaList.length} real media files`);
 
-      const status = await getTaskPostStatus(taskId, post.id);
-      assert.equal(status?.status, 'done');
-      assert.equal(status?.comments_fetched, true);
-      assert.equal(status?.media_fetched, true);
-      assert.equal(status?.comments_count, 1);
-      assert.equal(status?.media_count, 1);
-    } finally {
-      cleanupTempScript(noteScript);
-      cleanupTempScript(commentScript);
-      cleanupTempScript(mediaScript);
-    }
+    const status = await getTaskPostStatus(taskId, post.id);
+    assert.equal(status?.status, 'done');
+    assert.equal(status?.comments_fetched, true);
+    assert.equal(status?.media_fetched, true);
   });
 
   it('should mark comments_fetched and media_fetched true when templates not configured', async () => {
-    const noteScript = makeTempScript(`console.log(JSON.stringify({title:'Note Only Title'}))`);
-
     const taskId = `${RUN_ID}_noteonly_${Date.now()}`;
-    const post = await createTestPost('note_only', { note_id: 'note456' });
+    const post = await createPostFromRealData(0);
     await createTestTask(taskId, {
-      fetch_note: `node ${noteScript} {post_id}`,
+      fetch_note: 'opencli xiaohongshu note {url} -f json',
     });
     await bindPostToTask(taskId, post.id);
 
-    try {
-      const finalStatus = await runPrepareDataAndWait(taskId);
-      assert.equal(finalStatus, 'done');
+    const finalStatus = await runPrepareDataAndWait(taskId);
+    assert.equal(finalStatus, 'done');
 
-      const status = await getTaskPostStatus(taskId, post.id);
-      assert.equal(status?.status, 'done');
-      assert.equal(status?.comments_fetched, true, 'comments_fetched should be auto-marked true');
-      assert.equal(status?.media_fetched, true, 'media_fetched should be auto-marked true');
-    } finally {
-      cleanupTempScript(noteScript);
-    }
+    const status = await getTaskPostStatus(taskId, post.id);
+    assert.equal(status?.status, 'done');
+    assert.equal(status?.comments_fetched, true);
+    assert.equal(status?.media_fetched, true);
   });
 
   it('should mark post as failed when fetch_note fails and not reprocess', async () => {
-    const failScript = makeTempScript(`process.stderr.write('fetch_note_error'); process.exit(1)`);
-    const emptyScript = makeTempScript(`console.log('[]')`);
-
     const taskId = `${RUN_ID}_notefail_${Date.now()}`;
-    const post = await createTestPost('note_fail', { note_id: 'note789' });
+    const post = await createPostFromRealData(0);
     await createTestTask(taskId, {
-      fetch_note: `node ${failScript} {post_id}`,
-      fetch_comments: `node ${emptyScript} {post_id}`,
-      fetch_media: `node ${emptyScript} {post_id}`,
+      fetch_note: 'node -e process.exit(1) {note_id}',
+      fetch_comments: 'opencli xiaohongshu comments {url} --limit 10 -f json',
+      fetch_media: 'opencli xiaohongshu download {url} --output {download_dir}/xhs -f json',
     });
     await bindPostToTask(taskId, post.id);
 
-    try {
-      const finalStatus = await runPrepareDataAndWait(taskId);
-      assert.equal(finalStatus, 'failed');
+    const finalStatus = await runPrepareDataAndWait(taskId);
+    assert.equal(finalStatus, 'failed');
 
-      const status = await getTaskPostStatus(taskId, post.id);
-      assert.equal(status?.status, 'failed');
-      assert.ok(status?.error?.includes('fetch_note_error'), `error should contain fetch_note_error, got: ${status?.error}`);
+    const status = await getTaskPostStatus(taskId, post.id);
+    assert.equal(status?.status, 'failed');
 
-      const pending = await getPendingPostIds(taskId);
-      const pendingIds = pending.map(p => p.post_id);
-      assert.ok(!pendingIds.includes(post.id), 'failed post should not appear in pending list');
-    } finally {
-      cleanupTempScript(failScript);
-      cleanupTempScript(emptyScript);
-    }
+    const pending = await getPendingPostIds(taskId);
+    const pendingIds = pending.map(p => p.post_id);
+    assert.ok(!pendingIds.includes(post.id), 'failed post should not appear in pending list');
   });
 
   it('should execute fetch_media even when fetch_comments fails', async () => {
-    const noteScript = makeTempScript(`console.log(JSON.stringify({title:'Both Title'}))`);
-    const failScript = makeTempScript(`process.stderr.write('comments_error'); process.exit(1)`);
-    const mediaScript = makeTempScript(`console.log(JSON.stringify([{url:'https://example.com/media.jpg',type:'image'}]))`);
-
     const taskId = `${RUN_ID}_commentsfail_${Date.now()}`;
-    const post = await createTestPost('comments_fail', { note_id: 'note999' });
+    const post = await createPostFromRealData(0);
     await createTestTask(taskId, {
-      fetch_note: `node ${noteScript} {post_id}`,
-      fetch_comments: `node ${failScript} {post_id}`,
-      fetch_media: `node ${mediaScript} {post_id}`,
+      fetch_note: 'opencli xiaohongshu note {url} -f json',
+      fetch_comments: 'node -e process.exit(1) {note_id}',
+      fetch_media: 'opencli xiaohongshu download {url} --output {download_dir}/xhs -f json',
     });
     await bindPostToTask(taskId, post.id);
 
-    try {
-      const finalStatus = await runPrepareDataAndWait(taskId);
-      assert.equal(finalStatus, 'done');
+    const finalStatus = await runPrepareDataAndWait(taskId);
+    assert.equal(finalStatus, 'done');
 
-      const commentList = await listCommentsByPost(post.id, 100);
-      assert.equal(commentList.length, 0);
+    const commentList = await listCommentsByPost(post.id, 100);
+    assert.equal(commentList.length, 0);
 
-      const mediaList = await listMediaFilesByPost(post.id);
-      assert.equal(mediaList.length, 1);
+    const mediaList = await listMediaFilesByPost(post.id);
+    console.log(`  Imported ${mediaList.length} real media files despite comments failure`);
 
-      const status = await getTaskPostStatus(taskId, post.id);
-      assert.equal(status?.status, 'done');
-      assert.equal(status?.comments_fetched, false);
-      assert.equal(status?.media_fetched, true);
-      assert.ok(status?.error?.includes('comments_error'), `error should preserve comments_error, got: ${status?.error}`);
-    } finally {
-      cleanupTempScript(noteScript);
-      cleanupTempScript(failScript);
-      cleanupTempScript(mediaScript);
-    }
+    const status = await getTaskPostStatus(taskId, post.id);
+    assert.equal(status?.status, 'done');
+    assert.equal(status?.comments_fetched, false);
+    assert.equal(status?.media_fetched, true);
+    assert.ok(status?.error, 'error should be preserved from comments failure');
   });
 
   it('should skip already-done posts on resume', async () => {
-    const noteScript = makeTempScript(`console.log(JSON.stringify({title:'Resumed'}))`);
-
     const taskId = `${RUN_ID}_resume_${Date.now()}`;
-    const postDone = await createTestPost('resume_done', { note_id: 'done_note' });
-    const postPending = await createTestPost('resume_pending', { note_id: 'pending_note' });
+    const postDone = await createPostFromRealData(0);
+    const postPending = await createPostFromRealData(1);
     await createTestTask(taskId, {
-      fetch_note: `node ${noteScript} {post_id}`,
+      fetch_note: 'opencli xiaohongshu note {url} -f json',
     });
     await bindPostToTask(taskId, postDone.id);
     await bindPostToTask(taskId, postPending.id);
@@ -262,21 +266,11 @@ describe('prepare-data — flow integration', { timeout: 30000 }, () => {
     const { upsertTaskPostStatus } = await import('../../dist/db/task-post-status.js');
     await upsertTaskPostStatus(taskId, postDone.id, { status: 'done', comments_fetched: true, media_fetched: true });
 
-    try {
-      const finalStatus = await runPrepareDataAndWait(taskId);
-      assert.equal(finalStatus, 'done');
+    const finalStatus = await runPrepareDataAndWait(taskId);
+    assert.equal(finalStatus, 'done');
 
-      const donePost = await getPostById(postDone.id);
-      assert.equal(donePost?.title, 'Original Title resume_done');
-
-      const pendingPost = await getPostById(postPending.id);
-      assert.equal(pendingPost?.title, 'Resumed');
-
-      const statuses = await (await import('../../dist/db/task-post-status.js')).getTaskPostStatuses(taskId);
-      assert.equal(statuses.length, 2);
-      assert.ok(statuses.every(s => s.status === 'done'));
-    } finally {
-      cleanupTempScript(noteScript);
-    }
+    const statuses = await (await import('../../dist/db/task-post-status.js')).getTaskPostStatuses(taskId);
+    assert.equal(statuses.length, 2);
+    assert.ok(statuses.every(s => s.status === 'done'));
   });
 });

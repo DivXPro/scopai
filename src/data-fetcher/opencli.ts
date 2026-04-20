@@ -83,7 +83,8 @@ export async function fetchViaOpencli(
     if (message.includes('timed out') || message.includes('timeout')) {
       return { success: false, error: `Command timed out after ${timeoutMs}ms: ${command}` };
     }
-    const detail = execErr.stderr?.trim() ?? message;
+    const stderr = execErr.stderr?.trim();
+    const detail = stderr || message;
     return { success: false, error: detail };
   }
 }
