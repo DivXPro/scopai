@@ -305,8 +305,8 @@ async function processStrategyJob(
     const comment = await getCommentById(job.target_id);
     if (!comment) throw new Error(`Comment ${job.target_id} not found`);
 
-    // Batch analysis
-    if (strategy.batch_config?.enabled && strategy.batch_config.size > 1) {
+    // Batch analysis (not supported for secondary strategies — each comment may have different upstream results)
+    if (strategy.batch_config?.enabled && strategy.batch_config.size > 1 && !strategy.depends_on) {
       await processCommentBatch(job, strategy, comment, task, workerId);
       return;
     }
