@@ -2,11 +2,11 @@ import { Command } from 'commander';
 import * as pc from 'picocolors';
 import * as path from 'path';
 import { fork, spawn } from 'child_process';
-import { IPC_SOCKET_PATH } from '@analyze-cli/core'constants';
+import { IPC_SOCKET_PATH } from '@analyze-cli/core';
 import { sendIpcRequest } from '../../../src/daemon/ipc-server';
-import { isDaemonRunning, getDaemonPid, getDaemonVersion, cleanupStaleDaemonFiles } from '@analyze-cli/core'daemon-status';
-import { VERSION } from '@analyze-cli/core'version';
-import { getLogFilePath } from '@analyze-cli/core'logger';
+import { isDaemonRunning, getDaemonPid, getDaemonVersion, cleanupStaleDaemonFiles } from '@analyze-cli/core';
+import { VERSION } from '@analyze-cli/core';
+import { getLogFilePath } from '@analyze-cli/core';
 
 export function daemonCommands(program: Command): void {
   const daemon = program.command('daemon').description('Manage the analysis daemon');

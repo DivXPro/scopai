@@ -12,6 +12,10 @@
 
 ## 当前活动计划
 
+- `exec-plans/active/2026-04-21-phase1-core-extraction.md` — Monorepo Phase 1: 提取共享核心包（core），将 db/config/shared/data-fetcher 迁移到 packages/core/
+- `exec-plans/active/2026-04-21-phase2-api-service.md` — Monorepo Phase 2: API 服务实现（Fastify + 路由迁移 + Daemon 合并）
+- `exec-plans/active/2026-04-21-phase3-dashboard-ui.md` — Monorepo Phase 3: Dashboard UI（React + Vite + Tailwind）
+- `exec-plans/active/2026-04-21-phase4-cli-slimming.md` — Monorepo Phase 4: CLI 瘦身（异步命令改为 HTTP API 调用）
 - `exec-plans/active/2026-04-18-comment-analysis-and-batch.md` — Comment 级策略分析与 Worker 软批量分析实施计划
 - `exec-plans/active/2026-04-16-auto-strategy-generation.md` — AI Agent 自然语言生成并注册分析策略实施计划
 - `exec-plans/active/2026-04-16-agent-e2e-recording-plan.md` — Agent 驱动 E2E 数据录制与离线测试实施计划

@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
-import { generateId, formatTimestamp, waitForTaskStep, waitForTaskSteps } from '@analyze-cli/core'utils';
+import { generateId, formatTimestamp, waitForTaskStep, waitForTaskSteps } from '@analyze-cli/core';
 import { daemonCall } from './ipc-client';
 
 export function taskCommands(program: Command): void {

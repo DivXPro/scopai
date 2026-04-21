@@ -1,8 +1,8 @@
 import * as path from 'path';
 import { spawn } from 'child_process';
 import { sendIpcRequest } from '../../../src/daemon/ipc-server';
-import { isDaemonRunning, cleanupStaleDaemonFiles, getDaemonVersion, getDaemonPid } from '@analyze-cli/core'daemon-status';
-import { VERSION } from '@analyze-cli/core'version';
+import { isDaemonRunning, cleanupStaleDaemonFiles, getDaemonVersion, getDaemonPid } from '@analyze-cli/core';
+import { VERSION } from '@analyze-cli/core';
 
 async function startDaemon(): Promise<void> {
   if (isDaemonRunning()) return;
