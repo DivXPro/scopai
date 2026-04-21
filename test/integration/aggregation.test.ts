@@ -1,10 +1,10 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import * as db from '../../packages/core/src/db/client.ts';
+import * as db from '../../packages/core/dist/db/client.js';
 const { query, run, close: closeDb } = db;
-import * as migrate from '../../packages/core/src/db/migrate.ts';
+import * as migrate from '../../packages/core/dist/db/migrate.js';
 const { runMigrations } = migrate;
-import * as strategies from '../../packages/core/src/db/strategies.ts';
+import * as strategies from '../../packages/core/dist/db/strategies.js';
 const { createStrategy, getStrategyResultTableName } = strategies;
 import {
   detectColumnMeta,
@@ -14,7 +14,7 @@ import {
   runAggregate,
   runMultiAggregate,
   getFullStats,
-} from '../../packages/core/src/db/aggregation.ts';
+} from '../../packages/core/dist/db/aggregation.js';
 
 describe('aggregation', { timeout: 15000 }, () => {
   let strategyId: string;

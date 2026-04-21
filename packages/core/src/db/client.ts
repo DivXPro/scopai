@@ -1,7 +1,7 @@
 import duckdb from 'duckdb';
 import * as fs from 'fs';
 import * as path from 'path';
-import { config } from '../config';
+import { config } from '../config/index';
 import { expandPath } from '../shared/utils';
 
 let _db: duckdb.Database | null = null;

@@ -9,8 +9,8 @@ export {
   close,
 } from './db/client';
 
-export { migrate } from './db/migrate';
-export { seedPlatforms } from './db/seed';
+export { runMigrations as migrate } from './db/migrate';
+export { seedPlatformsAndMappings as seedPlatforms } from './db/seed';
 
 export * from './db/posts';
 export * from './db/comments';
@@ -36,10 +36,10 @@ export * from './shared/types';
 export * from './shared/constants';
 export * from './shared/utils';
 export { getLogger } from './shared/logger';
-export { addShutdownHook, gracefulShutdown } from './shared/shutdown';
+export { registerWorker, unregisterWorker, requestShutdown, isShuttingDown, resetShutdown } from './shared/shutdown';
 export { VERSION as version } from './shared/version';
-export { emitJobEvent, onJobEvent } from './shared/job-events';
-export { getDaemonStatus, setDaemonStatus } from './shared/daemon-status';
+export { notifyJobAvailable, waitForJob } from './shared/job-events';
+export { getDaemonPid, getDaemonVersion, isDaemonRunning, cleanupStaleDaemonFiles } from './shared/daemon-status';
 
 // === Data Fetcher ===
 export { fetchViaOpencli } from './data-fetcher/opencli';

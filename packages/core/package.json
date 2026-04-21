@@ -9,7 +9,7 @@
     "src/db/schema.sql"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs --out-dir dist --external duckdb --minify",
+    "build": "tsc && tsup src/index.ts --format cjs --out-dir dist --external duckdb --minify",
     "dev": "tsup src/index.ts --format cjs --out-dir dist --external duckdb --watch",
     "test": "node --test --test-concurrency=1 --experimental-strip-types 'test/**/*.test.ts'"
   },

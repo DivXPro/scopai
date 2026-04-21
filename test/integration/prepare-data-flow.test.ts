@@ -3,29 +3,29 @@ import assert from 'node:assert/strict';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import * as db from '../../packages/core/src/db/client.ts';
+import * as db from '../../packages/core/dist/db/client.js';
 const { close: closeDb } = db;
-import * as migrate from '../../packages/core/src/db/migrate.ts';
+import * as migrate from '../../packages/core/dist/db/migrate.js';
 const { runMigrations } = migrate;
-import * as seed from '../../packages/core/src/db/seed.ts';
+import * as seed from '../../packages/core/dist/db/seed.js';
 const { seedAll } = seed;
-import * as platforms from '../../packages/core/src/db/platforms.ts';
+import * as platforms from '../../packages/core/dist/db/platforms.js';
 const { createPlatform } = platforms;
-import * as posts from '../../packages/core/src/db/posts.ts';
+import * as posts from '../../packages/core/dist/db/posts.js';
 const { createPost, getPostById } = posts;
-import * as tasks from '../../packages/core/src/db/tasks.ts';
+import * as tasks from '../../packages/core/dist/db/tasks.js';
 const { createTask } = tasks;
-import * as taskTargets from '../../packages/core/src/db/task-targets.ts';
+import * as taskTargets from '../../packages/core/dist/db/task-targets.js';
 const { createTaskTarget } = taskTargets;
-import * as taskPostStatus from '../../packages/core/src/db/task-post-status.ts';
+import * as taskPostStatus from '../../packages/core/dist/db/task-post-status.js';
 const { getTaskPostStatus, getPendingPostIds } = taskPostStatus;
-import * as comments from '../../packages/core/src/db/comments.ts';
+import * as comments from '../../packages/core/dist/db/comments.js';
 const { listCommentsByPost } = comments;
-import * as mediaFiles from '../../packages/core/src/db/media-files.ts';
+import * as mediaFiles from '../../packages/core/dist/db/media-files.js';
 const { listMediaFilesByPost } = mediaFiles;
-import * as opencli from '../../packages/core/src/data-fetcher/opencli.ts';
+import * as opencli from '../../packages/core/dist/data-fetcher/opencli.js';
 const { fetchViaOpencli } = opencli;
-import * as utils from '../../packages/core/src/shared/utils.ts';
+import * as utils from '../../packages/core/dist/shared/utils.js';
 const { now } = utils;
 
 import { getHandlers } from '../../src/daemon/handlers.ts';
@@ -134,7 +134,7 @@ describe('prepare-data — flow with real XHS data', { timeout: 600000 }, () => 
 
   async function bindPostToTask(taskId: string, postId: string) {
     await createTaskTarget(taskId, 'post', postId);
-    const { upsertTaskPostStatus } = await import('../../packages/core/src/db/task-post-status.ts');
+    const { upsertTaskPostStatus } = await import('../../packages/core/dist/db/task-post-status.js');
     await upsertTaskPostStatus(taskId, postId, { status: 'pending' });
   }
 
@@ -263,13 +263,13 @@ describe('prepare-data — flow with real XHS data', { timeout: 600000 }, () => 
     await bindPostToTask(taskId, postDone.id);
     await bindPostToTask(taskId, postPending.id);
 
-    const { upsertTaskPostStatus } = await import('../../packages/core/src/db/task-post-status.ts');
+    const { upsertTaskPostStatus } = await import('../../packages/core/dist/db/task-post-status.js');
     await upsertTaskPostStatus(taskId, postDone.id, { status: 'done', comments_fetched: true, media_fetched: true });
 
     const finalStatus = await runPrepareDataAndWait(taskId);
     assert.equal(finalStatus, 'done');
 
-    const statuses = await (await import('../../packages/core/src/db/task-post-status.ts')).getTaskPostStatuses(taskId);
+    const statuses = await (await import('../../packages/core/dist/db/task-post-status.js')).getTaskPostStatuses(taskId);
     assert.equal(statuses.length, 2);
     assert.ok(statuses.every(s => s.status === 'done'));
   });

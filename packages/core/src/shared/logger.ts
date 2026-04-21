@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { expandPath } from './utils';
-import { config } from '../config';
+import { config } from '../config/index';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
