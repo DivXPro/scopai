@@ -27,7 +27,7 @@ type: tool-use
 
 | # | 工具 | 命令 | 使用场景 |
 |---|------|------|----------|
-| 1 | **search_posts** | `opencli <site> <command> {query} --limit {limit} -f json` | 导入前发现帖子。**各平台命令不同** — (1) 用 `opencli list | grep <keyword>` 找平台，(2) 用 `opencli <platform> --help` 查看可用命令，(3) 用 `opencli <platform> <command> -h` 了解具体用法。例如：抖音用 `hashtag` 而不是 `search`。**禁止合并两个命令**（如 `hashtag search` 是错误的 — 只用一个命令）。 |
+| 1 | **search_posts** | `opencli <site> <command> {query} --limit {limit} -f json` | 导入前发现帖子。**各平台命令不同** — (1) 用 `opencli list | grep <keyword>` 找平台，(2) 用 `opencli <platform> --help` 查看可用命令，(3) 用 `opencli <platform> <command> -h` 了解具体用法。|
 | 2 | **add_platform** | `analyze-cli platform add --id {id} --name {name}` | 如果 `analyze-cli platform list` 中没有该平台，则注册。 |
 | 3 | **import_posts** | `analyze-cli post import --platform {id} --file {path} [--task-id {tid}]` | 导入搜索结果。**不要**在导入前手动获取笔记详情 — 让 `prepare-data` 通过 `fetch_note` 模板来丰富帖子内容。重复帖子会更新而非跳过。 |
 | 4 | **import_comments** | `analyze-cli comment import --platform {id} --post-id {id} --file {path}` | 获取评论后从 JSON/JSONL 导入。重复评论会被跳过。 |
