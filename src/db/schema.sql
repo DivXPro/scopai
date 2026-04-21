@@ -204,6 +204,8 @@ CREATE TABLE IF NOT EXISTS strategies (
     prompt          TEXT NOT NULL,
     output_schema   JSON NOT NULL,
     batch_config    JSON,
+    depends_on      TEXT CHECK(depends_on IN ('post', 'comment') OR depends_on IS NULL),
+    include_original BOOLEAN NOT NULL DEFAULT false,
     file_path       TEXT,
     created_at      TIMESTAMP DEFAULT NOW(),
     updated_at      TIMESTAMP DEFAULT NOW()
@@ -213,6 +215,7 @@ CREATE TABLE IF NOT EXISTS task_steps (
     id              TEXT PRIMARY KEY,
     task_id         TEXT NOT NULL REFERENCES tasks(id),
     strategy_id     TEXT REFERENCES strategies(id),
+    depends_on_step_id TEXT REFERENCES task_steps(id),
     name            TEXT NOT NULL,
     step_order      INTEGER NOT NULL DEFAULT 0,
     status          TEXT DEFAULT 'pending' CHECK(status IN ('pending','running','completed','failed','skipped')),

@@ -87,6 +87,27 @@ async function migrateBatchConfigColumn(): Promise<void> {
   }
 }
 
+async function migrateDependsOnColumns(): Promise<void> {
+  const columns = await query<{ name: string }>(
+    "SELECT column_name as name FROM information_schema.columns WHERE table_name = 'strategies'"
+  );
+  if (!columns.some(c => c.name === 'depends_on')) {
+    await exec("ALTER TABLE strategies ADD COLUMN depends_on TEXT CHECK(depends_on IN ('post', 'comment') OR depends_on IS NULL)");
+  }
+  if (!columns.some(c => c.name === 'include_original')) {
+    await exec('ALTER TABLE strategies ADD COLUMN include_original BOOLEAN NOT NULL DEFAULT false');
+  }
+}
+
+async function migrateTaskStepsDependsOn(): Promise<void> {
+  const columns = await query<{ name: string }>(
+    "SELECT column_name as name FROM information_schema.columns WHERE table_name = 'task_steps'"
+  );
+  if (!columns.some(c => c.name === 'depends_on_step_id')) {
+    await exec('ALTER TABLE task_steps ADD COLUMN depends_on_step_id TEXT REFERENCES task_steps(id)');
+  }
+}
+
 export async function runMigrations(): Promise<void> {
   const schemaPath = findSchemaPath();
   const schema = fs.readFileSync(schemaPath, 'utf-8');
@@ -97,6 +118,8 @@ export async function runMigrations(): Promise<void> {
   await migrateQueueJobsStrategyId();
   await migrateTaskStepsTable();
   await migrateBatchConfigColumn();
+  await migrateDependsOnColumns();
+  await migrateTaskStepsDependsOn();
 
   // Migration: drop legacy analysis_results table if present
   const hasAnalysisResults = await query<{ name: string }>(
