@@ -105,11 +105,13 @@ describe('Comment strategy analysis', { timeout: 30000 }, () => {
       ...strategyJson,
       description: null,
       needs_media: { enabled: false },
+      depends_on: null,
+      include_original: false,
       file_path: null,
     });
 
     await createTaskStep({
-      task_id: taskId, strategy_id: strategyId, name: 'Sentiment',
+      task_id: taskId, strategy_id: strategyId, depends_on_step_id: null, name: 'Sentiment',
       step_order: 0, status: 'pending', stats: { total: 0, done: 0, failed: 0 }, error: null,
     });
   });

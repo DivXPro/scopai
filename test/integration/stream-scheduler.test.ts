@@ -113,12 +113,15 @@ describe('stream-scheduler — buildJobsForPost', { timeout: 15000 }, () => {
       needs_media: null,
       prompt: 'Analyze sentiment',
       output_schema: { type: 'object', properties: { sentiment: { type: 'string' } } },
+      depends_on: null,
+      include_original: false,
       file_path: null,
     });
 
     const step = await createTaskStep({
       task_id: taskId,
       strategy_id: strategyId,
+      depends_on_step_id: null,
       name: 'sentiment-analysis',
       step_order: 0,
       status: 'pending',

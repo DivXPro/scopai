@@ -958,6 +958,8 @@ export function getHandlers(): Record<string, Handler> {
         prompt: obj.prompt as string,
         output_schema: obj.output_schema as any,
         batch_config: (obj.batch_config ?? null) as any,
+        depends_on: (obj.depends_on ?? null) as 'post' | 'comment' | null,
+        include_original: (obj.include_original ?? false) as boolean,
         file_path: (typeof params.file === 'string' ? params.file : null) as string | null,
       };
 

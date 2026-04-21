@@ -39,6 +39,8 @@ describe('aggregation', { timeout: 15000 }, () => {
       target: 'post',
       prompt: 'test',
       output_schema: schema,
+      depends_on: null,
+      include_original: false,
     });
     tableName = getStrategyResultTableName(strategyId);
     // Override tags column to VARCHAR[] so aggregateArray can unnest native DuckDB arrays

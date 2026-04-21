@@ -98,6 +98,8 @@ describe('strategy system', { timeout: 15000 }, () => {
       needs_media: { enabled: false },
       prompt: 'Analyze {{content}}',
       output_schema: { type: 'object', properties: {} },
+      depends_on: null as 'post' | 'comment' | null,
+      include_original: false,
       file_path: null,
     };
     await createStrategy(strategy);
