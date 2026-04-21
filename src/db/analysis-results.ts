@@ -122,6 +122,26 @@ export async function getExistingResultIds(
   return rows.map(r => r.target_id);
 }
 
+export async function getUpstreamResult(
+  strategyId: string,
+  taskId: string,
+  targetId: string,
+): Promise<Record<string, unknown> | null> {
+  const tableName = getStrategyResultTableName(strategyId);
+  const rows = await query<{ raw_response: string | null }>(
+    `SELECT raw_response FROM "${tableName}" WHERE task_id = ? AND target_id = ? LIMIT 1`,
+    [taskId, targetId],
+  );
+  if (rows.length === 0 || !rows[0].raw_response) return null;
+  try {
+    return typeof rows[0].raw_response === 'string'
+      ? JSON.parse(rows[0].raw_response)
+      : (rows[0].raw_response as unknown as Record<string, unknown>);
+  } catch {
+    return null;
+  }
+}
+
 export async function listAnalysisResults(taskId: string): Promise<UnifiedAnalysisResult[]> {
   const commentRows = await query<UnifiedAnalysisResult>(
     `SELECT * FROM analysis_results_comments WHERE task_id = ? ORDER BY analyzed_at DESC`,
