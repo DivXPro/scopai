@@ -139,6 +139,7 @@ export interface TaskStep {
   id: string;
   task_id: string;
   strategy_id: string | null;
+  depends_on_step_id: string | null;
   name: string;
   step_order: number;
   status: TaskStepStatus;
@@ -324,6 +325,8 @@ export interface Strategy {
   prompt: string;
   output_schema: Record<string, unknown>;
   batch_config: BatchConfig | null;
+  depends_on: 'post' | 'comment' | null;
+  include_original: boolean;
   file_path: string | null;
   created_at: Date;
   updated_at: Date;
