@@ -226,12 +226,14 @@ export function taskCommands(program: Command): void {
     .description('Add an analysis step to a task')
     .requiredOption('--task-id <id>', 'Task ID')
     .requiredOption('--strategy-id <id>', 'Strategy ID')
+    .option('--depends-on-step-id <id>', 'Upstream step ID (for secondary strategies)')
     .option('--name <name>', 'Step name')
     .option('--order <n>', 'Step order (auto-increment if omitted)')
-    .action(async (opts: { taskId: string; strategyId: string; name?: string; order?: string }) => {
+    .action(async (opts: { taskId: string; strategyId: string; dependsOnStepId?: string; name?: string; order?: string }) => {
       const result = await daemonCall('task.step.add', {
         task_id: opts.taskId,
         strategy_id: opts.strategyId,
+        depends_on_step_id: opts.dependsOnStepId,
         name: opts.name,
         order: opts.order ? parseInt(opts.order, 10) : undefined,
       }) as { stepId: string; stepOrder: number };
