@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Heart, MessageCircle, Share2, Bookmark, Eye } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { Heart, MessageCircle, Share2, Bookmark, Eye, Search, SlidersHorizontal } from 'lucide-react';
 import { apiGet } from '@/api/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,21 +24,32 @@ interface Post {
   fetched_at: string;
 }
 
+interface Platform {
+  id: string;
+  name: string;
+}
+
+function getPlatformMeta(platformId: string) {
+  if (platformId.includes('xhs')) {
+    return { name: '小红书', color: 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' };
+  }
+  if (platformId.includes('twitter')) {
+    return { name: 'Twitter', color: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' };
+  }
+  if (platformId.includes('bilibili')) {
+    return { name: 'B站', color: 'bg-pink-50 text-pink-700 border-pink-200 hover:bg-pink-100' };
+  }
+  if (platformId.includes('weibo')) {
+    return { name: '微博', color: 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100' };
+  }
+  return { name: platformId, color: 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100' };
+}
+
 function PlatformBadge({ platformId }: { platformId: string }) {
-  const name = platformId.includes('xhs') ? '小红书'
-    : platformId.includes('twitter') ? 'Twitter'
-    : platformId.includes('bilibili') ? 'B站'
-    : platformId.includes('weibo') ? '微博'
-    : platformId;
-
-  const color = platformId.includes('xhs') ? 'bg-red-50 text-red-700 border-red-200'
-    : platformId.includes('twitter') ? 'bg-blue-50 text-blue-700 border-blue-200'
-    : platformId.includes('bilibili') ? 'bg-pink-50 text-pink-700 border-pink-200'
-    : 'bg-gray-50 text-gray-700 border-gray-200';
-
+  const meta = getPlatformMeta(platformId);
   return (
-    <Badge variant="outline" className={color}>
-      {name}
+    <Badge variant="outline" className={meta.color}>
+      {meta.name}
     </Badge>
   );
 }
@@ -62,15 +73,8 @@ function PostCard({ post }: { post: Post }) {
           {post.author_name ? `@${post.author_name}` : '匿名用户'}
         </p>
 
-        {/* 内容摘要 - 仅当标题存在时显示 */}
+        {/* 内容摘要 - 仅当标题存在且内容与标题不同时显示 */}
         {post.title && post.content && post.content !== post.title && (
-          <p className="text-sm text-muted-foreground line-clamp-2">
-            {contentPreview}
-          </p>
-        )}
-
-        {/* 内容摘要 */}
-        {post.title && (
           <p className="text-sm text-muted-foreground line-clamp-2">
             {contentPreview}
           </p>
@@ -143,25 +147,113 @@ function PostSkeleton() {
 
 export default function PostLibrary() {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
+
+  const fetchPosts = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    params.set('limit', '100');
+    if (searchQuery.trim()) params.set('query', searchQuery.trim());
+    if (selectedPlatform) params.set('platform', selectedPlatform);
+    const queryString = params.toString();
+    const url = '/api/posts' + (queryString ? `?${queryString}` : '');
+    try {
+      const data = await apiGet<Post[]>(url);
+      setPosts(data);
+    } catch {
+      setPosts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchQuery, selectedPlatform]);
 
   useEffect(() => {
-    apiGet<Post[]>('/api/posts')
-      .then(setPosts)
-      .finally(() => setLoading(false));
+    // 加载平台列表并过滤掉测试/未知平台
+    apiGet<Platform[]>('/api/platforms')
+      .then((data) => {
+        // 只保留已知平台（有中文名或英文名映射的）
+        const knownPlatforms = data.filter((p) => {
+          const meta = getPlatformMeta(p.id);
+          return meta.name !== p.id; // 排除没有映射的平台（名称等于ID的）
+        });
+        // 按名称去重
+        const seen = new Set<string>();
+        const unique = knownPlatforms.filter((p) => {
+          const name = getPlatformMeta(p.id).name;
+          if (seen.has(name)) return false;
+          seen.add(name);
+          return true;
+        });
+        setPlatforms(unique);
+      })
+      .catch(() => setPlatforms([]));
+    // 初始加载帖子
+    fetchPosts();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 搜索和筛选变化时重新加载
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchPosts();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, selectedPlatform, fetchPosts]);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">帖子库</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {loading ? '加载中...' : `共 ${posts.length} 条帖子`}
-          </p>
+      {/* 页面标题 */}
+      <div>
+        <h2 className="text-3xl font-bold tracking-tight">帖子库</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          {loading ? '加载中...' : `共 ${posts.length} 条帖子`}
+        </p>
+      </div>
+
+      {/* 筛选栏 */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        {/* 搜索框 */}
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="搜索帖子标题或内容..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full h-9 pl-9 pr-4 rounded-md border border-input bg-background text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+        </div>
+
+        {/* 平台筛选 */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+          <Button
+            variant={selectedPlatform === null ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setSelectedPlatform(null)}
+          >
+            全部
+          </Button>
+          {platforms.map((p) => {
+            const isActive = selectedPlatform === p.id;
+            return (
+              <Button
+                key={p.id}
+                variant={isActive ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedPlatform(isActive ? null : p.id)}
+              >
+                {getPlatformMeta(p.id).name}
+              </Button>
+            );
+          })}
         </div>
       </div>
 
+      {/* 结果展示 */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -169,8 +261,13 @@ export default function PostLibrary() {
           ))}
         </div>
       ) : posts.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          暂无帖子数据
+        <div className="text-center py-12">
+          <p className="text-muted-foreground mb-2">暂无匹配的帖子</p>
+          {(searchQuery || selectedPlatform) && (
+            <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(''); setSelectedPlatform(null); }}>
+              清除筛选条件
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

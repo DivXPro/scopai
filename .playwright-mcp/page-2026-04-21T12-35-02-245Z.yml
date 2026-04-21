@@ -1,0 +1,42 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Analyze CLI" [level=1] [ref=e6]
+      - paragraph [ref=e7]: Dashboard
+    - navigation [ref=e8]:
+      - link "概览" [ref=e9] [cursor=pointer]:
+        - /url: /
+        - img [ref=e10]
+        - generic [ref=e15]: 概览
+      - link "任务" [ref=e16] [cursor=pointer]:
+        - /url: /tasks
+        - img [ref=e17]
+        - generic [ref=e20]: 任务
+      - link "帖子库" [ref=e21] [cursor=pointer]:
+        - /url: /posts
+        - img [ref=e22]
+        - generic [ref=e25]: 帖子库
+      - link "策略" [ref=e26] [cursor=pointer]:
+        - /url: /strategies
+        - img [ref=e27]
+        - generic [ref=e31]: 策略
+      - link "队列" [ref=e32] [cursor=pointer]:
+        - /url: /queue
+        - img [ref=e33]
+        - generic [ref=e35]: 队列
+  - main [ref=e36]:
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - heading "帖子库" [level=2] [ref=e39]
+        - paragraph [ref=e40]: 加载中...
+      - generic [ref=e41]:
+        - generic [ref=e42]:
+          - img [ref=e43]
+          - textbox "搜索帖子标题或内容..." [ref=e46]
+        - generic [ref=e47]:
+          - img [ref=e48]
+          - button "全部" [ref=e49] [cursor=pointer]
+          - button "B站" [ref=e50] [cursor=pointer]
+          - button "Twitter" [ref=e51] [cursor=pointer]
+          - button "微博" [ref=e52] [cursor=pointer]
+          - button "小红书" [ref=e53] [cursor=pointer]
