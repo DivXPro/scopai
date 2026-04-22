@@ -81,6 +81,39 @@ describe('Strategies routes', () => {
     });
   });
 
+  describe('POST /api/strategies/import', () => {
+    it('imports a strategy via import endpoint', async () => {
+      const importStrategy = {
+        ...SAMPLE_STRATEGY,
+        id: 'imported-strategy-v1',
+        name: 'Imported Strategy',
+      };
+      const res = await fetchApi(ctx.baseUrl, '/api/strategies/import', {
+        method: 'POST',
+        body: JSON.stringify(importStrategy),
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.imported, true);
+      assert.equal(body.id, importStrategy.id);
+    });
+
+    it('skips import of same version', async () => {
+      const sameStrategy = {
+        ...SAMPLE_STRATEGY,
+        id: 'imported-strategy-v1',
+        name: 'Imported Strategy',
+      };
+      const res = await fetchApi(ctx.baseUrl, '/api/strategies/import', {
+        method: 'POST',
+        body: JSON.stringify(sameStrategy),
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.imported, false);
+    });
+  });
+
   describe('DELETE /api/strategies/:id', () => {
     it('deletes a strategy', async () => {
       const res = await fetchApi(ctx.baseUrl, `/api/strategies/${SAMPLE_STRATEGY.id}`, {
