@@ -180,4 +180,81 @@ describe('Tasks routes', () => {
       assert.ok(Array.isArray(body.results));
     });
   });
+
+  describe('Task steps', () => {
+    const STRATEGY = {
+      id: 'step-test-strategy',
+      name: 'Step Test Strategy',
+      version: '1.0.0',
+      target: 'post',
+      needs_media: { enabled: false },
+      prompt: 'Test prompt',
+      output_schema: {
+        type: 'object',
+        properties: {
+          result: { type: 'string' },
+        },
+      },
+    };
+    let stepTaskId: string;
+    let stepId: string;
+
+    it('creates strategy for step tests', async () => {
+      const res = await fetchApi(ctx.baseUrl, '/api/strategies', {
+        method: 'POST',
+        body: JSON.stringify(STRATEGY),
+      });
+      assert.equal(res.status, 200);
+    });
+
+    it('creates a task for step tests', async () => {
+      const res = await fetchApi(ctx.baseUrl, '/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Step Test Task' }),
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      stepTaskId = body.id;
+    });
+
+    it('POST /api/tasks/:id/steps creates a step', async () => {
+      const res = await fetchApi(ctx.baseUrl, `/api/tasks/${stepTaskId}/steps`, {
+        method: 'POST',
+        body: JSON.stringify({ strategy_id: STRATEGY.id, name: 'Analyze Posts' }),
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.ok(body.stepId);
+      assert.equal(typeof body.stepOrder, 'number');
+      stepId = body.stepId;
+    });
+
+    it('POST /api/tasks/:id/steps rejects missing strategy_id', async () => {
+      const res = await fetchApi(ctx.baseUrl, `/api/tasks/${stepTaskId}/steps`, {
+        method: 'POST',
+        body: JSON.stringify({ name: 'No Strategy' }),
+      });
+      assert.equal(res.status, 400);
+    });
+
+    it('POST /api/tasks/:id/steps/:stepId/run runs a step', async () => {
+      const res = await fetchApi(ctx.baseUrl, `/api/tasks/${stepTaskId}/steps/${stepId}/run`, {
+        method: 'POST',
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.ok(body.status);
+    });
+
+    it('POST /api/tasks/:id/run-all-steps runs all steps', async () => {
+      const res = await fetchApi(ctx.baseUrl, `/api/tasks/${stepTaskId}/run-all-steps`, {
+        method: 'POST',
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(typeof body.completed, 'number');
+      assert.equal(typeof body.failed, 'number');
+      assert.equal(typeof body.skipped, 'number');
+    });
+  });
 });
