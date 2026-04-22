@@ -12,6 +12,7 @@
 
 ## 当前活动计划
 
+- `exec-plans/active/2026-04-22-unified-process-architecture.md` — 统一进程架构：合并 Daemon+API+Worker 为单进程，IPC 改 HTTP REST，PID 改 lock file
 - `exec-plans/active/2026-04-21-phase1-core-extraction.md` — Monorepo Phase 1: 提取共享核心包（core），将 db/config/shared/data-fetcher 迁移到 packages/core/
 - `exec-plans/active/2026-04-21-phase2-api-service.md` — Monorepo Phase 2: API 服务实现（Fastify + 路由迁移 + Daemon 合并）
 - `exec-plans/active/2026-04-21-phase3-dashboard-ui.md` — Monorepo Phase 3: Dashboard UI（React + Vite + Tailwind）
