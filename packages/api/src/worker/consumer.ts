@@ -236,9 +236,9 @@ async function resolveUpstreamResult(
   strategyId: string,
   targetId: string,
 ): Promise<Record<string, unknown> | null> {
-  const { listTaskSteps } = await import('../db/task-steps');
-  const { getStrategyById } = await import('../db/strategies');
-  const { getUpstreamResult } = await import('../db/analysis-results');
+  const { listTaskSteps } = await import('@analyze-cli/core');
+  const { getStrategyById } = await import('@analyze-cli/core');
+  const { getUpstreamResult } = await import('@analyze-cli/core');
 
   const steps = await listTaskSteps(taskId);
   const currentStep = steps.find(s => s.strategy_id === strategyId);
