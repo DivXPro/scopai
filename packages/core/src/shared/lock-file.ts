@@ -37,7 +37,7 @@ export function removeLockFile(): void {
 
 export async function isApiAlive(port: number): Promise<boolean> {
   try {
-    const res = await fetch(`http://localhost:${port}/api/status`);
+    const res = await fetch(`http://localhost:${port}/health`);
     return res.ok;
   } catch {
     return false;
