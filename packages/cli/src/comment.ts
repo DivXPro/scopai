@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
-import { daemonCall } from './ipc-client';
+import { apiGet, apiPost } from './api-client';
 
 interface RawCommentItem {
   platform_comment_id?: string;
@@ -39,7 +39,7 @@ export function commentCommands(program: Command): void {
         process.exit(1);
       }
 
-      const result = await daemonCall('comment.import', { platform: opts.platform, post_id: opts.postId, file: opts.file }) as { imported: number; skipped: number };
+      const result = await apiPost<{ imported: number; skipped: number }>('/posts/' + opts.postId + '/comments/import', { platform: opts.platform, file: opts.file });
       console.log(pc.green(`Imported: ${result.imported}, Skipped (duplicate): ${result.skipped}`));
     });
 
@@ -50,7 +50,7 @@ export function commentCommands(program: Command): void {
     .requiredOption('--post-id <id>', 'Post ID')
     .option('--limit <n>', 'Max results', '100')
     .action(async (opts: { postId: string; limit: string }) => {
-      const result = await daemonCall('comment.list', { post_id: opts.postId, limit: parseInt(opts.limit, 10) }) as { comments: any[]; total: number };
+      const result = await apiGet<{ comments: any[]; total: number }>('/posts/' + opts.postId + '/comments?limit=' + opts.limit);
       const comments = result.comments ?? result;
       const total = (result as any).total ?? comments.length;
       if (comments.length === 0) {

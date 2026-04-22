@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
-import { daemonCall } from './ipc-client';
+import { apiGet, apiPost } from './api-client';
 
 export function templateCommands(program: Command): void {
   const template = program.command('template').description('Prompt template management');
@@ -10,7 +10,7 @@ export function templateCommands(program: Command): void {
     .alias('ls')
     .description('List all prompt templates')
     .action(async () => {
-      const templates = await daemonCall('template.list', {}) as any[];
+      const templates = await apiGet<any[]>('/templates');
       if (templates.length === 0) {
         console.log(pc.yellow('No templates found'));
         return;
@@ -32,7 +32,7 @@ export function templateCommands(program: Command): void {
     .requiredOption('--id <id>', 'Template ID')
     .action(async (opts: { id: string }) => {
       try {
-        const t = await daemonCall('template.get', { id: opts.id }) as any;
+        const t = await apiGet<any>('/templates/' + opts.id);
         if (!t || !t.id) {
           console.log(pc.red(`Template not found: ${opts.id}`));
           process.exit(1);
@@ -58,7 +58,7 @@ export function templateCommands(program: Command): void {
     .option('--default', 'Set as default template')
     .action(async (opts: { name: string; template: string; description?: string; default?: boolean }) => {
       try {
-        await daemonCall('template.add', {
+        await apiPost('/templates', {
           name: opts.name,
           description: opts.description ?? null,
           template: opts.template,
@@ -79,7 +79,7 @@ export function templateCommands(program: Command): void {
     .option('--template <text>', 'New template content')
     .option('--description <desc>', 'New description')
     .action(async (opts: { id: string; name?: string; template?: string; description?: string }) => {
-      const existing = await daemonCall('template.get', { id: opts.id }) as any;
+      const existing = await apiGet<any>('/templates/' + opts.id);
       if (!existing || !existing.id) {
         console.log(pc.red(`Template not found: ${opts.id}`));
         process.exit(1);
@@ -95,7 +95,7 @@ export function templateCommands(program: Command): void {
         return;
       }
 
-      await daemonCall('template.update', { id: opts.id, ...updates });
+      await apiPost('/templates/' + opts.id, updates);
       console.log(pc.green(`Template updated: ${opts.id}`));
     });
 
@@ -105,7 +105,7 @@ export function templateCommands(program: Command): void {
     .requiredOption('--id <id>', 'Template ID')
     .option('--input <text>', 'Sample input text')
     .action(async (opts: { id: string; input?: string }) => {
-      const tpl = await daemonCall('template.get', { id: opts.id }) as any;
+      const tpl = await apiGet<any>('/templates/' + opts.id);
       if (!tpl || !tpl.id) {
         console.log(pc.red(`Template not found: ${opts.id}`));
         process.exit(1);

@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
 import * as fs from 'fs';
-import { daemonCall } from './ipc-client';
+import { apiGet, apiPost, apiDelete } from './api-client';
 
 interface AggregateOpts {
   taskId: string;
@@ -59,7 +59,7 @@ export function strategyCommands(program: Command): void {
     .description('List all imported strategies')
     .action(async () => {
       try {
-        const strategies = await daemonCall('strategy.list', {}) as any[];
+        const strategies = await apiGet<any[]>('/strategies');
         if (strategies.length === 0) {
           console.log(pc.yellow('No strategies found'));
           return;
@@ -97,7 +97,7 @@ export function strategyCommands(program: Command): void {
         process.exit(1);
       }
       try {
-        const result = await daemonCall('strategy.import', { file: opts.file, json: opts.json }) as { imported: boolean; id?: string; reason?: string };
+        const result = await apiPost<{ imported: boolean; id?: string; reason?: string }>('/strategies/import', { file: opts.file, json: opts.json });
         if (result.imported) {
           console.log(pc.green(`Strategy imported: ${result.id}`));
         } else {
@@ -115,7 +115,7 @@ export function strategyCommands(program: Command): void {
     .requiredOption('--id <id>', 'Strategy ID')
     .action(async (opts: { id: string }) => {
       try {
-        const s = await daemonCall('strategy.show', { id: opts.id }) as any;
+        const s = await apiGet<any>('/strategies/' + opts.id);
         if (!s) {
           console.log(pc.red('Strategy not found'));
           process.exit(1);
@@ -144,7 +144,7 @@ export function strategyCommands(program: Command): void {
     .requiredOption('--id <id>', 'Strategy ID')
     .action(async (opts: { id: string }) => {
       try {
-        await daemonCall('strategy.delete', { id: opts.id });
+        await apiDelete('/strategies/' + opts.id);
         console.log(pc.green(`Strategy deleted: ${opts.id}`));
       } catch (err: unknown) {
         console.log(pc.red(`Error: ${(err as Error).message}`));
@@ -163,11 +163,7 @@ export function strategyCommands(program: Command): void {
     .option('--limit <n>', 'Max results', '50')
     .action(async (opts: { taskId: string; strategy: string; limit: string }) => {
       try {
-        const rows = await daemonCall('strategy.result.list', {
-          task_id: opts.taskId,
-          strategy_id: opts.strategy,
-          limit: parseInt(opts.limit ?? '50', 10),
-        }) as any[];
+        const rows = await apiGet<any[]>('/tasks/' + opts.taskId + '/results?strategy_id=' + opts.strategy + '&limit=' + (opts.limit ?? '50'));
         if (rows.length === 0) {
           console.log(pc.yellow('No results found'));
           return;
@@ -196,10 +192,7 @@ export function strategyCommands(program: Command): void {
     .requiredOption('--strategy <id>', 'Strategy ID')
     .action(async (opts: { taskId: string; strategy: string }) => {
       try {
-        const stats = await daemonCall('strategy.result.stats', {
-          task_id: opts.taskId,
-          strategy_id: opts.strategy,
-        }) as Record<string, unknown>;
+        const stats = await apiGet<Record<string, unknown>>('/strategies/' + opts.strategy + '/stats?task_id=' + opts.taskId);
         console.log(pc.bold(`\nStatistics:`));
         console.log(pc.dim('─'.repeat(40)));
         console.log(`  Total: ${stats.total ?? 0}`);
@@ -222,10 +215,7 @@ export function strategyCommands(program: Command): void {
         }
         // New: call full stats for array field aggregation
         try {
-          const fullStats = await daemonCall('strategy.result.fullStats', {
-            task_id: opts.taskId,
-            strategy_id: opts.strategy,
-          }) as Record<string, unknown>;
+          const fullStats = await apiGet<Record<string, unknown>>('/strategies/' + opts.strategy + '/full-stats?task_id=' + opts.taskId);
           const array = fullStats.array as Record<string, unknown> | undefined;
           if (array && Object.keys(array).length > 0) {
             console.log('\n  Array Fields:');
@@ -267,12 +257,11 @@ export function strategyCommands(program: Command): void {
     .option('--output <path>', 'Output file path')
     .action(async (opts: { taskId: string; strategy: string; format: string; output?: string }) => {
       try {
-        const result = await daemonCall('strategy.result.export', {
+        const result = await apiPost<{ content: string; writtenTo: string | null; count: number }>('/strategies/' + opts.strategy + '/export', {
           task_id: opts.taskId,
-          strategy_id: opts.strategy,
           format: opts.format,
           output: opts.output ?? null,
-        }) as { content: string; writtenTo: string | null; count: number };
+        });
         if (!opts.output) {
           process.stdout.write(result.content);
         } else {
@@ -298,15 +287,14 @@ export function strategyCommands(program: Command): void {
     .option('--output <path>', 'Output file path')
     .action(async (opts: AggregateOpts) => {
       try {
-        const rows = await daemonCall('strategy.result.aggregate', {
+        const rows = await apiPost<AggregateRow[]>('/strategies/' + opts.strategy + '/aggregate', {
           task_id: opts.taskId,
-          strategy_id: opts.strategy,
           field: opts.groupBy,
           agg: opts.agg,
           json_key: opts.jsonKey,
           having: opts.having ?? null,
           limit: parseInt(opts.limit ?? '50', 10),
-        }) as AggregateRow[];
+        });
 
         if (rows.length === 0) {
           console.log(pc.yellow('No results'));

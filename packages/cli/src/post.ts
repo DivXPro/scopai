@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
-import { daemonCall } from './ipc-client';
+import { apiGet, apiPost } from './api-client';
 
 interface RawPostItem {
   platform_post_id?: string;
@@ -49,11 +49,11 @@ export function postCommands(program: Command): void {
         console.log(pc.red(`File not found: ${opts.file}`));
         process.exit(1);
       }
-      const result = await daemonCall('post.import', {
+      const result = await apiPost<{ imported: number; skipped: number; postIds?: string[] }>('/posts/import', {
         platform: opts.platform,
         file: opts.file,
         task_id: opts.taskId,
-      }) as { imported: number; skipped: number; postIds?: string[] };
+      });
       console.log(pc.green(`Imported: ${result.imported}, Skipped (duplicate): ${result.skipped}`));
       if (result.postIds && result.postIds.length > 0) {
         console.log(`Post IDs: ${result.postIds.join(',')}`);
@@ -68,12 +68,12 @@ export function postCommands(program: Command): void {
     .option('--limit <n>', 'Max results', '50')
     .option('--offset <n>', 'Offset', '0')
     .action(async (opts: { platform?: string; limit: string; offset: string }) => {
-      const result = await daemonCall('post.list', {
-        platform: opts.platform,
-        limit: parseInt(opts.limit, 10),
-        offset: parseInt(opts.offset, 10),
-      }) as { posts: any[]; total: number };
-      const posts = result.posts ?? result;
+      const params = new URLSearchParams();
+      if (opts.platform) params.set('platform', opts.platform);
+      params.set('limit', opts.limit);
+      params.set('offset', opts.offset);
+      const result = await apiGet<{ posts: any[]; total: number }>('/posts?' + params.toString());
+      const posts = result.posts ?? (result as any);
       const total = (result as any).total ?? posts.length;
       if (posts.length === 0) {
         console.log(pc.yellow('No posts found'));
@@ -97,11 +97,11 @@ export function postCommands(program: Command): void {
     .requiredOption('--query <text>', 'Search query')
     .option('--limit <n>', 'Max results', '50')
     .action(async (opts: { platform: string; query: string; limit: string }) => {
-      const posts = await daemonCall('post.search', {
-        platform: opts.platform,
-        query: opts.query,
-        limit: parseInt(opts.limit, 10),
-      }) as any[];
+      const params = new URLSearchParams();
+      params.set('query', opts.query);
+      params.set('platform', opts.platform);
+      params.set('limit', opts.limit);
+      const posts = await apiGet<any[]>('/posts?' + params.toString());
       if (posts.length === 0) {
         console.log(pc.yellow('No posts found'));
         return;

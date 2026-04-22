@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
-import { daemonCall } from './ipc-client';
+import { apiGet, apiPost } from './api-client';
 
 export function platformCommands(program: Command): void {
   const platform = program.command('platform').description('Platform management');
@@ -12,7 +12,7 @@ export function platformCommands(program: Command): void {
     .requiredOption('--name <name>', 'Platform name')
     .option('--description <desc>', 'Platform description')
     .action(async (opts: { id: string; name: string; description?: string }) => {
-      await daemonCall('platform.add', { id: opts.id, name: opts.name, description: opts.description ?? null });
+      await apiPost('/platforms', { id: opts.id, name: opts.name, description: opts.description ?? null });
       console.log(pc.green(`Platform added: ${opts.id}`));
     });
 
@@ -21,7 +21,7 @@ export function platformCommands(program: Command): void {
     .alias('ls')
     .description('List all registered platforms')
     .action(async () => {
-      const platforms = await daemonCall('platform.list', {}) as any[];
+      const platforms = await apiGet<any[]>('/platforms');
       if (platforms.length === 0) {
         console.log(pc.yellow('No platforms registered. Run daemon first.'));
         return;
@@ -44,10 +44,9 @@ export function platformCommands(program: Command): void {
     .requiredOption('--platform <id>', 'Platform ID')
     .option('--entity <type>', 'Entity type (post/comment)')
     .action(async (opts: { platform: string; entity?: string }) => {
-      const mappings = await daemonCall('platform.mapping.list', {
-        platform: opts.platform,
-        entity: opts.entity,
-      }) as any[];
+      const params = new URLSearchParams();
+      if (opts.entity) params.set('entity', opts.entity);
+      const mappings = await apiGet<any[]>('/platforms/' + opts.platform + '/mappings?' + params.toString());
       if (mappings.length === 0) {
         console.log(pc.yellow(`No mappings found for platform: ${opts.platform}`));
         return;

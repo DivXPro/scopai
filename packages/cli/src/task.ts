@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
 import { generateId, formatTimestamp, waitForTaskStep, waitForTaskSteps } from '@analyze-cli/core';
-import { daemonCall } from './ipc-client';
+import { apiGet, apiPost } from './api-client';
 
 export function taskCommands(program: Command): void {
   const task = program.command('task').description('Task management');
@@ -16,7 +16,8 @@ export function taskCommands(program: Command): void {
     .action(async (opts: { name: string; description?: string; template?: string; cliTemplates?: string }) => {
       let templateId: string | null = null;
       if (opts.template) {
-        const tpl = await daemonCall('template.getByName', { name: opts.template }) as { id: string } | null;
+        const tplList = await apiGet<any[]>('/templates?name=' + encodeURIComponent(opts.template));
+        const tpl = Array.isArray(tplList) ? tplList[0] : tplList;
         if (!tpl) {
           console.log(pc.red(`Template not found: ${opts.template}`));
           process.exit(1);
@@ -25,7 +26,7 @@ export function taskCommands(program: Command): void {
       }
 
       const id = generateId();
-      await daemonCall('task.create', {
+      await apiPost('/tasks', {
         id,
         name: opts.name,
         description: opts.description ?? null,
@@ -50,7 +51,7 @@ export function taskCommands(program: Command): void {
         process.exit(1);
       }
       const postIds = opts.postIds.split(',').map(id => id.trim());
-      await daemonCall('task.addTargets', { task_id: opts.taskId, target_type: 'post', target_ids: postIds });
+      await apiPost('/tasks/' + opts.taskId + '/add-posts', { target_ids: postIds });
       console.log(pc.green(`Added ${postIds.length} posts to task ${opts.taskId}`));
     });
 
@@ -65,7 +66,7 @@ export function taskCommands(program: Command): void {
         process.exit(1);
       }
       const commentIds = opts.commentIds.split(',').map(id => id.trim());
-      await daemonCall('task.addTargets', { task_id: opts.taskId, target_type: 'comment', target_ids: commentIds });
+      await apiPost('/tasks/' + opts.taskId + '/add-comments', { target_ids: commentIds });
       console.log(pc.green(`Added ${commentIds.length} comments to task ${opts.taskId}`));
     });
 
@@ -74,7 +75,7 @@ export function taskCommands(program: Command): void {
     .description('Start a task (enqueue jobs for analysis)')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      const full = await daemonCall('task.show', { task_id: opts.taskId }) as Record<string, any>;
+      const full = await apiGet<Record<string, any>>('/tasks/' + opts.taskId);
       if (!full.id) {
         console.log(pc.red(`Task not found: ${opts.taskId}`));
         process.exit(1);
@@ -85,9 +86,7 @@ export function taskCommands(program: Command): void {
         return;
       }
 
-      const result = await daemonCall('task.start', { task_id: opts.taskId }) as {
-        enqueued: number; skipped: number; mediaJobs: number;
-      };
+      const result = await apiPost<{ enqueued: number; skipped: number; mediaJobs: number }>('/tasks/' + opts.taskId + '/start');
 
       if (result.skipped > 0) {
         console.log(pc.dim(`  Skipped ${result.skipped} already-analyzed targets`));
@@ -103,7 +102,7 @@ export function taskCommands(program: Command): void {
     .description('Pause a running task')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      await daemonCall('task.pause', { task_id: opts.taskId });
+      await apiPost('/tasks/' + opts.taskId + '/pause');
       console.log(pc.green(`Task ${opts.taskId} paused`));
     });
 
@@ -112,7 +111,7 @@ export function taskCommands(program: Command): void {
     .description('Resume a paused task')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      await daemonCall('task.resume', { task_id: opts.taskId });
+      await apiPost('/tasks/' + opts.taskId + '/resume');
       console.log(pc.green(`Task ${opts.taskId} resumed`));
     });
 
@@ -121,7 +120,7 @@ export function taskCommands(program: Command): void {
     .description('Cancel a task')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      await daemonCall('task.cancel', { task_id: opts.taskId });
+      await apiPost('/tasks/' + opts.taskId + '/cancel');
       console.log(pc.yellow(`Task ${opts.taskId} cancelled`));
     });
 
@@ -132,7 +131,10 @@ export function taskCommands(program: Command): void {
     .option('--status <status>', 'Filter by status')
     .option('--query <text>', 'Search by task name')
     .action(async (opts: { status?: string; query?: string }) => {
-      const tasks = await daemonCall('task.list', { status: opts.status, query: opts.query }) as any[];
+      const params = new URLSearchParams();
+      if (opts.status) params.set('status', opts.status);
+      if (opts.query) params.set('query', opts.query);
+      const tasks = await apiGet<any[]>('/tasks?' + params.toString());
       if (tasks.length === 0) {
         console.log(pc.yellow('No tasks found'));
         return;
@@ -165,7 +167,7 @@ export function taskCommands(program: Command): void {
     .description('Show task status and progress')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      const full = await daemonCall('task.show', { task_id: opts.taskId }) as Record<string, any>;
+      const full = await apiGet<Record<string, any>>('/tasks/' + opts.taskId);
       if (!full.id) {
         console.log(pc.red(`Task not found: ${opts.taskId}`));
         process.exit(1);
@@ -230,13 +232,12 @@ export function taskCommands(program: Command): void {
     .option('--name <name>', 'Step name')
     .option('--order <n>', 'Step order (auto-increment if omitted)')
     .action(async (opts: { taskId: string; strategyId: string; dependsOnStepId?: string; name?: string; order?: string }) => {
-      const result = await daemonCall('task.step.add', {
-        task_id: opts.taskId,
+      const result = await apiPost<{ stepId: string; stepOrder: number }>('/tasks/' + opts.taskId + '/steps', {
         strategy_id: opts.strategyId,
         depends_on_step_id: opts.dependsOnStepId,
         name: opts.name,
         order: opts.order ? parseInt(opts.order, 10) : undefined,
-      }) as { stepId: string; stepOrder: number };
+      });
       console.log(pc.green(`Step added: ${result.stepId} (order=${result.stepOrder})`));
     });
 
@@ -246,7 +247,7 @@ export function taskCommands(program: Command): void {
     .description('List steps for a task')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      const steps = await daemonCall('task.step.list', { task_id: opts.taskId }) as any[];
+      const steps = await apiGet<any[]>('/tasks/' + opts.taskId + '/steps');
       if (steps.length === 0) {
         console.log(pc.yellow('No steps found'));
         return;
@@ -269,10 +270,7 @@ export function taskCommands(program: Command): void {
     .option('--wait', 'Block until step completes (default: true)')
     .option('--no-wait', 'Return immediately after enqueueing')
     .action(async (opts: { taskId: string; stepId: string; wait: boolean }) => {
-      const result = await daemonCall('task.step.run', {
-        task_id: opts.taskId,
-        step_id: opts.stepId,
-      }) as { enqueued: number; status: string };
+      const result = await apiPost<{ enqueued: number; status: string }>('/tasks/' + opts.taskId + '/steps/' + opts.stepId + '/run');
 
       if (opts.wait === false) {
         console.log(pc.green(`Step status: ${result.status}`));
@@ -294,7 +292,7 @@ export function taskCommands(program: Command): void {
         const final = await waitForTaskStep(
           opts.taskId,
           opts.stepId,
-          (id) => daemonCall('task.show', { task_id: id }) as Promise<Record<string, any>>,
+          (id) => apiGet<Record<string, any>>('/tasks/' + id),
           (p) => {
             const ts = formatTimestamp();
             const stats = p.stats ? `${p.stats.done ?? 0}/${p.stats.total ?? 0} done, ${p.stats.failed ?? 0} failed` : '';
@@ -324,10 +322,7 @@ export function taskCommands(program: Command): void {
     .requiredOption('--step-id <id>', 'Step ID')
     .action(async (opts: { taskId: string; stepId: string }) => {
       try {
-        const result = await daemonCall('task.step.reset', {
-          task_id: opts.taskId,
-          step_id: opts.stepId,
-        }) as { reset: boolean };
+        const result = await apiPost<{ reset: boolean }>('/tasks/' + opts.taskId + '/steps/' + opts.stepId + '/reset');
         console.log(pc.green(`Step reset: ${result.reset}`));
       } catch (err: unknown) {
         console.log(pc.red(`Error: ${(err as Error).message}`));
@@ -342,11 +337,7 @@ export function taskCommands(program: Command): void {
     .option('--wait', 'Block until all steps complete (default: true)')
     .option('--no-wait', 'Return immediately after enqueueing')
     .action(async (opts: { taskId: string; wait: boolean }) => {
-      const result = await daemonCall('task.runAllSteps', { task_id: opts.taskId }) as {
-        completed: number;
-        failed: number;
-        skipped: number;
-      };
+      const result = await apiPost<{ completed: number; failed: number; skipped: number }>('/tasks/' + opts.taskId + '/run-all-steps');
 
       if (opts.wait === false) {
         console.log(pc.green('All steps processed'));
@@ -361,7 +352,7 @@ export function taskCommands(program: Command): void {
       try {
         const final = await waitForTaskSteps(
           opts.taskId,
-          (id) => daemonCall('task.show', { task_id: id }) as Promise<Record<string, any>>,
+          (id) => apiGet<Record<string, any>>('/tasks/' + id),
           (completed, total, running) => {
             const ts = formatTimestamp();
             const progress = total > 0 ? `${completed}/${total}` : '0/0';
@@ -391,12 +382,12 @@ export function taskCommands(program: Command): void {
     .description('Show analysis results for a completed task')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      const full = await daemonCall('task.show', { task_id: opts.taskId }) as Record<string, any>;
+      const full = await apiGet<Record<string, any>>('/tasks/' + opts.taskId);
       if (!full.id) {
         console.log(pc.red(`Task not found: ${opts.taskId}`));
         process.exit(1);
       }
-      const results = await daemonCall('task.results', { task_id: opts.taskId }) as { target_type: string; target_id: string | null; summary: string | null; raw_response: Record<string, unknown> | null }[];
+      const results = await apiGet<{ target_type: string; target_id: string | null; summary: string | null; raw_response: Record<string, unknown> | null }[]>('/tasks/' + opts.taskId + '/results');
       console.log(pc.bold(`\nAnalysis results for task ${opts.taskId.slice(0, 8)}:`));
       console.log(`  Total result records: ${results.length}`);
       for (const r of results.slice(0, 5)) {

@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
-import { daemonCall } from './ipc-client';
+import { apiGet, apiPost } from './api-client';
 
 export function taskPrepareCommands(program: Command): void {
   const task = program.commands.find(c => c.name() === 'task') ?? program.command('task');
@@ -10,7 +10,7 @@ export function taskPrepareCommands(program: Command): void {
     .description('Download comments and media for task posts via opencli (resumable)')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      const t = await daemonCall('task.show', { task_id: opts.taskId }) as Record<string, any>;
+      const t = await apiGet<Record<string, any>>('/tasks/' + opts.taskId);
       if (!t.id) {
         console.log(pc.red(`Task not found: ${opts.taskId}`));
         process.exit(1);
@@ -21,7 +21,7 @@ export function taskPrepareCommands(program: Command): void {
         process.exit(1);
       }
 
-      const started = await daemonCall('task.prepareData', { task_id: opts.taskId }) as { started?: boolean };
+      const started = await apiPost<{ started?: boolean }>('/tasks/' + opts.taskId + '/prepare-data');
       if (!started.started) {
         console.log(pc.red('Failed to start data preparation'));
         process.exit(1);
@@ -30,7 +30,7 @@ export function taskPrepareCommands(program: Command): void {
       console.log(pc.yellow('Data preparation started. Polling progress...\n'));
 
       const poll = async () => {
-        const status = await daemonCall('task.show', { task_id: opts.taskId }) as Record<string, any>;
+        const status = await apiGet<Record<string, any>>('/tasks/' + opts.taskId);
         const dp = status.phases?.dataPreparation ?? {};
         const done = dp.status === 'done';
         const failed = dp.status === 'failed';

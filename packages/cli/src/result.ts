@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
-import { daemonCall } from './ipc-client';
+import { apiGet, apiPost } from './api-client';
 
 export function resultCommands(program: Command): void {
   const result = program.command('result').description('Analysis result management');
@@ -13,11 +13,10 @@ export function resultCommands(program: Command): void {
     .option('--target <type>', 'Target type (comment/media)', 'comment')
     .option('--limit <n>', 'Max results', '50')
     .action(async (opts: { taskId: string; target: string; limit: string }) => {
-      const results = await daemonCall('result.list', {
-        task_id: opts.taskId,
-        target: opts.target,
-        limit: parseInt(opts.limit, 10),
-      }) as any[];
+      const params = new URLSearchParams();
+      params.set('target', opts.target);
+      params.set('limit', opts.limit);
+      const results = await apiGet<any[]>('/tasks/' + opts.taskId + '/results?' + params.toString());
       if (results.length === 0) {
         console.log(pc.yellow('No results found'));
         return;
@@ -54,7 +53,7 @@ export function resultCommands(program: Command): void {
     .requiredOption('--id <id>', 'Result ID')
     .option('--target <type>', 'Target type (comment/media)', 'comment')
     .action(async (opts: { id: string; target: string }) => {
-      const r = await daemonCall('result.show', { id: opts.id, target: opts.target }) as Record<string, unknown> | null;
+      const r = await apiGet<Record<string, unknown> | null>('/results/' + opts.id + '?target=' + opts.target);
       if (!r) {
         console.log(pc.red(`Result not found: ${opts.id}`));
         process.exit(1);
@@ -74,7 +73,7 @@ export function resultCommands(program: Command): void {
     .description('Show aggregated statistics for a task')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      const stats = await daemonCall('result.stats', { task_id: opts.taskId }) as Record<string, unknown>;
+      const stats = await apiGet<Record<string, unknown>>('/tasks/' + opts.taskId + '/results/stats');
       console.log(pc.bold(`\nAnalysis Statistics for task ${opts.taskId}:`));
       console.log(pc.dim('─'.repeat(40)));
       console.log(`  ${'Total analyzed'.padEnd(20)} ${stats.total ?? 0}`);
@@ -107,11 +106,10 @@ export function resultCommands(program: Command): void {
     .option('--format <fmt>', 'Output format (csv/json)', 'json')
     .option('--output <path>', 'Output file path')
     .action(async (opts: { taskId: string; format: string; output?: string }) => {
-      const result = await daemonCall('result.export', {
-        task_id: opts.taskId,
+      const result = await apiPost<{ content: string; writtenTo: string | null; count: number }>('/tasks/' + opts.taskId + '/results/export', {
         format: opts.format,
         output: opts.output ?? null,
-      }) as { content: string; writtenTo: string | null; count: number };
+      });
 
       if (!opts.output) {
         process.stdout.write(result.content);
@@ -133,11 +131,13 @@ export function resultMediaCommands(program: Command): void {
     .requiredOption('--task-id <id>', 'Task ID')
     .option('--post-id <id>', 'Filter by specific post ID')
     .action(async (opts: { taskId: string; postId?: string }) => {
-      const data = await daemonCall('result.media', { task_id: opts.taskId, post_id: opts.postId ?? null }) as {
+      const params = new URLSearchParams();
+      if (opts.postId) params.set('post_id', opts.postId);
+      const data = await apiGet<{
         posts: { post_id: string; title: string; media: any[] }[];
         totalMedia: number;
         totalAnalyzed: number;
-      };
+      }>('/tasks/' + opts.taskId + '/media?' + params.toString());
 
       if (data.posts.length === 0) {
         console.log(pc.yellow('No posts bound to this task. Use task add-posts first.'));
