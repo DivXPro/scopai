@@ -22,6 +22,4 @@ export const MEDIA_TYPES = ['image', 'video', 'audio'] as const;
 export const MEDIA_CONTENT_TYPES = ['product', 'person', 'scene', 'text', 'screenshot', 'meme', 'other'] as const;
 export const QUEUE_STATUSES = ['pending', 'processing', 'completed', 'failed'] as const;
 
-export const IPC_SOCKET_PATH = process.env.ANALYZE_CLI_IPC_SOCKET || '/tmp/analyze-cli.sock';
-export const DAEMON_PID_FILE = process.env.ANALYZE_CLI_DAEMON_PID || '/tmp/analyze-cli.pid';
 export const DEFAULT_WORKERS = 2;
