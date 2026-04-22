@@ -13,11 +13,11 @@ You operate the `analyze-cli` command-line tool for social media content analysi
 Run these **in order** before any workflow:
 
 1. **Verify CLI is executable**: `analyze-cli --version`
-2. **Ensure daemon is running**: `analyze-cli daemon status` → `analyze-cli daemon start` if needed
+2. **Ensure API server is running**: `analyze-cli daemon status` → `analyze-cli daemon start` if needed
 3. **Read opencli skill** before using any `opencli` command
 4. **Verify opencli**: `opencli --help` or `opencli doctor`
 
-> If daemon logs a health-check failure and exits, do **not** delete the database file. Ensure no other process holds the database lock, then restart the daemon.
+> The daemon is the API server (Fastify + in-process workers). `daemon start` launches it, and CLI commands communicate with it via HTTP. If daemon logs a health-check failure and exits, do **not** delete the database file. Ensure no other process holds the database lock, then restart the daemon.
 
 ---
 
@@ -65,28 +65,33 @@ Run these **in order** before any workflow:
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 13 | **get_task_results** | `analyze-cli task results --task-id {tid}` | After all steps complete. |
+| 13 | **get_task_results** | `analyze-cli task results --task-id {tid}` | After all steps complete. Shows result summary. |
 | 14 | **get_task_status** | `analyze-cli task show --task-id {tid}` | Show full task details including phases, steps, jobs, and recent failures. **Not needed when using `--wait` mode.** |
 | 15 | **list_tasks** | `analyze-cli task list [--status {s}] [--query {text}]` | View existing tasks. Filter by status or search by name. |
 | 16 | **list_task_steps** | `analyze-cli task step list --task-id {tid}` | Inspect step states before running. |
 | 17 | **strategy_result_list** | `analyze-cli strategy result list --task-id {tid} --strategy {sid}` | Inspect per-post results. |
-| 18 | **strategy_result_export** | `analyze-cli strategy result export --task-id {tid} --strategy {sid} [--format csv|json]` | Export results to file. |
+| 18 | **strategy_result_export** | `analyze-cli strategy result export --task-id {tid} --strategy {sid} [--format csv|json] [--output {path}]` | Export results to file. |
+| 19 | **strategy_result_stats** | `analyze-cli strategy result stats --task-id {tid} --strategy {sid}` | Show numeric and text field statistics. |
+| 20 | **strategy_result_aggregate** | `analyze-cli strategy result aggregate --task-id {tid} --strategy {sid} --group-by {field} [--agg count|sum|avg|min|max] [--format table|csv|json]` | Aggregate a specific result field. |
 
 ### Utility & Recovery
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 19 | **retry_failed_queue_jobs** | `analyze-cli queue retry [--task-id {tid}]` | Re-run only failed jobs. |
-| 20 | **reset_queue_jobs** | `analyze-cli queue reset [--task-id {tid}]` | **Blunt instrument**: force-reset all non-pending jobs. Prefer `queue retry`. |
-| 21 | **pause_task / resume_task / cancel_task** | `analyze-cli task pause|resume|cancel --task-id {tid}` | Control running tasks. |
-| 22 | **list_posts / search_posts_db** | `analyze-cli post list [--platform {id}]` / `analyze-cli post search --platform {id} --query {text}` | Browse imported data. |
-| 23 | **daemon management** | `analyze-cli daemon start [--fg]` / `stop` / `restart` / `status` | Manage daemon lifecycle. CLI auto-restarts daemon if version mismatch detected. |
+| 21 | **retry_failed_queue_jobs** | `analyze-cli queue retry [--task-id {tid}]` | Re-run only failed jobs. |
+| 22 | **reset_queue_jobs** | `analyze-cli queue reset [--task-id {tid}]` | **Blunt instrument**: force-reset all non-pending jobs. Prefer `queue retry`. |
+| 23 | **list_queue_jobs** | `analyze-cli queue list --task-id {tid} [--failed-only] [--limit {n}]` | Inspect queue job status. |
+| 24 | **pause_task / resume_task / cancel_task** | `analyze-cli task pause|resume|cancel --task-id {tid}` | Control running tasks. |
+| 25 | **list_posts / search_posts_db** | `analyze-cli post list [--platform {id}]` / `analyze-cli post search --platform {id} --query {text}` | Browse imported data. |
+| 26 | **daemon management** | `analyze-cli daemon start [--fg] [--verbose]` / `stop` / `restart` / `status` | Manage API server lifecycle. CLI auto-restarts if version mismatch. |
+| 27 | **run_single_analysis** | `analyze-cli analyze --task-id {tid} --strategy-id {sid}` | Run a one-shot strategy analysis without task steps. |
+| 28 | **view_logs** | `analyze-cli logs show [--lines {n}] [--level {l}]` | View recent API server log entries. |
 
 ### Advanced: Create Strategy
 
 | # | Tool | Description |
 |---|------|-------------|
-| 24 | **create_strategy** | Generate a new analysis strategy via conversation. See JSON Rules below. |
+| 29 | **create_strategy** | Generate a new analysis strategy via conversation. See JSON Rules below. |
 
 ---
 
@@ -271,3 +276,4 @@ analyze-cli task step run --task-id <tid> --step-id <sid> --wait
 3. **Rate limit (429) recovery**: workers auto-requeue with exponential backoff. Only intervene when status becomes `failed` after all retries.
 4. **Platform check first**: always `analyze-cli platform list` before `platform add` to avoid "already exists" errors.
 5. **Do NOT manually fetch note details before import**: let `prepare-data` handle enrichment via the `fetch_note` template.
+6. **Daemon = API server**: `analyze-cli daemon start` launches the unified API server (Fastify + in-process workers). CLI commands communicate via HTTP, not IPC.
