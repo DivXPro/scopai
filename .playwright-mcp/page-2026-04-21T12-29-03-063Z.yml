@@ -1,0 +1,516 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Analyze CLI" [level=1] [ref=e6]
+      - paragraph [ref=e7]: Dashboard
+    - navigation [ref=e8]:
+      - link "概览" [ref=e9] [cursor=pointer]:
+        - /url: /
+        - img [ref=e10]
+        - generic [ref=e15]: 概览
+      - link "任务" [ref=e16] [cursor=pointer]:
+        - /url: /tasks
+        - img [ref=e17]
+        - generic [ref=e20]: 任务
+      - link "帖子库" [ref=e21] [cursor=pointer]:
+        - /url: /posts
+        - img [ref=e22]
+        - generic [ref=e25]: 帖子库
+      - link "策略" [ref=e26] [cursor=pointer]:
+        - /url: /strategies
+        - img [ref=e27]
+        - generic [ref=e31]: 策略
+      - link "队列" [ref=e32] [cursor=pointer]:
+        - /url: /queue
+        - img [ref=e33]
+        - generic [ref=e35]: 队列
+  - main [ref=e36]:
+    - generic [ref=e37]:
+      - generic [ref=e39]:
+        - heading "帖子库" [level=2] [ref=e40]
+        - paragraph [ref=e41]: 共 22 条帖子
+      - generic [ref=e42]:
+        - generic [ref=e44] [cursor=pointer]:
+          - generic [ref=e45]:
+            - heading "好吃到破防😭一定要试试这个做法啊！！！" [level=3] [ref=e46]
+            - generic [ref=e47]: 小红书
+          - paragraph [ref=e48]: "@你碗里的好像更好吃2025-04-29"
+          - paragraph [ref=e49]: 好吃到破防😭一定要试试这个做法啊！！！
+          - generic [ref=e50]:
+            - generic [ref=e51]:
+              - img [ref=e52]
+              - text: 7,954
+            - generic [ref=e54]:
+              - img [ref=e55]
+              - text: "0"
+            - generic [ref=e57]:
+              - img [ref=e58]
+              - text: "0"
+          - generic [ref=e60]:
+            - generic [ref=e61]: 2026/4/21
+            - link "查看" [ref=e62]:
+              - /url: https://www.xiaohongshu.com/search_result/68109a6a0000000020029b44?xsec_token=ABT6cQ1ytWf2iRjBUG19zFfdUdcY5g7oHFAePa5t266Gk=&xsec_source=
+              - img
+              - text: 查看
+        - generic [ref=e64] [cursor=pointer]:
+          - generic [ref=e65]:
+            - heading "🎋春日限定｜春笋鲜虾汤🔥低卡鲜美巨好喝" [level=3] [ref=e66]
+            - generic [ref=e67]: 小红书
+          - paragraph [ref=e68]: "@卡卡的美食日记03-08"
+          - paragraph [ref=e69]: 🎋春日限定｜春笋鲜虾汤🔥低卡鲜美巨好喝
+          - generic [ref=e70]:
+            - generic [ref=e71]:
+              - img [ref=e72]
+              - text: 137,000
+            - generic [ref=e74]:
+              - img [ref=e75]
+              - text: "0"
+            - generic [ref=e77]:
+              - img [ref=e78]
+              - text: "0"
+          - generic [ref=e80]:
+            - generic [ref=e81]: 2026/4/21
+            - link "查看" [ref=e82]:
+              - /url: https://www.xiaohongshu.com/search_result/69ad3c00000000002602cbf4?xsec_token=ABPf1s-zSmUy_sRAOz-xGWkQizYPJzZuItYT9wYBPwjug=&xsec_source=
+              - img
+              - text: 查看
+        - generic [ref=e84] [cursor=pointer]:
+          - generic [ref=e85]:
+            - heading "🎋春日限定｜春笋鲜虾汤🔥低卡鲜美巨好喝" [level=3] [ref=e86]
+            - generic [ref=e87]: 小红书
+          - paragraph [ref=e88]: "@卡卡的美食日记03-08"
+          - paragraph [ref=e89]: 🎋春日限定｜春笋鲜虾汤🔥低卡鲜美巨好喝
+          - generic [ref=e90]:
+            - generic [ref=e91]:
+              - img [ref=e92]
+              - text: 137,000
+            - generic [ref=e94]:
+              - img [ref=e95]
+              - text: "0"
+            - generic [ref=e97]:
+              - img [ref=e98]
+              - text: "0"
+          - generic [ref=e100]:
+            - generic [ref=e101]: 2026/4/21
+            - link "查看" [ref=e102]:
+              - /url: https://www.xiaohongshu.com/search_result/69ad3c00000000002602cbf4?xsec_token=ABPf1s-zSmUy_sRAOz-xGWkQizYPJzZuItYT9wYBPwjug=&xsec_source=
+              - img
+              - text: 查看
+        - generic [ref=e104] [cursor=pointer]:
+          - generic [ref=e105]:
+            - heading "🎋春日限定｜春笋鲜虾汤🔥低卡鲜美巨好喝" [level=3] [ref=e106]
+            - generic [ref=e107]: 小红书
+          - paragraph [ref=e108]: "@卡卡的美食日记03-08"
+          - paragraph [ref=e109]: 🎋春日限定｜春笋鲜虾汤🔥低卡鲜美巨好喝
+          - generic [ref=e110]:
+            - generic [ref=e111]:
+              - img [ref=e112]
+              - text: 137,000
+            - generic [ref=e114]:
+              - img [ref=e115]
+              - text: "0"
+            - generic [ref=e117]:
+              - img [ref=e118]
+              - text: "0"
+          - generic [ref=e120]:
+            - generic [ref=e121]: 2026/4/21
+            - link "查看" [ref=e122]:
+              - /url: https://www.xiaohongshu.com/search_result/69ad3c00000000002602cbf4?xsec_token=ABPf1s-zSmUy_sRAOz-xGWkQizYPJzZuItYT9wYBPwjug=&xsec_source=
+              - img
+              - text: 查看
+        - generic [ref=e124] [cursor=pointer]:
+          - generic [ref=e125]:
+            - heading "🎋春日限定｜春笋鲜虾汤🔥低卡鲜美巨好喝" [level=3] [ref=e126]
+            - generic [ref=e127]: 小红书
+          - paragraph [ref=e128]: "@卡卡的美食日记03-08"
+          - paragraph [ref=e129]: 🎋春日限定｜春笋鲜虾汤🔥低卡鲜美巨好喝
+          - generic [ref=e130]:
+            - generic [ref=e131]:
+              - img [ref=e132]
+              - text: 137,000
+            - generic [ref=e134]:
+              - img [ref=e135]
+              - text: "0"
+            - generic [ref=e137]:
+              - img [ref=e138]
+              - text: "0"
+          - generic [ref=e140]:
+            - generic [ref=e141]: 2026/4/21
+            - link "查看" [ref=e142]:
+              - /url: https://www.xiaohongshu.com/search_result/69ad3c00000000002602cbf4?xsec_token=ABPf1s-zSmUy_sRAOz-xGWkQizYPJzZuItYT9wYBPwjug=&xsec_source=
+              - img
+              - text: 查看
+        - generic [ref=e144] [cursor=pointer]:
+          - generic [ref=e145]:
+            - heading "🎋春日限定｜春笋鲜虾汤🔥低卡鲜美巨好喝" [level=3] [ref=e146]
+            - generic [ref=e147]: 小红书
+          - paragraph [ref=e148]: "@卡卡的美食日记03-08"
+          - paragraph [ref=e149]: 🎋春日限定｜春笋鲜虾汤🔥低卡鲜美巨好喝
+          - generic [ref=e150]:
+            - generic [ref=e151]:
+              - img [ref=e152]
+              - text: 137,000
+            - generic [ref=e154]:
+              - img [ref=e155]
+              - text: "0"
+            - generic [ref=e157]:
+              - img [ref=e158]
+              - text: "0"
+          - generic [ref=e160]:
+            - generic [ref=e161]: 2026/4/21
+            - link "查看" [ref=e162]:
+              - /url: https://www.xiaohongshu.com/search_result/69ad3c00000000002602cbf4?xsec_token=ABPf1s-zSmUy_sRAOz-xGWkQizYPJzZuItYT9wYBPwjug=&xsec_source=
+              - img
+              - text: 查看
+        - generic [ref=e164] [cursor=pointer]:
+          - generic [ref=e165]:
+            - heading "Test Post" [level=3]
+            - generic [ref=e166]: 681ae471-7662-4ff6-8c0e-59fdfd7509dd
+          - paragraph [ref=e167]: 匿名用户
+          - paragraph [ref=e168]: Hello world
+          - generic [ref=e169]:
+            - generic [ref=e170]:
+              - img [ref=e171]
+              - text: "0"
+            - generic [ref=e173]:
+              - img [ref=e174]
+              - text: "0"
+            - generic [ref=e176]:
+              - img [ref=e177]
+              - text: "0"
+          - generic [ref=e179]:
+            - generic [ref=e180]: 2026/4/21
+            - link "查看" [ref=e181]:
+              - /url: "#"
+              - img
+              - text: 查看
+        - generic [ref=e183] [cursor=pointer]:
+          - generic [ref=e184]:
+            - heading "上海值得推荐的异国美食全攻略" [level=3] [ref=e185]
+            - generic [ref=e186]: 小红书
+          - paragraph [ref=e187]: "@小猪好吃喝2024-07-02"
+          - paragraph [ref=e188]: "上海美食热帖: 上海值得推荐的异国美食全攻略"
+          - generic [ref=e189]:
+            - generic [ref=e190]:
+              - img [ref=e191]
+              - text: 3,957
+            - generic [ref=e193]:
+              - img [ref=e194]
+              - text: "0"
+            - generic [ref=e196]:
+              - img [ref=e197]
+              - text: "10"
+          - generic [ref=e199]:
+            - generic [ref=e200]: 2024/7/2
+            - link "查看" [ref=e201]:
+              - /url: https://www.xiaohongshu.com/search_result/6683b10e0000000005007165?xsec_token=ABSQNPCwM73YHJToKvN_z88cekoKs9tn_fVkjw0wv-5EY=&xsec_source=
+              - img
+              - text: 查看
+        - generic [ref=e203] [cursor=pointer]:
+          - generic [ref=e204]:
+            - heading "Preserve Post" [level=3] [ref=e205]
+            - generic [ref=e206]: tps_1776673393579_platform
+          - paragraph [ref=e207]: "@Test Author"
+          - paragraph [ref=e208]: Test content
+          - generic [ref=e209]:
+            - generic [ref=e210]:
+              - img [ref=e211]
+              - text: "0"
+            - generic [ref=e213]:
+              - img [ref=e214]
+              - text: "0"
+            - generic [ref=e216]:
+              - img [ref=e217]
+              - text: "0"
+          - generic [ref=e219]:
+            - generic [ref=e220]: 2026/4/20
+            - link "查看" [ref=e221]:
+              - /url: "#"
+              - img
+              - text: 查看
+        - generic [ref=e223] [cursor=pointer]:
+          - generic [ref=e224]:
+            - heading "Failed Post" [level=3] [ref=e225]
+            - generic [ref=e226]: tps_1776673393579_platform
+          - paragraph [ref=e227]: "@Test Author"
+          - paragraph [ref=e228]: Test content
+          - generic [ref=e229]:
+            - generic [ref=e230]:
+              - img [ref=e231]
+              - text: "0"
+            - generic [ref=e233]:
+              - img [ref=e234]
+              - text: "0"
+            - generic [ref=e236]:
+              - img [ref=e237]
+              - text: "0"
+          - generic [ref=e239]:
+            - generic [ref=e240]: 2026/4/20
+            - link "查看" [ref=e241]:
+              - /url: "#"
+              - img
+              - text: 查看
+        - generic [ref=e243] [cursor=pointer]:
+          - generic [ref=e244]:
+            - heading "Test Post 2" [level=3] [ref=e245]
+            - generic [ref=e246]: tps_1776673393579_platform
+          - paragraph [ref=e247]: "@Test Author"
+          - paragraph [ref=e248]: Test content 2
+          - generic [ref=e249]:
+            - generic [ref=e250]:
+              - img [ref=e251]
+              - text: "0"
+            - generic [ref=e253]:
+              - img [ref=e254]
+              - text: "0"
+            - generic [ref=e256]:
+              - img [ref=e257]
+              - text: "0"
+          - generic [ref=e259]:
+            - generic [ref=e260]: 2026/4/20
+            - link "查看" [ref=e261]:
+              - /url: "#"
+              - img
+              - text: 查看
+        - generic [ref=e263] [cursor=pointer]:
+          - generic [ref=e264]:
+            - heading "Test Post 1" [level=3] [ref=e265]
+            - generic [ref=e266]: tps_1776673393579_platform
+          - paragraph [ref=e267]: "@Test Author"
+          - paragraph [ref=e268]: Test content 1
+          - generic [ref=e269]:
+            - generic [ref=e270]:
+              - img [ref=e271]
+              - text: "0"
+            - generic [ref=e273]:
+              - img [ref=e274]
+              - text: "0"
+            - generic [ref=e276]:
+              - img [ref=e277]
+              - text: "0"
+          - generic [ref=e279]:
+            - generic [ref=e280]: 2026/4/20
+            - link "查看" [ref=e281]:
+              - /url: "#"
+              - img
+              - text: 查看
+        - generic [ref=e283] [cursor=pointer]:
+          - generic [ref=e284]:
+            - heading "Test Post" [level=3]
+            - generic [ref=e285]: 10d8cde7-2f2f-4cf1-86f6-b6cf8258e102
+          - paragraph [ref=e286]: 匿名用户
+          - paragraph [ref=e287]: Hello world
+          - generic [ref=e288]:
+            - generic [ref=e289]:
+              - img [ref=e290]
+              - text: "0"
+            - generic [ref=e292]:
+              - img [ref=e293]
+              - text: "0"
+            - generic [ref=e295]:
+              - img [ref=e296]
+              - text: "0"
+          - generic [ref=e298]:
+            - generic [ref=e299]: 2026/4/20
+            - link "查看" [ref=e300]:
+              - /url: "#"
+              - img
+              - text: 查看
+        - generic [ref=e302] [cursor=pointer]:
+          - generic [ref=e303]:
+            - heading "Offline Test Post" [level=3] [ref=e304]
+            - generic [ref=e305]: offline_1776673381380_platform
+          - paragraph [ref=e306]: "@Test Author"
+          - paragraph [ref=e307]: Test content using mock data
+          - generic [ref=e308]:
+            - generic [ref=e309]:
+              - img [ref=e310]
+              - text: "100"
+            - generic [ref=e312]:
+              - img [ref=e313]
+              - text: "20"
+            - generic [ref=e315]:
+              - img [ref=e316]
+              - text: "3"
+          - generic [ref=e318]:
+            - generic [ref=e319]: 2026/4/20
+            - link "查看" [ref=e320]:
+              - /url: "#"
+              - img
+              - text: 查看
+        - generic [ref=e322] [cursor=pointer]:
+          - generic [ref=e323]:
+            - heading "春日漂亮饭！" [level=3] [ref=e324]
+            - generic [ref=e325]: 小红书
+          - paragraph [ref=e326]: "@徐大人03-27"
+          - paragraph [ref=e327]: 春日漂亮饭！
+          - generic [ref=e328]:
+            - generic [ref=e329]:
+              - img [ref=e330]
+              - text: 1,278
+            - generic [ref=e332]:
+              - img [ref=e333]
+              - text: "0"
+            - generic [ref=e335]:
+              - img [ref=e336]
+              - text: "0"
+          - generic [ref=e338]:
+            - generic [ref=e339]: 2026/4/20
+            - link "查看" [ref=e340]:
+              - /url: https://www.xiaohongshu.com/search_result/69c65aa50000000023007eaf?xsec_token=ABaWo9TrcFkeH_uYNgzCB-gcMZce9uj7QKyWhNmNqlymE=&xsec_source=
+              - img
+              - text: 查看
+        - generic [ref=e342] [cursor=pointer]:
+          - generic [ref=e343]:
+            - heading "94年安徽女友大14岁上海爷叔打卡路边网红店" [level=3] [ref=e344]
+            - generic [ref=e345]: 小红书
+          - paragraph [ref=e346]: "@王小美的生活日记2025-10-07"
+          - paragraph [ref=e347]: 94年安徽女友大14岁上海爷叔打卡路边网红店
+          - generic [ref=e348]:
+            - generic [ref=e349]:
+              - img [ref=e350]
+              - text: "210"
+            - generic [ref=e352]:
+              - img [ref=e353]
+              - text: "0"
+            - generic [ref=e355]:
+              - img [ref=e356]
+              - text: "0"
+          - generic [ref=e358]:
+            - generic [ref=e359]: 2026/4/20
+            - link "查看" [ref=e360]:
+              - /url: https://www.xiaohongshu.com/search_result/68e484c10000000007009fdd?xsec_token=AB9h9_9GYIvCQFqIVGyfG-Zev46R3Pv-kDKhMV28ASRE0=&xsec_source=
+              - img
+              - text: 查看
+        - generic [ref=e362] [cursor=pointer]:
+          - generic [ref=e363]:
+            - heading "94年安徽女友大14岁上海爷叔打卡路边网红店" [level=3] [ref=e364]
+            - generic [ref=e365]: 小红书
+          - paragraph [ref=e366]: "@王小美的生活日记2025-10-07"
+          - paragraph [ref=e367]: 94年安徽女友大14岁上海爷叔打卡路边网红店
+          - generic [ref=e368]:
+            - generic [ref=e369]:
+              - img [ref=e370]
+              - text: "210"
+            - generic [ref=e372]:
+              - img [ref=e373]
+              - text: "0"
+            - generic [ref=e375]:
+              - img [ref=e376]
+              - text: "0"
+          - generic [ref=e378]:
+            - generic [ref=e379]: 2026/4/20
+            - link "查看" [ref=e380]:
+              - /url: https://www.xiaohongshu.com/search_result/68e484c10000000007009fdd?xsec_token=AB9h9_9GYIvCQFqIVGyfG-Zev46R3Pv-kDKhMV28ASRE0=&xsec_source=
+              - img
+              - text: 查看
+        - generic [ref=e382] [cursor=pointer]:
+          - generic [ref=e383]:
+            - heading "94年安徽女友大14岁上海爷叔打卡路边网红店" [level=3] [ref=e384]
+            - generic [ref=e385]: 小红书
+          - paragraph [ref=e386]: "@王小美的生活日记2025-10-07"
+          - paragraph [ref=e387]: 94年安徽女友大14岁上海爷叔打卡路边网红店
+          - generic [ref=e388]:
+            - generic [ref=e389]:
+              - img [ref=e390]
+              - text: "210"
+            - generic [ref=e392]:
+              - img [ref=e393]
+              - text: "0"
+            - generic [ref=e395]:
+              - img [ref=e396]
+              - text: "0"
+          - generic [ref=e398]:
+            - generic [ref=e399]: 2026/4/20
+            - link "查看" [ref=e400]:
+              - /url: https://www.xiaohongshu.com/search_result/68e484c10000000007009fdd?xsec_token=AB9h9_9GYIvCQFqIVGyfG-Zev46R3Pv-kDKhMV28ASRE0=&xsec_source=
+              - img
+              - text: 查看
+        - generic [ref=e402] [cursor=pointer]:
+          - generic [ref=e403]:
+            - heading "94年安徽女友大14岁上海爷叔打卡路边网红店" [level=3] [ref=e404]
+            - generic [ref=e405]: 小红书
+          - paragraph [ref=e406]: "@王小美的生活日记2025-10-07"
+          - paragraph [ref=e407]: 94年安徽女友大14岁上海爷叔打卡路边网红店
+          - generic [ref=e408]:
+            - generic [ref=e409]:
+              - img [ref=e410]
+              - text: "210"
+            - generic [ref=e412]:
+              - img [ref=e413]
+              - text: "0"
+            - generic [ref=e415]:
+              - img [ref=e416]
+              - text: "0"
+          - generic [ref=e418]:
+            - generic [ref=e419]: 2026/4/20
+            - link "查看" [ref=e420]:
+              - /url: https://www.xiaohongshu.com/search_result/68e484c10000000007009fdd?xsec_token=AB9h9_9GYIvCQFqIVGyfG-Zev46R3Pv-kDKhMV28ASRE0=&xsec_source=
+              - img
+              - text: 查看
+        - generic [ref=e422] [cursor=pointer]:
+          - generic [ref=e423]:
+            - heading "94年安徽女友大14岁上海爷叔打卡路边网红店" [level=3] [ref=e424]
+            - generic [ref=e425]: 小红书
+          - paragraph [ref=e426]: "@王小美的生活日记2025-10-07"
+          - paragraph [ref=e427]: 94年安徽女友大14岁上海爷叔打卡路边网红店
+          - generic [ref=e428]:
+            - generic [ref=e429]:
+              - img [ref=e430]
+              - text: "210"
+            - generic [ref=e432]:
+              - img [ref=e433]
+              - text: "0"
+            - generic [ref=e435]:
+              - img [ref=e436]
+              - text: "0"
+          - generic [ref=e438]:
+            - generic [ref=e439]: 2026/4/20
+            - link "查看" [ref=e440]:
+              - /url: https://www.xiaohongshu.com/search_result/68e484c10000000007009fdd?xsec_token=AB9h9_9GYIvCQFqIVGyfG-Zev46R3Pv-kDKhMV28ASRE0=&xsec_source=
+              - img
+              - text: 查看
+        - generic [ref=e442] [cursor=pointer]:
+          - generic [ref=e443]:
+            - heading "本地人总结上海开了10年以上的美食推荐！" [level=3] [ref=e444]
+            - generic [ref=e445]: 小红书
+          - paragraph [ref=e446]: 匿名用户
+          - paragraph [ref=e447]: 无内容
+          - generic [ref=e448]:
+            - generic [ref=e449]:
+              - img [ref=e450]
+              - text: "0"
+            - generic [ref=e452]:
+              - img [ref=e453]
+              - text: "0"
+            - generic [ref=e455]:
+              - img [ref=e456]
+              - text: "0"
+          - generic [ref=e458]:
+            - generic [ref=e459]: 2025/9/28
+            - link "查看" [ref=e460]:
+              - /url: https://www.xiaohongshu.com/search_result/68d8f7b2000000000e03247c?xsec_token=ABv3D0_tEsVwRe4nN907qzqUqtXEzrAmv_W8a0VVDuvuM=&xsec_source=
+              - img
+              - text: 查看
+        - generic [ref=e462] [cursor=pointer]:
+          - generic [ref=e463]:
+            - heading "吴彦祖上海老餐厅" [level=3] [ref=e464]
+            - generic [ref=e465]: 小红书
+          - paragraph [ref=e466]: 匿名用户
+          - paragraph [ref=e467]: 无内容
+          - generic [ref=e468]:
+            - generic [ref=e469]:
+              - img [ref=e470]
+              - text: "0"
+            - generic [ref=e472]:
+              - img [ref=e473]
+              - text: "0"
+            - generic [ref=e475]:
+              - img [ref=e476]
+              - text: "0"
+          - generic [ref=e478]:
+            - generic [ref=e479]: 2025/11/19
+            - link "查看" [ref=e480]:
+              - /url: https://www.xiaohongshu.com/search_result/691dae84000000001e011e26?xsec_token=ABCTos3LONnj73logb1MCx1S47_mQ4XovTDzDqblqWOp0=&xsec_source=
+              - img
+              - text: 查看

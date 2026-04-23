@@ -1,0 +1,44 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Analyze CLI" [level=1] [ref=e6]
+      - paragraph [ref=e7]: Dashboard
+    - navigation [ref=e8]:
+      - link "概览" [ref=e9] [cursor=pointer]:
+        - /url: /
+        - img [ref=e10]
+        - generic [ref=e15]: 概览
+      - link "任务" [ref=e16] [cursor=pointer]:
+        - /url: /tasks
+        - img [ref=e17]
+        - generic [ref=e20]: 任务
+      - link "帖子库" [ref=e21] [cursor=pointer]:
+        - /url: /posts
+        - img [ref=e22]
+        - generic [ref=e25]: 帖子库
+      - link "策略" [ref=e26] [cursor=pointer]:
+        - /url: /strategies
+        - img [ref=e27]
+        - generic [ref=e31]: 策略
+      - link "队列" [ref=e32] [cursor=pointer]:
+        - /url: /queue
+        - img [ref=e33]
+        - generic [ref=e35]: 队列
+  - main [ref=e36]:
+    - generic [ref=e37]:
+      - heading "策略管理" [level=2] [ref=e38]
+      - table [ref=e41]:
+        - rowgroup [ref=e42]:
+          - row "名称 目标 版本" [ref=e43]:
+            - columnheader "名称" [ref=e44]
+            - columnheader "目标" [ref=e45]
+            - columnheader "版本" [ref=e46]
+        - rowgroup [ref=e47]:
+          - row "sentiment comment 1.0.0" [ref=e48]:
+            - cell "sentiment" [ref=e49]
+            - cell "comment" [ref=e50]
+            - cell "1.0.0" [ref=e51]
+          - row "sentiment comment 1.0.0" [ref=e52]:
+            - cell "sentiment" [ref=e53]
+            - cell "comment" [ref=e54]
+            - cell "1.0.0" [ref=e55]

@@ -1,44 +1,19 @@
 {
   "name": "analyze-cli",
-  "version": "0.1.11",
+  "version": "1.0.0",
+  "private": true,
   "description": "AI-powered social media content analysis CLI tool",
-  "main": "dist/cli/index.js",
-  "bin": {
-    "analyze-cli": "./bin/analyze-cli.js",
-    "skill": "./bin/skill.js"
-  },
-  "files": [
-    "bin/",
-    "dist/",
-    "SKILL.md",
-    "src/db/schema.sql"
-  ],
   "scripts": {
-    "build": "tsup src/cli/index.ts src/daemon/index.ts src/daemon/stream-scheduler.ts --format cjs --out-dir dist --external duckdb --minify",
-    "dev": "tsup src/cli/index.ts src/daemon/index.ts --format cjs --out-dir dist --external duckdb --watch",
-    "test": "node --test --test-concurrency=1 --experimental-strip-types 'test/**/*.test.ts'",
+    "build": "pnpm -r build",
+    "dev": "pnpm -r dev",
+    "test": "pnpm -r test",
     "test:integration": "node --test --test-concurrency=1 --experimental-strip-types 'test/integration/*.test.ts'",
     "test:e2e": "node --test --test-concurrency=1 --experimental-strip-types 'test/e2e/**/*.test.ts'",
     "test:e2e:import": "node --test --test-concurrency=1 --experimental-strip-types 'test/e2e/import-and-prepare/*.test.ts'",
     "test:e2e:strategy": "node --test --test-concurrency=1 --experimental-strip-types 'test/e2e/strategy-workflow/*.test.ts'",
     "test:e2e:queue": "node --test --test-concurrency=1 --experimental-strip-types 'test/e2e/queue-recovery/*.test.ts'",
     "test:e2e:daemon": "node --test --test-concurrency=1 --experimental-strip-types 'test/e2e/daemon-lifecycle/*.test.ts'",
-    "test:record": "npx tsx scripts/record-e2e-fixture.ts --platform xhs --query '上海美食' --limit 2 --output test-data/recorded/$(date +%Y-%m-%d)-xhs-shanghai",
-    "prepublishOnly": "npm run build"
-  },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.88.0",
-    "bree": "^9.2.9",
-    "commander": "^14.0.3",
-    "duckdb": "^1.4.4",
-    "picocolors": "^1.1.1",
-    "uuid": "^11.1.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.15.3",
-    "@types/uuid": "^10.0.0",
-    "tsup": "^8.4.0",
-    "typescript": "^5.8.3"
+    "test:record": "npx tsx scripts/record-e2e-fixture.ts --platform xhs --query '上海美食' --limit 2 --output test-data/recorded/$(date +%Y-%m-%d)-xhs-shanghai"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -47,5 +22,8 @@
     "onlyBuiltDependencies": [
       "duckdb"
     ]
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }

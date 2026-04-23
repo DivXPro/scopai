@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildStrategyPrompt, buildCommentPrompt } from '../../dist/worker/anthropic.js';
-import type { Post, Comment, Strategy } from '../../dist/shared/types.js';
+import { buildStrategyPrompt, buildCommentPrompt } from '../../src/worker/anthropic.ts';
+import type { Post, Comment, Strategy } from '../../packages/core/dist/shared/types.js';
 
 const baseStrategy: Strategy = {
   id: 'test-strategy',

@@ -6,13 +6,14 @@
 
 ## 项目概览
 
-`analyze-cli` 是一个基于 TypeScript 和 Node.js 的社交媒体内容分析 CLI。
+`analyze-cli` 是一个基于 TypeScript 和 Node.js 的社交媒体内容分析平台，采用 pnpm monorepo 架构。
 
 当前主链路：
 
 ```text
-CLI command
-  -> DuckDB data / task records
+CLI command / Web UI
+  -> API server (Fastify)
+  -> DuckDB data / task records (core)
   -> daemon + worker pool
   -> Anthropic analysis
   -> result query / export
@@ -22,21 +23,42 @@ CLI command
 
 - 语言：TypeScript
 - 运行时：Node.js 20+
-- 包管理：优先使用 `pnpm`
+- 包管理：pnpm（monorepo workspace）
 - CLI：`commander`
+- API：`fastify`
+- UI：React 19 + Vite + TailwindCSS + shadcn/ui
 - 存储：`duckdb`
 - 调度：`bree`
 - 模型调用：`@anthropic-ai/sdk`
-- 输出：终端结果 + JSON/CSV 导出
+- 输出：终端结果 + JSON/CSV 导出 + Web Dashboard
+
+## Monorepo 包结构
+
+| 包 | 路径 | 说明 |
+|---|------|------|
+| `@analyze-cli/core` | `packages/core` | 数据库、配置、共享逻辑（DB CRUD、migration、seed、shutdown、lock-file 等） |
+| `@analyze-cli/api` | `packages/api` | Fastify HTTP API 服务 + in-process worker consumer |
+| `@analyze-cli/ui` | `packages/ui` | React Web Dashboard（Vite + TailwindCSS + shadcn/ui） |
+| `@analyze-cli/cli` | `packages/cli` | CLI 命令入口（commander） |
+
+包间依赖关系：
+
+```text
+cli -> core
+api -> core
+ui -> api（通过 HTTP，非 workspace 依赖）
+```
 
 ## 关键入口
 
-- CLI 入口：`src/cli/index.ts`
+- CLI 入口：`packages/cli/src/index.ts`
 - 可执行入口：`bin/analyze-cli.js`
-- daemon 入口：`src/daemon/index.ts`
-- worker 入口：`src/worker/index.ts`
-- consumer 主循环：`src/worker/consumer.ts`
-- 配置入口：`src/config/index.ts`
+- API 入口：`packages/api/src/index.ts`
+- API 路由注册：`packages/api/src/routes/index.ts`
+- worker consumer：`packages/api/src/worker/consumer.ts`
+- 配置入口：`packages/core/src/config/index.ts`
+- DB 入口：`packages/core/src/db/client.ts`
+- UI 入口：`packages/ui/src/main.tsx`
 
 ## 当前 CLI 命令组
 
@@ -47,6 +69,34 @@ CLI command
 - `task`
 - `template`
 - `result`
+- `strategy`
+- `queue`
+- `analyze`
+
+## API 路由
+
+- `GET /health` — 健康检查
+- `GET /api/status` — 服务状态（含 queue_stats）
+- `GET /api/platforms` — 平台列表
+- `GET/POST /api/posts`、`POST /api/posts/import` — 帖子 CRUD 与导入
+- `GET /api/posts/:id/comments`、`GET /api/posts/:id/media` — 评论与媒体
+- `GET/POST/DELETE /api/strategies`、`POST /api/strategies/import` — 策略 CRUD 与导入
+- `GET/POST /api/tasks`、`POST /api/tasks/:id/start|pause|cancel|resume` — 任务生命周期
+- `POST /api/tasks/:id/prepare-data|add-posts|add-comments` — 任务数据操作
+- `POST /api/tasks/:id/steps`、`POST /api/tasks/:id/steps/:stepId/run`、`POST /api/tasks/:id/run-all-steps` — 步骤管理
+- `GET /api/tasks/:id/results` — 分析结果查询
+- `GET /api/queue`、`POST /api/queue/retry|reset` — 队列管理
+
+## 测试体系
+
+| 类型 | 位置 | 运行命令 | 说明 |
+|------|------|----------|------|
+| 根级 e2e | `test/e2e/` | `pnpm test:e2e` | 全链路 e2e（daemon lifecycle、import-prepare、strategy-workflow、queue-recovery） |
+| 根级 integration | `test/integration/` | `pnpm test:integration` | DB + worker 集成测试 |
+| 根级 unit | `test/unit/` | `pnpm test` | 纯逻辑单元测试 |
+| API e2e | `packages/api/test/e2e/` | `pnpm --filter @analyze-cli/api test:e2e` | HTTP API 路由 e2e（46 tests，动态端口隔离） |
+
+API e2e 测试使用 child process 启动真实服务器，每个 suite 独立 DuckDB + 动态端口，通过 `PORT` 环境变量避免端口冲突。
 
 ## 当前实现边界
 
@@ -62,6 +112,7 @@ CLI command
 
 - 安装依赖：`pnpm install`
 - 构建：`pnpm build`
+- API e2e 测试：`pnpm --filter @analyze-cli/api test:e2e`
 
 ### 开发 Agent 编排
 

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import * as opencli from '../../dist/data-fetcher/opencli.js';
+import * as opencli from '../../packages/core/dist/data-fetcher/opencli.js';
 const { fetchViaOpencli } = opencli;
 
 // ============================================================

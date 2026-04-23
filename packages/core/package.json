@@ -1,0 +1,30 @@
+{
+  "name": "@analyze-cli/core",
+  "version": "1.0.0",
+  "description": "Shared core for analyze-cli: database, config, types, utilities",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/",
+    "src/db/schema.sql"
+  ],
+  "scripts": {
+    "build": "tsc && tsup src/index.ts --format cjs --out-dir dist --external duckdb --minify && cp src/db/schema.sql dist/schema.sql",
+    "dev": "tsup src/index.ts --format cjs --out-dir dist --external duckdb --watch",
+    "test": "node --test --test-concurrency=1 --experimental-strip-types 'test/**/*.test.ts'"
+  },
+  "dependencies": {
+    "duckdb": "^1.4.4",
+    "picocolors": "^1.1.1",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "@types/uuid": "^10.0.0",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

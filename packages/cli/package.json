@@ -1,0 +1,27 @@
+{
+  "name": "@analyze-cli/cli",
+  "version": "1.0.0",
+  "description": "CLI entry for analyze-cli",
+  "main": "dist/index.js",
+  "bin": {
+    "analyze-cli": "../../bin/analyze-cli.js",
+    "skill": "../../bin/skill.js"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs --out-dir dist --external @analyze-cli/core --external duckdb --minify",
+    "dev": "tsup src/index.ts --format cjs --out-dir dist --external @analyze-cli/core --external duckdb --watch"
+  },
+  "dependencies": {
+    "@analyze-cli/core": "workspace:*",
+    "commander": "^14.0.3",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

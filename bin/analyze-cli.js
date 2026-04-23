@@ -1,2 +1,2 @@
 #!/usr/bin/env node
-require('../dist/cli/index.js');
+require('../packages/cli/dist/index.js');

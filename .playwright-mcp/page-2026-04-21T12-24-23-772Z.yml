@@ -1,0 +1,50 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Analyze CLI" [level=1] [ref=e6]
+      - paragraph [ref=e7]: Dashboard
+    - navigation [ref=e8]:
+      - link "概览" [ref=e9] [cursor=pointer]:
+        - /url: /
+        - img [ref=e10]
+        - generic [ref=e15]: 概览
+      - link "任务" [ref=e16] [cursor=pointer]:
+        - /url: /tasks
+        - img [ref=e17]
+        - generic [ref=e20]: 任务
+      - link "帖子库" [ref=e21] [cursor=pointer]:
+        - /url: /posts
+        - img [ref=e22]
+        - generic [ref=e25]: 帖子库
+      - link "策略" [ref=e26] [cursor=pointer]:
+        - /url: /strategies
+        - img [ref=e27]
+        - generic [ref=e31]: 策略
+      - link "队列" [ref=e32] [cursor=pointer]:
+        - /url: /queue
+        - img [ref=e33]
+        - generic [ref=e35]: 队列
+  - main [ref=e36]:
+    - generic [ref=e37]:
+      - heading "概览" [level=2] [ref=e38]
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - heading "待处理" [level=3] [ref=e42]
+            - img [ref=e43]
+          - generic [ref=e47]: "1"
+        - generic [ref=e48]:
+          - generic [ref=e49]:
+            - heading "处理中" [level=3] [ref=e50]
+            - img [ref=e51]
+          - generic [ref=e54]: "0"
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - heading "已完成" [level=3] [ref=e57]
+            - img [ref=e58]
+          - generic [ref=e62]: "0"
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - heading "失败" [level=3] [ref=e65]
+            - img [ref=e66]
+          - generic [ref=e71]: "1"
