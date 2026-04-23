@@ -81,7 +81,7 @@ analyze-cli/
 **设计原则：**
 - `core` 是唯一直接操作 DuckDB 的层
 - `core` 导出所有公共类型、配置、工具函数、数据库操作
-- CLI 命令通过 `@analyze-cli/core` 引用数据库和共享代码
+- CLI 命令通过 `@scopai/core` 引用数据库和共享代码
 - `src/daemon/` 和 `src/worker/` 暂时留在根目录，Phase 2 迁移到 `packages/api/`
 
 ---
@@ -234,7 +234,7 @@ git commit -m "chore(monorepo): add workspace configuration"
 
 ```json
 {
-  "name": "@analyze-cli/core",
+  "name": "@scopai/core",
   "version": "0.1.11",
   "description": "Shared core for analyze-cli: database, config, types, utilities",
   "main": "dist/index.js",
@@ -510,7 +510,7 @@ git commit -m "chore(core): migrate data-fetcher to core package"
 
 ```json
 {
-  "name": "@analyze-cli/cli",
+  "name": "@scopai/cli",
   "version": "0.1.11",
   "description": "CLI entry for analyze-cli",
   "main": "dist/index.js",
@@ -519,11 +519,11 @@ git commit -m "chore(core): migrate data-fetcher to core package"
     "skill": "../../bin/skill.js"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format cjs --out-dir dist --external @analyze-cli/core --external duckdb --minify",
-    "dev": "tsup src/index.ts --format cjs --out-dir dist --external @analyze-cli/core --external duckdb --watch"
+    "build": "tsup src/index.ts --format cjs --out-dir dist --external @scopai/core --external duckdb --minify",
+    "dev": "tsup src/index.ts --format cjs --out-dir dist --external @scopai/core --external duckdb --watch"
   },
   "dependencies": {
-    "@analyze-cli/core": "workspace:*",
+    "@scopai/core": "workspace:*",
     "commander": "^14.0.3",
     "picocolors": "^1.1.1"
   },
@@ -570,18 +570,18 @@ cp src/cli/* packages/cli/src/
 
 - [ ] **Step 7.4: 更新 CLI 文件中的 import 路径**
 
-所有 `packages/cli/src/*.ts` 文件中的 `../db/`, `../config/`, `../shared/` 引用需要改为 `@analyze-cli/core`。
+所有 `packages/cli/src/*.ts` 文件中的 `../db/`, `../config/`, `../shared/` 引用需要改为 `@scopai/core`。
 
 **批量替换规则：**
 
 对每个 `packages/cli/src/*.ts` 文件执行：
 
-1. `from '../db/'` → `from '@analyze-cli/core'`
-2. `from '../config'` → `from '@analyze-cli/core'`
-3. `from '../shared/'` → `from '@analyze-cli/core'`
-4. `from '../data-fetcher/'` → `from '@analyze-cli/core'`
+1. `from '../db/'` → `from '@scopai/core'`
+2. `from '../config'` → `from '@scopai/core'`
+3. `from '../shared/'` → `from '@scopai/core'`
+4. `from '../data-fetcher/'` → `from '@scopai/core'`
 
-但注意：有些 import 是具体的子模块，例如 `from '../db/posts'`，这些不能直接替换为 `@analyze-cli/core`，因为 core 包的 index.ts 使用 `export * from './db/posts'`，所以 named imports 仍然可用。
+但注意：有些 import 是具体的子模块，例如 `from '../db/posts'`，这些不能直接替换为 `@scopai/core`，因为 core 包的 index.ts 使用 `export * from './db/posts'`，所以 named imports 仍然可用。
 
 **具体替换映射：**
 
@@ -589,37 +589,37 @@ cp src/cli/* packages/cli/src/
 // 旧
 import { createPost, getPostById, listPosts, searchPosts } from '../db/posts';
 // 新
-import { createPost, getPostById, listPosts, searchPosts } from '@analyze-cli/core';
+import { createPost, getPostById, listPosts, searchPosts } from '@scopai/core';
 
 // 旧
 import { createComment, listCommentsByPost } from '../db/comments';
 // 新
-import { createComment, listCommentsByPost } from '@analyze-cli/core';
+import { createComment, listCommentsByPost } from '@scopai/core';
 
 // 旧
 import { config } from '../config';
 // 新
-import { config } from '@analyze-cli/core';
+import { config } from '@scopai/core';
 
 // 旧
 import { generateId, now, parseImportFile } from '../shared/utils';
 // 新
-import { generateId, now, parseImportFile } from '@analyze-cli/core';
+import { generateId, now, parseImportFile } from '@scopai/core';
 
 // 旧
 import { getLogger } from '../shared/logger';
 // 新
-import { getLogger } from '@analyze-cli/core';
+import { getLogger } from '@scopai/core';
 
 // 旧
 import type { QueueJob } from '../shared/types';
 // 新
-import type { QueueJob } from '@analyze-cli/core';
+import type { QueueJob } from '@scopai/core';
 
 // 旧
 import { fetchViaOpencli } from '../data-fetcher/opencli';
 // 新
-import { fetchViaOpencli } from '@analyze-cli/core';
+import { fetchViaOpencli } from '@scopai/core';
 ```
 
 **处理动态 import：**
@@ -631,14 +631,14 @@ const { addTaskTargets } = await import('../db/task-targets');
 
 改为：
 ```typescript
-const { addTaskTargets } = await import('@analyze-cli/core');
+const { addTaskTargets } = await import('@scopai/core');
 ```
 
 **保留的相对引用：**
 
 - `packages/cli/src/*.ts` 之间的相互引用保持不变（如 `./task` 等）
 - `packages/cli/src/daemon.ts` 中的 `../daemon/` 引用需要暂时保留（因为 daemon 还在根 src/）
-- `packages/cli/src/ipc-client.ts` 中的 `../shared/` 等引用需要改为 `@analyze-cli/core`
+- `packages/cli/src/ipc-client.ts` 中的 `../shared/` 等引用需要改为 `@scopai/core`
 - `packages/cli/src/task-prepare.ts` 中的 `../daemon/` 引用暂时保留
 
 **逐个文件处理：**
@@ -657,8 +657,8 @@ import {
   createStrategy, getStrategyById, listStrategies, validateStrategyJson,
   updateStrategy, deleteStrategy, parseJsonSchemaToColumns, createStrategyResultTable,
   syncStrategyResultTable, getExistingResultIds, getTaskPostStatus, config,
-} from '@analyze-cli/core';
-import type { QueueJob } from '@analyze-cli/core';
+} from '@scopai/core';
+import type { QueueJob } from '@scopai/core';
 ```
 
 **packages/cli/src/task.ts:**
@@ -672,7 +672,7 @@ import { generateId, now, parseImportFile } from '../shared/utils';
 import {
   createTask, getTaskById, listTasks, updateTaskStatus, updateTaskStats,
   addTaskTargets, getTargetStats, listTaskTargets, generateId, now, parseImportFile,
-} from '@analyze-cli/core';
+} from '@scopai/core';
 ```
 
 其他文件类似处理。用 sed 批量替换：
@@ -681,15 +681,15 @@ import {
 # 对每个 CLI 源文件执行
 cd packages/cli/src
 for f in *.ts; do
-  sed -i.bak "s|from '\.\./db/|from '@analyze-cli/core'|g" "$f"
-  sed -i.bak "s|from '\.\./config'|from '@analyze-cli/core'|g" "$f"
-  sed -i.bak "s|from '\.\./shared/|from '@analyze-cli/core'|g" "$f"
-  sed -i.bak "s|from '\.\./data-fetcher/|from '@analyze-cli/core'|g" "$f"
+  sed -i.bak "s|from '\.\./db/|from '@scopai/core'|g" "$f"
+  sed -i.bak "s|from '\.\./config'|from '@scopai/core'|g" "$f"
+  sed -i.bak "s|from '\.\./shared/|from '@scopai/core'|g" "$f"
+  sed -i.bak "s|from '\.\./data-fetcher/|from '@scopai/core'|g" "$f"
   rm -f "$f.bak"
 done
 ```
 
-**注意：** 以上 sed 会把所有 `from '../db/xxx'` 变成 `from '@analyze-cli/core'`，这是正确的因为 core 包的 index.ts 已经重新导出了所有命名导出。
+**注意：** 以上 sed 会把所有 `from '../db/xxx'` 变成 `from '@scopai/core'`，这是正确的因为 core 包的 index.ts 已经重新导出了所有命名导出。
 
 **但有一个例外** — `import '../db/schema.sql'` 这种字符串引用需要特别处理（没有这种情况）。
 
@@ -736,12 +736,12 @@ git commit -m "chore(cli): create cli package and migrate source files"
 pnpm install
 ```
 
-预期：pnpm 会安装根依赖和各 workspace 包的依赖，并在 `node_modules/` 下创建 `@analyze-cli/core` 的软链接。
+预期：pnpm 会安装根依赖和各 workspace 包的依赖，并在 `node_modules/` 下创建 `@scopai/core` 的软链接。
 
 - [ ] **Step 8.2: 验证 workspace 链接**
 
 ```bash
-ls -la node_modules/@analyze-cli/
+ls -la node_modules/@scopai/
 ```
 
 预期输出包含 `core` → `../../packages/core` 的符号链接。
@@ -838,9 +838,9 @@ pnpm test:integration
 grep -r "from '../../src/" test/
 ```
 
-对于引用 `../../src/db/` 的测试文件，改为 `../../packages/core/src/db/` 或 `@analyze-cli/core`。
+对于引用 `../../src/db/` 的测试文件，改为 `../../packages/core/src/db/` 或 `@scopai/core`。
 
-由于测试使用 `--experimental-strip-types` 直接运行 TypeScript，不能使用 `@analyze-cli/core` 包名（因为没有 TypeScript 模块解析）。所以需要使用相对路径：
+由于测试使用 `--experimental-strip-types` 直接运行 TypeScript，不能使用 `@scopai/core` 包名（因为没有 TypeScript 模块解析）。所以需要使用相对路径：
 
 ```typescript
 // 旧

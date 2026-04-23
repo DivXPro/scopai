@@ -31,7 +31,7 @@ export async function startServer(): Promise<TestContext> {
 
   const distPath = path.resolve(__dirname, '../../dist/index.js');
   if (!fs.existsSync(distPath)) {
-    throw new Error('API dist not found. Run `pnpm --filter @analyze-cli/api build` first.');
+    throw new Error('API dist not found. Run `pnpm --filter @scopai/api build` first.');
   }
 
   const port = await getFreePort();

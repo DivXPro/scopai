@@ -2,8 +2,8 @@ import { Command } from 'commander';
 import * as pc from 'picocolors';
 import { spawn } from 'child_process';
 import * as path from 'path';
-import { readLockFile, isApiAlive, removeLockFile } from '@analyze-cli/core';
-import { VERSION } from '@analyze-cli/core';
+import { readLockFile, isApiAlive, removeLockFile } from '@scopai/core';
+import { VERSION } from '@scopai/core';
 
 export function daemonCommands(program: Command): void {
   const daemon = program.command('daemon').description('Manage the analysis daemon');
@@ -25,9 +25,8 @@ export function daemonCommands(program: Command): void {
         removeLockFile();
       }
 
-      // Resolve API package path from monorepo root
-      const monorepoRoot = path.dirname(path.dirname(require.resolve('@analyze-cli/core/package.json')));
-      const apiDir = path.join(monorepoRoot, 'packages', 'api');
+      // Resolve API package path (works in both monorepo and published installs)
+      const apiDir = path.dirname(require.resolve('@scopai/api/package.json'));
       const env: NodeJS.ProcessEnv = { ...process.env };
       if (opts.verbose) {
         env.ANALYZE_CLI_LOG_LEVEL = 'debug';

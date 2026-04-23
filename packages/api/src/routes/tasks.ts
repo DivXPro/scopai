@@ -8,8 +8,8 @@ import {
   enqueueJob, enqueueJobs, getExistingJobTargets,
   getStrategyById,
   generateId, now,
-} from '@analyze-cli/core';
-import type { QueueJob } from '@analyze-cli/core';
+} from '@scopai/core';
+import type { QueueJob } from '@scopai/core';
 
 export default async function tasksRoutes(app: FastifyInstance) {
   app.get('/tasks', async (request) => {

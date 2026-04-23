@@ -70,7 +70,7 @@ packages/ui/
 
 ```json
 {
-  "name": "@analyze-cli/ui",
+  "name": "@scopai/ui",
   "version": "0.1.11",
   "private": true,
   "type": "module",
@@ -1050,7 +1050,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import type { Task, TaskStatus } from '@analyze-cli/core';
+import type { Task, TaskStatus } from '@scopai/core';
 
 const statusVariantMap: Record<TaskStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pending: 'outline',
@@ -1405,7 +1405,7 @@ cd packages/api && pnpm add @fastify/static
 import fastify from 'fastify';
 import staticPlugin from '@fastify/static';
 import * as path from 'path';
-import { config, migrate, seedPlatforms } from '@analyze-cli/core';
+import { config, migrate, seedPlatforms } from '@scopai/core';
 import { setupAuth } from './auth';
 import { registerRoutes } from './routes';
 import { startWorkers, stopWorkers } from './worker/manager';

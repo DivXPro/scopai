@@ -15,7 +15,7 @@ import {
   resetShutdown,
   registerWorker,
   recoverStalledJobs,
-} from '@analyze-cli/core';
+} from '@scopai/core';
 import { setupAuth } from './auth';
 import { registerRoutes } from './routes';
 import { runConsumer } from './worker/consumer';
@@ -62,8 +62,9 @@ async function main() {
   });
 
   // Register static file serving for UI
+  const uiDir = path.join(path.dirname(require.resolve('@scopai/ui/package.json')), 'dist');
   await app.register(staticPlugin, {
-    root: path.resolve(__dirname, '../../ui/dist'),
+    root: uiDir,
     prefix: '/',
   });
 

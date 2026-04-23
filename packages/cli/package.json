@@ -1,18 +1,18 @@
 {
-  "name": "@analyze-cli/cli",
+  "name": "@scopai/cli",
   "version": "1.0.0",
   "description": "CLI entry for analyze-cli",
   "main": "dist/index.js",
   "bin": {
-    "analyze-cli": "../../bin/analyze-cli.js",
-    "skill": "../../bin/skill.js"
+    "analyze-cli": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format cjs --out-dir dist --external @analyze-cli/core --external duckdb --minify",
-    "dev": "tsup src/index.ts --format cjs --out-dir dist --external @analyze-cli/core --external duckdb --watch"
+    "build": "tsup",
+    "dev": "tsup --watch"
   },
   "dependencies": {
-    "@analyze-cli/core": "workspace:*",
+    "@scopai/api": "workspace:*",
+    "@scopai/core": "workspace:*",
     "commander": "^14.0.3",
     "picocolors": "^1.1.1"
   },

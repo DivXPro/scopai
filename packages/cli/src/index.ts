@@ -12,7 +12,7 @@ import { strategyCommands } from './strategy';
 import { analyzeCommands } from './analyze';
 import { queueCommands } from './queue';
 import { logsCommands } from './logs';
-import { version } from '@analyze-cli/core';
+import { version } from '@scopai/core';
 
 const program = new Command();
 

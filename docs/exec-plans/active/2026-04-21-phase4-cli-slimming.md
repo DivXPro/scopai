@@ -5,12 +5,12 @@
 **Goal:** 将 `packages/cli/` 中的命令从直接调用 core 函数改为通过 HTTP API 访问 api 服务，使 CLI 成为纯客户端。
 
 **Architecture:** CLI 命令分为两类：
-1. **同步查询类**（`task list`, `post list` 等）→ 直接调用 `@analyze-cli/core`（无 HTTP 开销）
-2. **异步操作类**（`task prepare`, `task run` 等）→ HTTP 调用 `@analyze-cli/api`
+1. **同步查询类**（`task list`, `post list` 等）→ 直接调用 `@scopai/core`（无 HTTP 开销）
+2. **异步操作类**（`task prepare`, `task run` 等）→ HTTP 调用 `@scopai/api`
 
 CLI 启动时检查 API 服务是否运行，如未运行则自动启动内嵌 API 服务（`packages/api/dist/index.js`）。
 
-**Tech Stack:** Commander, @analyze-cli/core, @analyze-cli/api (shared types), node-fetch
+**Tech Stack:** Commander, @scopai/core, @scopai/api (shared types), node-fetch
 
 **依赖 Phase 1 & 2:** 必须完成 Phase 1 和 Phase 2 后才能执行此计划。
 
@@ -46,7 +46,7 @@ packages/cli/
 - [ ] **Step 1.1: 创建 api-client.ts**
 
 ```typescript
-import { getLogger } from '@analyze-cli/core';
+import { getLogger } from '@scopai/core';
 
 const API_BASE = process.env.ANALYZE_API_URL ?? 'http://127.0.0.1:3000';
 const logger = getLogger();
@@ -117,7 +117,7 @@ git commit -m "feat(cli): replace IPC client with HTTP API client"
 ```typescript
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
-import { getLogger } from '@analyze-cli/core';
+import { getLogger } from '@scopai/core';
 
 const logger = getLogger();
 let embeddedProcess: ChildProcess | null = null;
@@ -189,7 +189,7 @@ git commit -m "feat(cli): add embedded API service launcher"
 
 ```typescript
 import { Command } from 'commander';
-import { listTasks, createTask } from '@analyze-cli/core'; // 同步查询仍用 core
+import { listTasks, createTask } from '@scopai/core'; // 同步查询仍用 core
 import { apiPost } from './api-client';
 import { ensureApiRunning } from './daemon-client';
 
@@ -295,7 +295,7 @@ git commit -m "feat(cli): refactor all async commands to use HTTP API"
 
 ```typescript
 import { Command } from 'commander';
-import { version } from '@analyze-cli/core';
+import { version } from '@scopai/core';
 import { registerTaskCommands } from './task';
 // ... import other command modules
 
@@ -334,14 +334,14 @@ git commit -m "feat(cli): update CLI entry with global API URL option"
 ```json
 {
   "dependencies": {
-    "@analyze-cli/core": "workspace:*",
+    "@scopai/core": "workspace:*",
     "commander": "^14.0.3",
     "picocolors": "^1.1.1"
   }
 }
 ```
 
-注意：CLI 不需要直接依赖 `@analyze-cli/api`，因为它通过 HTTP 调用。
+注意：CLI 不需要直接依赖 `@scopai/api`，因为它通过 HTTP 调用。
 
 - [ ] **Step 6.2: 构建并验证**
 

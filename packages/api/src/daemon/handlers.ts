@@ -1,24 +1,24 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { createPost, getPostById, listPosts, searchPosts } from '@analyze-cli/core';
-import { createComment, listCommentsByPost } from '@analyze-cli/core';
-import { createTask, getTaskById, listTasks, updateTaskStatus, updateTaskStats } from '@analyze-cli/core';
-import { addTaskTargets, getTargetStats, listTaskTargets } from '@analyze-cli/core';
-import { upsertTaskPostStatus, getPendingPostIds } from '@analyze-cli/core';
-import { createMediaFile, listMediaFilesByPost } from '@analyze-cli/core';
-import { createPlatform, listPlatforms } from '@analyze-cli/core';
-import { createFieldMapping, listFieldMappings } from '@analyze-cli/core';
-import { createTemplate, listTemplates, getTemplateById, updateTemplate, setDefaultTemplate } from '@analyze-cli/core';
-import { enqueueJobs, getQueueStats, syncWaitingMediaJobs } from '@analyze-cli/core';
-import { getDbPath, query, run } from '@analyze-cli/core';
-import { getLogger } from '@analyze-cli/core';
-import { generateId, now, parseImportFile } from '@analyze-cli/core';
-import { fetchViaOpencli } from '@analyze-cli/core';
-import { createStrategy, getStrategyById, listStrategies, validateStrategyJson, updateStrategy, deleteStrategy, parseJsonSchemaToColumns, createStrategyResultTable, syncStrategyResultTable } from '@analyze-cli/core';
-import { getExistingResultIds } from '@analyze-cli/core';
-import { getTaskPostStatus } from '@analyze-cli/core';
-import { config } from '@analyze-cli/core';
-import type { QueueJob } from '@analyze-cli/core';
+import { createPost, getPostById, listPosts, searchPosts } from '@scopai/core';
+import { createComment, listCommentsByPost } from '@scopai/core';
+import { createTask, getTaskById, listTasks, updateTaskStatus, updateTaskStats } from '@scopai/core';
+import { addTaskTargets, getTargetStats, listTaskTargets } from '@scopai/core';
+import { upsertTaskPostStatus, getPendingPostIds } from '@scopai/core';
+import { createMediaFile, listMediaFilesByPost } from '@scopai/core';
+import { createPlatform, listPlatforms } from '@scopai/core';
+import { createFieldMapping, listFieldMappings } from '@scopai/core';
+import { createTemplate, listTemplates, getTemplateById, updateTemplate, setDefaultTemplate } from '@scopai/core';
+import { enqueueJobs, getQueueStats, syncWaitingMediaJobs } from '@scopai/core';
+import { getDbPath, query, run } from '@scopai/core';
+import { getLogger } from '@scopai/core';
+import { generateId, now, parseImportFile } from '@scopai/core';
+import { fetchViaOpencli } from '@scopai/core';
+import { createStrategy, getStrategyById, listStrategies, validateStrategyJson, updateStrategy, deleteStrategy, parseJsonSchemaToColumns, createStrategyResultTable, syncStrategyResultTable } from '@scopai/core';
+import { getExistingResultIds } from '@scopai/core';
+import { getTaskPostStatus } from '@scopai/core';
+import { config } from '@scopai/core';
+import type { QueueJob } from '@scopai/core';
 
 // Track in-flight prepare-data tasks to prevent concurrent execution
 type Handler = (params: Record<string, unknown>) => Promise<unknown>;
@@ -201,8 +201,8 @@ export function getHandlers(): Record<string, Handler> {
       }
 
       if (taskId && postIds.length > 0) {
-        const { addTaskTargets } = await import('@analyze-cli/core');
-        const { upsertTaskPostStatus } = await import('@analyze-cli/core');
+        const { addTaskTargets } = await import('@scopai/core');
+        const { upsertTaskPostStatus } = await import('@scopai/core');
         await addTaskTargets(taskId, 'post', postIds);
         for (const postId of postIds) {
           await upsertTaskPostStatus(taskId, postId, { status: 'pending' });
@@ -286,7 +286,7 @@ export function getHandlers(): Record<string, Handler> {
 
       if (targetType === 'post') {
         // Convert platform_post_ids to internal post IDs
-        const { query } = await import('@analyze-cli/core');
+        const { query } = await import('@scopai/core');
         const internalIds: string[] = [];
         for (const platformPostId of targetIds) {
           const rows = await query<{ id: string }>(
@@ -301,7 +301,7 @@ export function getHandlers(): Record<string, Handler> {
           }
         }
         await addTaskTargets(taskId, targetType, internalIds);
-        const { upsertTaskPostStatus } = await import('@analyze-cli/core');
+        const { upsertTaskPostStatus } = await import('@scopai/core');
         for (const postId of internalIds) {
           await upsertTaskPostStatus(taskId, postId, { status: 'pending' });
         }
@@ -383,7 +383,7 @@ export function getHandlers(): Record<string, Handler> {
 
     async 'task.results'(params) {
       const taskId = params.task_id as string;
-      const { listAnalysisResults } = await import('@analyze-cli/core');
+      const { listAnalysisResults } = await import('@scopai/core');
       return listAnalysisResults(taskId);
     },
 
@@ -393,9 +393,9 @@ export function getHandlers(): Record<string, Handler> {
       if (!task) throw new Error(`Task not found: ${taskId}`);
 
       const stats = await getTargetStats(taskId);
-      const { getTaskPostStatuses } = await import('@analyze-cli/core');
-      const { listTaskSteps } = await import('@analyze-cli/core');
-      const { listJobsByTask } = await import('@analyze-cli/core');
+      const { getTaskPostStatuses } = await import('@scopai/core');
+      const { listTaskSteps } = await import('@scopai/core');
+      const { listJobsByTask } = await import('@scopai/core');
 
       const postStatuses = await getTaskPostStatuses(taskId);
       const steps = await listTaskSteps(taskId);
@@ -473,8 +473,8 @@ export function getHandlers(): Record<string, Handler> {
       const strategyId = params.strategy_id as string;
       const name = (params.name as string | undefined) ?? strategyId;
       const dependsOnStepId = params.depends_on_step_id as string | undefined;
-      const { createTaskStep, getNextStepOrder, getTaskStepById } = await import('@analyze-cli/core');
-      const { getStrategyById } = await import('@analyze-cli/core');
+      const { createTaskStep, getNextStepOrder, getTaskStepById } = await import('@scopai/core');
+      const { getStrategyById } = await import('@scopai/core');
 
       const strategy = await getStrategyById(strategyId);
       if (!strategy) throw new Error(`Strategy not found: ${strategyId}`);
@@ -512,18 +512,18 @@ export function getHandlers(): Record<string, Handler> {
 
     async 'task.step.list'(params) {
       const taskId = params.task_id as string;
-      const { listTaskSteps } = await import('@analyze-cli/core');
+      const { listTaskSteps } = await import('@scopai/core');
       return listTaskSteps(taskId);
     },
 
     async 'task.step.run'(params) {
       const taskId = params.task_id as string;
       const stepId = params.step_id as string;
-      const { getTaskStepById, updateTaskStepStatus } = await import('@analyze-cli/core');
-      const { listTaskTargets } = await import('@analyze-cli/core');
-      const { getStrategyById } = await import('@analyze-cli/core');
-      const { enqueueJobs } = await import('@analyze-cli/core');
-      const { generateId } = await import('@analyze-cli/core');
+      const { getTaskStepById, updateTaskStepStatus } = await import('@scopai/core');
+      const { listTaskTargets } = await import('@scopai/core');
+      const { getStrategyById } = await import('@scopai/core');
+      const { enqueueJobs } = await import('@scopai/core');
+      const { generateId } = await import('@scopai/core');
 
       const step = await getTaskStepById(stepId);
       if (!step) throw new Error(`Step not found: ${stepId}`);
@@ -551,7 +551,7 @@ export function getHandlers(): Record<string, Handler> {
       }
 
       // Filter out targets already enqueued for this step by the stream scheduler
-      const { getExistingJobTargets } = await import('@analyze-cli/core');
+      const { getExistingJobTargets } = await import('@scopai/core');
       const existingTargets = await getExistingJobTargets(taskId, strategy.id);
       const newTargets = relevantTargets.filter(t => !existingTargets.has(t.target_id));
 
@@ -586,7 +586,7 @@ export function getHandlers(): Record<string, Handler> {
 
     async 'task.runAllSteps'(params) {
       const taskId = params.task_id as string;
-      const { listTaskSteps, updateTaskStepStatus } = await import('@analyze-cli/core');
+      const { listTaskSteps, updateTaskStepStatus } = await import('@scopai/core');
       const steps = await listTaskSteps(taskId);
 
       // Topological sort: steps with dependencies come after their upstream
@@ -746,7 +746,7 @@ export function getHandlers(): Record<string, Handler> {
     },
 
     async 'template.getByName'(params) {
-      const { getTemplateByName } = await import('@analyze-cli/core');
+      const { getTemplateByName } = await import('@scopai/core');
       return getTemplateByName(params.name as string);
     },
 
@@ -785,21 +785,21 @@ export function getHandlers(): Record<string, Handler> {
     async 'strategy.result.list'(params) {
       if (typeof params.task_id !== 'string') throw new Error('task_id is required');
       if (typeof params.strategy_id !== 'string') throw new Error('strategy_id is required');
-      const { listStrategyResultsByTask } = await import('@analyze-cli/core');
+      const { listStrategyResultsByTask } = await import('@scopai/core');
       return listStrategyResultsByTask(params.strategy_id as string, params.task_id as string, Number(params.limit ?? 100));
     },
 
     async 'strategy.result.stats'(params) {
       if (typeof params.task_id !== 'string') throw new Error('task_id is required');
       if (typeof params.strategy_id !== 'string') throw new Error('strategy_id is required');
-      const { getStrategyResultStats } = await import('@analyze-cli/core');
+      const { getStrategyResultStats } = await import('@scopai/core');
       return getStrategyResultStats(params.strategy_id as string, params.task_id as string);
     },
 
     async 'strategy.result.export'(params) {
       if (typeof params.task_id !== 'string') throw new Error('task_id is required');
       if (typeof params.strategy_id !== 'string') throw new Error('strategy_id is required');
-      const { listStrategyResultsByTask } = await import('@analyze-cli/core');
+      const { listStrategyResultsByTask } = await import('@scopai/core');
       const results = await listStrategyResultsByTask(params.strategy_id as string, params.task_id as string, 100000);
       const format = (params.format ?? 'json') as 'csv' | 'json';
       const allResults = results.map(r => {
@@ -833,7 +833,7 @@ export function getHandlers(): Record<string, Handler> {
       if (typeof params.task_id !== 'string') throw new Error('task_id is required');
       if (typeof params.strategy_id !== 'string') throw new Error('strategy_id is required');
       if (typeof params.field !== 'string') throw new Error('field is required');
-      const { runAggregate, runMultiAggregate } = await import('@analyze-cli/core');
+      const { runAggregate, runMultiAggregate } = await import('@scopai/core');
       const aggFn = (params.agg as 'count' | 'sum' | 'avg' | 'min' | 'max') ?? 'count';
       const limit = typeof params.limit === 'number' ? params.limit : parseInt(params.limit as string, 10) || 50;
 
@@ -862,7 +862,7 @@ export function getHandlers(): Record<string, Handler> {
     async 'strategy.result.fullStats'(params) {
       if (typeof params.task_id !== 'string') throw new Error('task_id is required');
       if (typeof params.strategy_id !== 'string') throw new Error('strategy_id is required');
-      const { getFullStats } = await import('@analyze-cli/core');
+      const { getFullStats } = await import('@scopai/core');
       return getFullStats(params.strategy_id as string, params.task_id as string);
     },
 
@@ -1041,14 +1041,14 @@ export function getHandlers(): Record<string, Handler> {
 
     async 'queue.retry'(params) {
       const taskId = (params.task_id as string | null) ?? undefined;
-      const { retryFailedJobs } = await import('@analyze-cli/core');
+      const { retryFailedJobs } = await import('@scopai/core');
       const retried = await retryFailedJobs(taskId);
       return { retried };
     },
 
     async 'queue.reset'(params) {
       const taskId = (params.task_id as string | null) ?? undefined;
-      const { resetJobs } = await import('@analyze-cli/core');
+      const { resetJobs } = await import('@scopai/core');
       const reset = await resetJobs(taskId);
       return { reset };
     },
@@ -1090,7 +1090,7 @@ export function getHandlers(): Record<string, Handler> {
     async 'task.step.reset'(params) {
       const taskId = params.task_id as string;
       const stepId = params.step_id as string;
-      const { getTaskStepById, updateTaskStepStatus } = await import('@analyze-cli/core');
+      const { getTaskStepById, updateTaskStepStatus } = await import('@scopai/core');
 
       const step = await getTaskStepById(stepId);
       if (!step) throw new Error(`Step not found: ${stepId}`);
@@ -1319,8 +1319,8 @@ async function runPrepareDataAsync(
 ): Promise<void> {
   const logger = getLogger();
   logger.info(`[prepare-data] Starting for task ${taskId}`);
-  const { listTaskTargets } = await import('@analyze-cli/core');
-  const { getPostById } = await import('@analyze-cli/core');
+  const { listTaskTargets } = await import('@scopai/core');
+  const { getPostById } = await import('@scopai/core');
   const postTargets = (await listTaskTargets(taskId)).filter(t => t.target_type === 'post');
   logger.info(`[prepare-data] Task ${taskId}: ${postTargets.length} post targets`);
   if (postTargets.length === 0) return;
@@ -1471,13 +1471,13 @@ async function runPrepareDataAsync(
       // Trigger streaming analysis for this post
       try {
         const { buildJobsForPost } = await import('./stream-scheduler');
-        const { enqueueJobs } = await import('@analyze-cli/core');
-        const { listTaskSteps } = await import('@analyze-cli/core');
-        const { getStrategyById } = await import('@analyze-cli/core');
-        const { listTaskTargets } = await import('@analyze-cli/core');
-        const { getExistingJobTargets } = await import('@analyze-cli/core');
-        const { query } = await import('@analyze-cli/core');
-        const { generateId: genId } = await import('@analyze-cli/core');
+        const { enqueueJobs } = await import('@scopai/core');
+        const { listTaskSteps } = await import('@scopai/core');
+        const { getStrategyById } = await import('@scopai/core');
+        const { listTaskTargets } = await import('@scopai/core');
+        const { getExistingJobTargets } = await import('@scopai/core');
+        const { query } = await import('@scopai/core');
+        const { generateId: genId } = await import('@scopai/core');
 
         const steps = await listTaskSteps(taskId);
         const strategies = new Map();
@@ -1501,7 +1501,7 @@ async function runPrepareDataAsync(
         // Ensure comments are task targets for comment-level strategies
         const hasCommentStrategy = Array.from(strategies.values()).some((s: any) => s.target === 'comment');
         if (hasCommentStrategy && comments.length > 0) {
-          const { createTaskTarget } = await import('@analyze-cli/core');
+          const { createTaskTarget } = await import('@scopai/core');
           const existingIds = new Set(taskTargets.map(t => t.target_id));
           for (const c of comments) {
             if (!existingIds.has(c.id)) {
@@ -1527,7 +1527,7 @@ async function runPrepareDataAsync(
         if (jobs.length > 0) {
           await enqueueJobs(jobs);
           for (const update of stepUpdates) {
-            await (await import('@analyze-cli/core')).updateTaskStepStatus(update.stepId, update.status, update.stats);
+            await (await import('@scopai/core')).updateTaskStepStatus(update.stepId, update.status, update.stats);
           }
           logger.info(`[stream-scheduler] Post ${postId}: enqueued ${jobs.length} jobs`);
         }

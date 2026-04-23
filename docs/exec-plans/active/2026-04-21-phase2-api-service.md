@@ -4,9 +4,9 @@
 
 **Goal:** 创建 `packages/api/` 包，使用 Fastify + Kysely 实现 HTTP API 服务，将原 daemon 的 IPC 处理逻辑迁移为 REST 路由，合并 daemon 和 API 为单一进程。
 
-**Architecture:** Fastify 作为 HTTP 框架，插件化组织路由。认证使用启动时生成的随机 Bearer token。原 `src/daemon/handlers.ts` 中的 IPC handler 逻辑转为 Fastify route handlers。Worker 子进程管理由 API 进程直接管理。所有数据库操作通过 `@analyze-cli/core`。
+**Architecture:** Fastify 作为 HTTP 框架，插件化组织路由。认证使用启动时生成的随机 Bearer token。原 `src/daemon/handlers.ts` 中的 IPC handler 逻辑转为 Fastify route handlers。Worker 子进程管理由 API 进程直接管理。所有数据库操作通过 `@scopai/core`。
 
-**Tech Stack:** Fastify, Kysely, kysely-duckdb, Zod, @analyze-cli/core
+**Tech Stack:** Fastify, Kysely, kysely-duckdb, Zod, @scopai/core
 
 **依赖 Phase 1:** 必须完成 Phase 1 (Core 提取) 后才能执行此计划。
 
@@ -53,17 +53,17 @@ packages/api/
 
 ```json
 {
-  "name": "@analyze-cli/api",
+  "name": "@scopai/api",
   "version": "0.1.11",
   "description": "HTTP API service for analyze-cli",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsup src/index.ts --format cjs --out-dir dist --external @analyze-cli/core --external duckdb --external fastify --minify",
-    "dev": "tsup src/index.ts --format cjs --out-dir dist --external @analyze-cli/core --external duckdb --external fastify --watch",
+    "build": "tsup src/index.ts --format cjs --out-dir dist --external @scopai/core --external duckdb --external fastify --minify",
+    "dev": "tsup src/index.ts --format cjs --out-dir dist --external @scopai/core --external duckdb --external fastify --watch",
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@analyze-cli/core": "workspace:*",
+    "@scopai/core": "workspace:*",
     "fastify": "^5.3.2",
     "kysely": "^0.27.6",
     "kysely-duckdb": "^0.3.0",
@@ -108,7 +108,7 @@ packages/api/
 
 ```typescript
 import fastify from 'fastify';
-import { config } from '@analyze-cli/core';
+import { config } from '@scopai/core';
 import { setupAuth } from './auth';
 import { registerRoutes } from './routes';
 
@@ -245,7 +245,7 @@ import {
   addTaskTargets, getTargetStats, listTaskTargets,
   getTaskPostStatuses, listTaskSteps, listJobsByTask,
   enqueueJobs, generateId, now, query, getLogger,
-} from '@analyze-cli/core';
+} from '@scopai/core';
 
 const CreateTaskSchema = z.object({
   id: z.string().optional(),
@@ -344,7 +344,7 @@ git commit -m "feat(api): implement tasks REST routes"
 
 ```typescript
 import { FastifyInstance } from 'fastify';
-import { listPosts, searchPosts, listCommentsByPost, listMediaFilesByPost } from '@analyze-cli/core';
+import { listPosts, searchPosts, listCommentsByPost, listMediaFilesByPost } from '@scopai/core';
 
 export default async function postsRoutes(app: FastifyInstance) {
   // GET /api/posts
@@ -389,7 +389,7 @@ git commit -m "feat(api): implement posts REST routes"
 
 ```typescript
 import { FastifyInstance } from 'fastify';
-import { listPlatforms, createPlatform } from '@analyze-cli/core';
+import { listPlatforms, createPlatform } from '@scopai/core';
 
 export default async function platformsRoutes(app: FastifyInstance) {
   app.get('/platforms', async () => listPlatforms());
@@ -406,7 +406,7 @@ export default async function platformsRoutes(app: FastifyInstance) {
 
 ```typescript
 import { FastifyInstance } from 'fastify';
-import { listTemplates, getTemplateById, createTemplate } from '@analyze-cli/core';
+import { listTemplates, getTemplateById, createTemplate } from '@scopai/core';
 
 export default async function templatesRoutes(app: FastifyInstance) {
   app.get('/templates', async () => listTemplates());
@@ -454,7 +454,7 @@ import { FastifyInstance } from 'fastify';
 import {
   listStrategies, getStrategyById, createStrategy, updateStrategy, deleteStrategy,
   validateStrategyJson, parseJsonSchemaToColumns, createStrategyResultTable, syncStrategyResultTable,
-} from '@analyze-cli/core';
+} from '@scopai/core';
 
 export default async function strategiesRoutes(app: FastifyInstance) {
   app.get('/strategies', async () => listStrategies());
@@ -528,7 +528,7 @@ git commit -m "feat(api): implement strategies routes"
 
 ```typescript
 import { FastifyInstance } from 'fastify';
-import { retryFailedJobs, resetJobs, getQueueStats } from '@analyze-cli/core';
+import { retryFailedJobs, resetJobs, getQueueStats } from '@scopai/core';
 
 export default async function queueRoutes(app: FastifyInstance) {
   app.get('/queue', async (request) => {
@@ -569,7 +569,7 @@ git commit -m "feat(api): implement queue routes"
 
 ```typescript
 import { FastifyInstance } from 'fastify';
-import { listStrategyResultsByTask, getStrategyResultStats } from '@analyze-cli/core';
+import { listStrategyResultsByTask, getStrategyResultStats } from '@scopai/core';
 
 export default async function resultsRoutes(app: FastifyInstance) {
   app.get('/results', async (request) => {
@@ -608,7 +608,7 @@ git commit -m "feat(api): implement results routes"
 
 ```typescript
 import { FastifyInstance } from 'fastify';
-import { getDbPath, getQueueStats } from '@analyze-cli/core';
+import { getDbPath, getQueueStats } from '@scopai/core';
 
 export default async function statusRoutes(app: FastifyInstance) {
   app.get('/daemon/status', async () => ({
@@ -644,13 +644,13 @@ cp src/worker/* packages/api/src/worker/
 
 - [ ] **Step 10.2: 更新 worker 文件中的 import 路径**
 
-将 `../db/`, `../shared/`, `../config/` 改为 `@analyze-cli/core`。
+将 `../db/`, `../shared/`, `../config/` 改为 `@scopai/core`。
 
 - [ ] **Step 10.3: 创建 worker/manager.ts**
 
 ```typescript
 import { spawn, ChildProcess } from 'child_process';
-import { getLogger } from '@analyze-cli/core';
+import { getLogger } from '@scopai/core';
 
 let workerProcess: ChildProcess | null = null;
 const logger = getLogger();
@@ -702,7 +702,7 @@ cp src/daemon/stream-scheduler.ts packages/api/src/daemon/scheduler.ts
 
 - [ ] **Step 11.2: 更新 import 路径**
 
-将 `../db/`, `../shared/`, `../config/` 改为 `@analyze-cli/core`。
+将 `../db/`, `../shared/`, `../config/` 改为 `@scopai/core`。
 
 - [ ] **Step 11.3: Commit**
 
@@ -722,7 +722,7 @@ git commit -m "feat(api): migrate stream scheduler to api package"
 
 ```typescript
 import fastify from 'fastify';
-import { config, migrate, seedPlatforms } from '@analyze-cli/core';
+import { config, migrate, seedPlatforms } from '@scopai/core';
 import { setupAuth } from './auth';
 import { registerRoutes } from './routes';
 import { startWorkers, stopWorkers } from './worker/manager';

@@ -1,27 +1,27 @@
-import { getNextJobs, updateJobStatus, requeueJob, listJobsByTask, lockPendingJobs, completeJobs, unlockJobs } from '@analyze-cli/core';
-import { getTaskById, updateTaskStatus, updateTaskStats } from '@analyze-cli/core';
-import { updateTargetStatus, getTargetStats } from '@analyze-cli/core';
-import { getCommentById, listCommentsByIds } from '@analyze-cli/core';
-import { getMediaFileById } from '@analyze-cli/core';
-import { getPlatformById } from '@analyze-cli/core';
-import { getTemplateById } from '@analyze-cli/core';
-import { getPostById } from '@analyze-cli/core';
-import { getStrategyById } from '@analyze-cli/core';
-import { insertStrategyResult } from '@analyze-cli/core';
-import { updateTaskStepStatus, listTaskSteps } from '@analyze-cli/core';
+import { getNextJobs, updateJobStatus, requeueJob, listJobsByTask, lockPendingJobs, completeJobs, unlockJobs } from '@scopai/core';
+import { getTaskById, updateTaskStatus, updateTaskStats } from '@scopai/core';
+import { updateTargetStatus, getTargetStats } from '@scopai/core';
+import { getCommentById, listCommentsByIds } from '@scopai/core';
+import { getMediaFileById } from '@scopai/core';
+import { getPlatformById } from '@scopai/core';
+import { getTemplateById } from '@scopai/core';
+import { getPostById } from '@scopai/core';
+import { getStrategyById } from '@scopai/core';
+import { insertStrategyResult } from '@scopai/core';
+import { updateTaskStepStatus, listTaskSteps } from '@scopai/core';
 import { analyzeComment, analyzeMedia, analyzeWithStrategy, analyzeBatchWithStrategy } from './anthropic';
 import { parseCommentResult, parseMediaResult, parseStrategyResult, parseBatchStrategyResult } from './parser';
-import type { QueueJob, Comment } from '@analyze-cli/core';
-import { sleep } from '@analyze-cli/core';
-import { waitForJob } from '@analyze-cli/core';
+import type { QueueJob, Comment } from '@scopai/core';
+import { sleep } from '@scopai/core';
+import { waitForJob } from '@scopai/core';
 import {
   registerWorker,
   unregisterWorker,
   setWorkerActiveCount,
   isShuttingDown,
-} from '@analyze-cli/core';
-import { config } from '@analyze-cli/core';
-import { getLogger } from '@analyze-cli/core';
+} from '@scopai/core';
+import { config } from '@scopai/core';
+import { getLogger } from '@scopai/core';
 
 const POLL_INTERVAL_MS = 2000;
 const MAX_WAIT_MS = 30000;
@@ -236,9 +236,9 @@ async function resolveUpstreamResult(
   strategyId: string,
   targetId: string,
 ): Promise<Record<string, unknown> | null> {
-  const { listTaskSteps } = await import('@analyze-cli/core');
-  const { getStrategyById } = await import('@analyze-cli/core');
-  const { getUpstreamResult } = await import('@analyze-cli/core');
+  const { listTaskSteps } = await import('@scopai/core');
+  const { getStrategyById } = await import('@scopai/core');
+  const { getUpstreamResult } = await import('@scopai/core');
 
   const steps = await listTaskSteps(taskId);
   const currentStep = steps.find(s => s.strategy_id === strategyId);

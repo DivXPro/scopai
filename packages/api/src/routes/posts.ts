@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
-import { listPosts, searchPosts, listCommentsByPost, listMediaFilesByPost, getPostAnalysisResults } from '@analyze-cli/core';
-import { createPost, generateId, now, query, run } from '@analyze-cli/core';
+import { listPosts, searchPosts, listCommentsByPost, listMediaFilesByPost, getPostAnalysisResults } from '@scopai/core';
+import { createPost, generateId, now, query, run } from '@scopai/core';
 
 const FIELD_NAME_MAP: Record<string, string> = {
   likes: 'like_count',

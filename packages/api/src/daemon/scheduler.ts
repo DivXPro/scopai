@@ -1,4 +1,4 @@
-import type { QueueJob } from '@analyze-cli/core';
+import type { QueueJob } from '@scopai/core';
 
 export interface EnqueueResult {
   enqueued: number;

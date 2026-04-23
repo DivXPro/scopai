@@ -2,8 +2,8 @@ import { Command } from 'commander';
 import * as pc from 'picocolors';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getLogFilePath } from '@analyze-cli/core';
-import { expandPath } from '@analyze-cli/core';
+import { getLogFilePath } from '@scopai/core';
+import { expandPath } from '@scopai/core';
 
 function getLogDir(): string {
   return expandPath('~/.analyze-cli/logs');

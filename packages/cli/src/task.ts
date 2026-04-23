@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
-import { generateId, formatTimestamp, waitForTaskStep, waitForTaskSteps } from '@analyze-cli/core';
+import { generateId, formatTimestamp, waitForTaskStep, waitForTaskSteps } from '@scopai/core';
 import { apiGet, apiPost } from './api-client';
 
 export function taskCommands(program: Command): void {

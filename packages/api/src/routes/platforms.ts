@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { listPlatforms, createPlatform } from '@analyze-cli/core';
+import { listPlatforms, createPlatform } from '@scopai/core';
 
 export default async function platformsRoutes(app: FastifyInstance) {
   app.get('/platforms', async () => listPlatforms());

@@ -112,7 +112,7 @@ export type { LockFileData } from './shared/lock-file';
 
 - [ ] **Step 3: Build and verify**
 
-Run: `pnpm --filter @analyze-cli/core build`
+Run: `pnpm --filter @scopai/core build`
 Expected: Build succeeds
 
 - [ ] **Step 4: Commit**
@@ -133,7 +133,7 @@ git commit -m "feat(core): add lock file module for cross-platform process disco
 
 ```typescript
 // packages/cli/src/api-client.ts
-import { readLockFile, isApiAlive, type LockFileData } from '@analyze-cli/core';
+import { readLockFile, isApiAlive, type LockFileData } from '@scopai/core';
 
 export class ApiClientError extends Error {
   constructor(
@@ -232,7 +232,7 @@ import {
   updateStepStatus,
   getStepResults,
   addStepResults,
-} from '@analyze-cli/core';
+} from '@scopai/core';
 
 // Add these routes inside the function body:
 
@@ -261,7 +261,7 @@ app.post('/tasks/:id/prepare-data', async (request) => {
   if (!task) throw { statusCode: 404, message: 'Task not found' };
 
   // Enqueue a prepare-data job
-  const { enqueueJob } = await import('@analyze-cli/core');
+  const { enqueueJob } = await import('@scopai/core');
   const job = await enqueueJob({
     type: 'task.prepare-data',
     payload: { taskId: id, platformId: platformId ?? task.platform_id, query, limit, postIds },
@@ -275,7 +275,7 @@ app.post('/tasks/:id/add-posts', async (request) => {
   const { postIds } = request.body as { postIds: string[] };
   if (!postIds?.length) throw { statusCode: 400, message: 'postIds required' };
 
-  const { enqueueJob } = await import('@analyze-cli/core');
+  const { enqueueJob } = await import('@scopai/core');
   const job = await enqueueJob({
     type: 'task.add-targets',
     payload: { taskId: id, targetType: 'posts', targetIds: postIds },
@@ -289,7 +289,7 @@ app.post('/tasks/:id/add-comments', async (request) => {
   const { commentIds } = request.body as { commentIds: string[] };
   if (!commentIds?.length) throw { statusCode: 400, message: 'commentIds required' };
 
-  const { enqueueJob } = await import('@analyze-cli/core');
+  const { enqueueJob } = await import('@scopai/core');
   const job = await enqueueJob({
     type: 'task.add-targets',
     payload: { taskId: id, targetType: 'comments', targetIds: commentIds },
@@ -305,7 +305,7 @@ app.post('/tasks/:id/resume', async (request) => {
 
   await updateTaskStatus(id, 'running');
 
-  const { enqueueJob } = await import('@analyze-cli/core');
+  const { enqueueJob } = await import('@scopai/core');
   const job = await enqueueJob({
     type: 'task.resume',
     payload: { taskId: id },
@@ -327,7 +327,7 @@ app.post('/tasks/:id/steps', async (request) => {
 app.post('/tasks/:id/steps/:stepId/run', async (request) => {
   const { id, stepId } = request.params as { id: string; stepId: string };
 
-  const { enqueueJob } = await import('@analyze-cli/core');
+  const { enqueueJob } = await import('@scopai/core');
   const job = await enqueueJob({
     type: 'task.run-step',
     payload: { taskId: id, stepId },
@@ -344,7 +344,7 @@ app.post('/tasks/:id/run-all-steps', async (request) => {
   const steps = await getTaskSteps(id);
   const pendingSteps = steps.filter((s: { status: string }) => s.status === 'pending');
 
-  const { enqueueJob } = await import('@analyze-cli/core');
+  const { enqueueJob } = await import('@scopai/core');
   const jobs = [];
   for (const step of pendingSteps) {
     const job = await enqueueJob({
@@ -359,7 +359,7 @@ app.post('/tasks/:id/run-all-steps', async (request) => {
 
 - [ ] **Step 2: Build and verify**
 
-Run: `pnpm --filter @analyze-cli/api build`
+Run: `pnpm --filter @scopai/api build`
 Expected: Build succeeds
 
 - [ ] **Step 3: Commit**
@@ -383,7 +383,7 @@ Read current `packages/api/src/routes/posts.ts`, then add:
 
 ```typescript
 // Add import at top:
-// import { importPosts } from '@analyze-cli/core';
+// import { importPosts } from '@scopai/core';
 
 // Add route inside function body:
 app.post('/posts/import', async (request) => {
@@ -400,7 +400,7 @@ Read current `packages/api/src/routes/strategies.ts`, then add:
 
 ```typescript
 // Add import at top:
-// import { importStrategy } from '@analyze-cli/core';
+// import { importStrategy } from '@scopai/core';
 
 // Add route inside function body:
 app.post('/strategies/import', async (request) => {
@@ -413,7 +413,7 @@ app.post('/strategies/import', async (request) => {
 
 - [ ] **Step 3: Build and verify**
 
-Run: `pnpm --filter @analyze-cli/api build`
+Run: `pnpm --filter @scopai/api build`
 Expected: Build succeeds
 
 - [ ] **Step 4: Commit**
@@ -436,11 +436,11 @@ Read current `packages/api/src/index.ts`, then restructure to:
 
 ```typescript
 import Fastify from 'fastify';
-import { close as closeDb, migrateDb, seedDb, recoverStalledJobs, readLockFile, writeLockFile, removeLockFile, isApiAlive, requestShutdown, isShuttingDown, resetShutdown, registerWorker, unregisterWorker, setWorkerActiveCount } from '@analyze-cli/core';
+import { close as closeDb, migrateDb, seedDb, recoverStalledJobs, readLockFile, writeLockFile, removeLockFile, isApiAlive, requestShutdown, isShuttingDown, resetShutdown, registerWorker, unregisterWorker, setWorkerActiveCount } from '@scopai/core';
 import { setupAuth } from './auth.js';
 import { runConsumer } from './worker/consumer.js';
 import routes from './routes/index.js';
-import { config } from '@analyze-cli/core';
+import { config } from '@scopai/core';
 
 const PORT = config.server?.port ?? 3000;
 const WORKER_CONCURRENCY = config.worker?.concurrency ?? 2;
@@ -527,7 +527,7 @@ main().catch((err) => {
 
 - [ ] **Step 2: Build and verify**
 
-Run: `pnpm --filter @analyze-cli/api build`
+Run: `pnpm --filter @scopai/api build`
 Expected: Build succeeds
 
 - [ ] **Step 3: Commit**
@@ -558,7 +558,7 @@ Expected: No remaining imports (if there are, update them)
 
 - [ ] **Step 3: Build and verify**
 
-Run: `pnpm --filter @analyze-cli/api build`
+Run: `pnpm --filter @scopai/api build`
 Expected: Build succeeds
 
 - [ ] **Step 4: Commit**
@@ -583,7 +583,7 @@ Replace the entire file. The new version uses lock file for process discovery an
 import { Command } from 'commander';
 import { spawn } from 'child_process';
 import * as path from 'path';
-import { readLockFile, isApiAlive, removeLockFile } from '@analyze-cli/core';
+import { readLockFile, isApiAlive, removeLockFile } from '@scopai/core';
 
 const daemonCmd = new Command('daemon')
   .description('Manage the analyze-cli daemon');
@@ -605,7 +605,7 @@ daemonCmd
     }
 
     // Spawn API process — resolve path from the monorepo root
-    const monorepoRoot = require.resolve('@analyze-cli/core/package.json').replace('/packages/core/package.json', '');
+    const monorepoRoot = require.resolve('@scopai/core/package.json').replace('/packages/core/package.json', '');
     const apiDir = path.join(monorepoRoot, 'packages', 'api');
     const child = spawn('node', ['dist/index.js'], {
       cwd: apiDir,
@@ -718,7 +718,7 @@ export default daemonCmd;
 
 - [ ] **Step 2: Build and verify**
 
-Run: `pnpm --filter @analyze-cli/cli build`
+Run: `pnpm --filter @scopai/cli build`
 Expected: Build succeeds (may have type errors from removed ipc-client — fix in next task)
 
 - [ ] **Step 3: Commit**
@@ -809,7 +809,7 @@ const result = await apiPost(`/tasks/${taskId}/prepare-data`, { platformId, quer
 
 - [ ] **Step 3: Build CLI and verify**
 
-Run: `pnpm --filter @analyze-cli/cli build`
+Run: `pnpm --filter @scopai/cli build`
 Expected: Build succeeds with no errors
 
 - [ ] **Step 4: Commit**
@@ -862,7 +862,7 @@ export async function getDaemonStatus(): Promise<DaemonStatus> {
 
 - [ ] **Step 2: Build and verify**
 
-Run: `pnpm --filter @analyze-cli/core build`
+Run: `pnpm --filter @scopai/core build`
 Expected: Build succeeds
 
 - [ ] **Step 3: Commit**
@@ -887,7 +887,7 @@ Expected: All 4 packages build successfully
 - [ ] **Step 2: Start API and verify endpoints**
 
 ```bash
-pnpm --filter @analyze-cli/api start &
+pnpm --filter @scopai/api start &
 sleep 3
 curl -s http://localhost:3000/api/status | head
 curl -s http://localhost:3000/api/tasks | head
@@ -904,7 +904,7 @@ Expected: All endpoints return 200 with valid JSON
 
 ```bash
 # Start API
-pnpm --filter @analyze-cli/api start &
+pnpm --filter @scopai/api start &
 sleep 3
 # Check lock file exists
 cat ~/.analyze-cli/api.lock

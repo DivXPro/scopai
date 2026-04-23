@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { getDbPath, getQueueStats } from '@analyze-cli/core';
+import { getDbPath, getQueueStats } from '@scopai/core';
 
 export default async function statusRoutes(app: FastifyInstance) {
   app.get('/status', async () => ({

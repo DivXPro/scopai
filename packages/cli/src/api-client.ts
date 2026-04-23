@@ -1,4 +1,4 @@
-import { readLockFile, isApiAlive, type LockFileData } from '@analyze-cli/core';
+import { readLockFile, isApiAlive, type LockFileData } from '@scopai/core';
 
 export class ApiClientError extends Error {
   constructor(

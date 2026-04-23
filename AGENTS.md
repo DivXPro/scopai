@@ -36,10 +36,10 @@ CLI command / Web UI
 
 | 包 | 路径 | 说明 |
 |---|------|------|
-| `@analyze-cli/core` | `packages/core` | 数据库、配置、共享逻辑（DB CRUD、migration、seed、shutdown、lock-file 等） |
-| `@analyze-cli/api` | `packages/api` | Fastify HTTP API 服务 + in-process worker consumer |
-| `@analyze-cli/ui` | `packages/ui` | React Web Dashboard（Vite + TailwindCSS + shadcn/ui） |
-| `@analyze-cli/cli` | `packages/cli` | CLI 命令入口（commander） |
+| `@scopai/core` | `packages/core` | 数据库、配置、共享逻辑（DB CRUD、migration、seed、shutdown、lock-file 等） |
+| `@scopai/api` | `packages/api` | Fastify HTTP API 服务 + in-process worker consumer |
+| `@scopai/ui` | `packages/ui` | React Web Dashboard（Vite + TailwindCSS + shadcn/ui） |
+| `@scopai/cli` | `packages/cli` | CLI 命令入口（commander） |
 
 包间依赖关系：
 
@@ -94,7 +94,7 @@ ui -> api（通过 HTTP，非 workspace 依赖）
 | 根级 e2e | `test/e2e/` | `pnpm test:e2e` | 全链路 e2e（daemon lifecycle、import-prepare、strategy-workflow、queue-recovery） |
 | 根级 integration | `test/integration/` | `pnpm test:integration` | DB + worker 集成测试 |
 | 根级 unit | `test/unit/` | `pnpm test` | 纯逻辑单元测试 |
-| API e2e | `packages/api/test/e2e/` | `pnpm --filter @analyze-cli/api test:e2e` | HTTP API 路由 e2e（46 tests，动态端口隔离） |
+| API e2e | `packages/api/test/e2e/` | `pnpm --filter @scopai/api test:e2e` | HTTP API 路由 e2e（46 tests，动态端口隔离） |
 
 API e2e 测试使用 child process 启动真实服务器，每个 suite 独立 DuckDB + 动态端口，通过 `PORT` 环境变量避免端口冲突。
 
@@ -112,7 +112,7 @@ API e2e 测试使用 child process 启动真实服务器，每个 suite 独立 D
 
 - 安装依赖：`pnpm install`
 - 构建：`pnpm build`
-- API e2e 测试：`pnpm --filter @analyze-cli/api test:e2e`
+- API e2e 测试：`pnpm --filter @scopai/api test:e2e`
 
 ### 开发 Agent 编排
 

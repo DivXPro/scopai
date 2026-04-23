@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { retryFailedJobs, resetJobs, getQueueStats, listRecentJobs } from '@analyze-cli/core';
+import { retryFailedJobs, resetJobs, getQueueStats, listRecentJobs } from '@scopai/core';
 
 export default async function queueRoutes(app: FastifyInstance) {
   app.get('/queue', async (request) => {

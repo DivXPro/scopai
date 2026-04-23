@@ -21,10 +21,10 @@ CLI / Web UI
 
 | 包 | 路径 | 职责 |
 |---|------|------|
-| `@analyze-cli/core` | `packages/core` | 数据库层、配置、共享逻辑 |
-| `@analyze-cli/api` | `packages/api` | Fastify HTTP API + in-process worker |
-| `@analyze-cli/ui` | `packages/ui` | React Web Dashboard |
-| `@analyze-cli/cli` | `packages/cli` | CLI 命令入口 |
+| `@scopai/core` | `packages/core` | 数据库层、配置、共享逻辑 |
+| `@scopai/api` | `packages/api` | Fastify HTTP API + in-process worker |
+| `@scopai/ui` | `packages/ui` | React Web Dashboard |
+| `@scopai/cli` | `packages/cli` | CLI 命令入口 |
 
 包间依赖：
 
@@ -182,7 +182,7 @@ UI 通过 HTTP 调用 API 服务，API 在生产模式下通过 `@fastify/static
 | 根级 e2e | `test/e2e/` | `pnpm test:e2e` | 全链路 e2e（daemon lifecycle、import-prepare、strategy-workflow、queue-recovery） |
 | 根级 integration | `test/integration/` | `pnpm test:integration` | DB + worker 集成测试 |
 | 根级 unit | `test/unit/` | `pnpm test` | 纯逻辑单元测试 |
-| API e2e | `packages/api/test/e2e/` | `pnpm --filter @analyze-cli/api test:e2e` | HTTP API 路由 e2e（46 tests，动态端口隔离） |
+| API e2e | `packages/api/test/e2e/` | `pnpm --filter @scopai/api test:e2e` | HTTP API 路由 e2e（46 tests，动态端口隔离） |
 
 API e2e 测试架构：
 

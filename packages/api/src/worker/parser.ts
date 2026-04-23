@@ -1,7 +1,7 @@
 import type {
   SentimentLabel, CommentIntent, RiskLevel, MediaContentType,
   TopicTag, EmotionTag, DetectedObject, DetectedLogo, DetectedFace,
-} from '@analyze-cli/core';
+} from '@scopai/core';
 
 export interface StrategyColumnDef {
   name: string;

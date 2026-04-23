@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import {
   listStrategies, getStrategyById, createStrategy, updateStrategy, deleteStrategy,
   validateStrategyJson, parseJsonSchemaToColumns, createStrategyResultTable, syncStrategyResultTable,
-} from '@analyze-cli/core';
+} from '@scopai/core';
 
 export default async function strategiesRoutes(app: FastifyInstance) {
   app.get('/strategies', async () => listStrategies());
