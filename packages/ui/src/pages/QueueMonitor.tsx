@@ -99,7 +99,7 @@ export default function QueueMonitor() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">队列监控</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">队列监控</h2>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={fetchData}>
             <RefreshCw className="h-3 w-3 mr-1" />
@@ -132,7 +132,7 @@ export default function QueueMonitor() {
           title="已完成"
           value={stats.completed}
           icon={<CheckCircle2 className="h-4 w-4" />}
-          color="text-green-600"
+          color="text-green-accent"
         />
         <StatCard
           title="失败"

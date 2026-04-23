@@ -80,7 +80,7 @@ export default function Strategies() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">策略管理</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">策略管理</h2>
         <p className="text-sm text-muted-foreground">{strategies.length} 个策略</p>
       </div>
 
@@ -147,7 +147,7 @@ export default function Strategies() {
                 {/* Prompt 预览 */}
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground">Prompt</p>
-                  <p className="text-xs bg-muted rounded p-2 line-clamp-3 font-mono">
+                  <p className="text-xs bg-ceramic rounded p-2 line-clamp-3 font-mono">
                     {s.prompt}
                   </p>
                 </div>

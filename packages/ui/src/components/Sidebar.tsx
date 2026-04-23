@@ -14,10 +14,10 @@ const navItems = [
 
 export default function Sidebar() {
   return (
-    <aside className="w-64 border-r bg-background flex flex-col">
-      <div className="p-4 border-b">
-        <h1 className="text-lg font-bold">Analyze CLI</h1>
-        <p className="text-xs text-muted-foreground">Dashboard</p>
+    <aside className="w-64 bg-house-green flex flex-col">
+      <div className="p-4 border-b border-white/10">
+        <h1 className="text-lg font-bold text-white">Analyze CLI</h1>
+        <p className="text-xs text-white/70">Dashboard</p>
       </div>
       <nav className="flex-1 p-2 space-y-1">
         {navItems.map((item) => {
@@ -28,10 +28,10 @@ export default function Sidebar() {
               to={item.path}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
+                  'flex items-center gap-3 px-3 py-2 rounded-pill text-sm transition-all duration-200',
                   isActive
-                    ? 'bg-primary text-primary-foreground font-medium'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    ? 'bg-green-accent text-white font-medium'
+                    : 'text-white/70 hover:bg-white/10 hover:text-white'
                 )
               }
             >

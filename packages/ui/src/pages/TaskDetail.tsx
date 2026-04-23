@@ -101,7 +101,7 @@ function StepRow({ step, taskId }: { step: TaskStep; taskId: string }) {
     <div className="border rounded-lg overflow-hidden">
       <button
         onClick={toggleExpanded}
-        className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors text-left"
+        className="w-full flex items-center justify-between p-4 hover:bg-ceramic/50 transition-colors text-left"
       >
         <div className="flex items-center gap-4">
           <span className="text-sm font-medium">步骤 {step.step_order}</span>
@@ -215,7 +215,7 @@ export default function TaskDetail() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
-        <h2 className="text-3xl font-bold tracking-tight">{task.name}</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">{task.name}</h2>
         <Badge variant={statusVariantMap[task.status] ?? 'outline'}>{task.status}</Badge>
       </div>
 
@@ -266,7 +266,7 @@ export default function TaskDetail() {
           <CardTitle className="text-sm">原始数据</CardTitle>
         </CardHeader>
         <CardContent>
-          <pre className="rounded-lg bg-muted p-4 overflow-auto text-xs">
+          <pre className="rounded-lg bg-ceramic p-4 overflow-auto text-xs">
             {JSON.stringify(task, null, 2)}
           </pre>
         </CardContent>

@@ -310,7 +310,7 @@ export default function PostLibrary() {
     <div className="space-y-6">
       {/* 页面标题 */}
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">帖子库</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">帖子库</h2>
         <p className="text-sm text-muted-foreground mt-1">
           {loading ? '加载中...' : `共 ${posts.length} 条帖子`}
         </p>

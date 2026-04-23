@@ -58,7 +58,7 @@ export default function TaskList() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">任务列表</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">任务列表</h2>
         <p className="text-sm text-muted-foreground">
           {loading ? '加载中...' : `${tasks.length} 个任务`}
         </p>

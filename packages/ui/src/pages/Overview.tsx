@@ -98,7 +98,7 @@ export default function Overview() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">概览</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">概览</h2>
         {status && (
           <span className="text-xs text-muted-foreground">
             运行时间: {formatUptime(status.uptime)}
@@ -110,7 +110,7 @@ export default function Overview() {
       <div className="grid grid-cols-4 gap-4">
         <StatCard title="待处理" value={stats.pending} icon={<Clock className="h-4 w-4" />} color="text-yellow-600" />
         <StatCard title="处理中" value={stats.processing} icon={<Loader2 className="h-4 w-4 animate-spin" />} color="text-blue-600" />
-        <StatCard title="已完成" value={stats.completed} icon={<CheckCircle2 className="h-4 w-4" />} color="text-green-600" />
+        <StatCard title="已完成" value={stats.completed} icon={<CheckCircle2 className="h-4 w-4" />} color="text-green-accent" />
         <StatCard title="失败" value={stats.failed} icon={<XCircle className="h-4 w-4" />} color="text-red-600" />
       </div>
 

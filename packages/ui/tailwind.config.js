@@ -7,6 +7,9 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', '"Helvetica Neue"', 'Helvetica', 'Arial', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -41,11 +44,21 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        "starbucks-green": "hsl(var(--starbucks-green))",
+        "green-accent": "hsl(var(--green-accent))",
+        "house-green": "hsl(var(--house-green))",
+        "green-uplift": "hsl(var(--green-uplift))",
+        "green-light": "hsl(var(--green-light))",
+        gold: "hsl(var(--gold))",
+        "gold-light": "hsl(var(--gold-light))",
+        "neutral-warm": "hsl(var(--neutral-warm))",
+        ceramic: "hsl(var(--ceramic))",
       },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "calc(var(--radius) - 4px)",
+        sm: "calc(var(--radius) - 8px)",
+        pill: "50px",
       },
       keyframes: {
         "accordion-down": {
