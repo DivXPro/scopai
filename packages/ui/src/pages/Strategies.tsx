@@ -39,13 +39,16 @@ function SchemaPreview({ schema }: { schema: Record<string, unknown> }) {
 export default function Strategies() {
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const fetchStrategies = () => {
     setLoading(true);
+    setError('');
     apiGet<Strategy[]>('/api/strategies')
       .then(setStrategies)
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   };
 
@@ -62,6 +65,8 @@ export default function Strategies() {
     try {
       await apiDelete(`/api/strategies/${id}`);
       setStrategies((prev) => prev.filter((s) => s.id !== id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '删除失败');
     } finally {
       setDeleting(null);
       setConfirmDelete(null);
@@ -83,6 +88,12 @@ export default function Strategies() {
         <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">策略管理</h2>
         <p className="text-sm text-muted-foreground">{strategies.length} 个策略</p>
       </div>
+
+      {error && (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-destructive text-sm">
+          {error}
+        </div>
+      )}
 
       {strategies.length === 0 ? (
         <div className="text-center py-12">

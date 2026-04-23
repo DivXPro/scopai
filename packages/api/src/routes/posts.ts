@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { listPosts, searchPosts, listCommentsByPost, listMediaFilesByPost, getPostAnalysisResults } from '@scopai/core';
+import { listPosts, searchPosts, listCommentsByPost, listMediaFilesByPost, getPostAnalysisResults, getPostById, countPosts } from '@scopai/core';
 import { createPost, generateId, now, query, run } from '@scopai/core';
 
 const FIELD_NAME_MAP: Record<string, string> = {
@@ -65,10 +65,13 @@ interface RawPostItem {
 export default async function postsRoutes(app: FastifyInstance) {
   app.get('/posts', async (request) => {
     const { platform, limit = '50', offset = '0', query: searchQuery } = request.query as Record<string, string>;
-    if (searchQuery) {
-      return searchPosts(platform || '', searchQuery, parseInt(limit, 10));
-    }
-    return listPosts(platform || undefined, parseInt(limit, 10), parseInt(offset, 10));
+    const parsedLimit = parseInt(limit, 10);
+    const parsedOffset = parseInt(offset, 10);
+    const items = searchQuery
+      ? await searchPosts(platform || '', searchQuery, parsedLimit, parsedOffset)
+      : await listPosts(platform || undefined, parsedLimit, parsedOffset);
+    const total = await countPosts(platform || undefined);
+    return { items, total };
   });
 
   app.post('/posts/import', async (request, reply) => {
@@ -164,8 +167,7 @@ export default async function postsRoutes(app: FastifyInstance) {
 
   app.get('/posts/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const posts = await listPosts(undefined, 1, 0);
-    const post = posts.find(p => p.id === id);
+    const post = await getPostById(id);
     if (!post) {
       reply.code(404);
       throw new Error(`Post not found: ${id}`);

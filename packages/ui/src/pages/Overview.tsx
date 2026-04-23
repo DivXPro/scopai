@@ -75,11 +75,11 @@ export default function Overview() {
   useEffect(() => {
     Promise.all([
       apiGet<StatusData>('/api/status'),
-      apiGet<Task[]>('/api/tasks'),
+      apiGet<{ items: Task[]; total: number }>('/api/tasks?limit=5'),
     ])
-      .then(([s, tasks]) => {
+      .then(([s, data]) => {
         setStatus(s);
-        setRecentTasks(tasks.slice(0, 5));
+        setRecentTasks(data.items);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -88,7 +88,11 @@ export default function Overview() {
   if (error) {
     return (
       <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive">
-        错误: {error}
+        <p className="font-medium">加载失败</p>
+        <p className="text-sm mt-1">{error}</p>
+        <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.reload()}>
+          重试
+        </Button>
       </div>
     );
   }

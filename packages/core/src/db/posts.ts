@@ -45,16 +45,16 @@ export async function getPostByPlatformPostId(platformPostId: string, platformId
   return rows[0] ?? null;
 }
 
-export async function searchPosts(platformId: string, queryText: string, limit = 50): Promise<Post[]> {
+export async function searchPosts(platformId: string, queryText: string, limit = 50, offset = 0): Promise<Post[]> {
   if (platformId) {
     return query<Post>(
-      `SELECT * FROM posts WHERE platform_id = ? AND content LIKE ? ORDER BY fetched_at DESC LIMIT ?`,
-      [platformId, `%${queryText}%`, limit]
+      `SELECT * FROM posts WHERE platform_id = ? AND content LIKE ? ORDER BY fetched_at DESC LIMIT ? OFFSET ?`,
+      [platformId, `%${queryText}%`, limit, offset]
     );
   }
   return query<Post>(
-    `SELECT * FROM posts WHERE content LIKE ? ORDER BY fetched_at DESC LIMIT ?`,
-    [`%${queryText}%`, limit]
+    `SELECT * FROM posts WHERE content LIKE ? ORDER BY fetched_at DESC LIMIT ? OFFSET ?`,
+    [`%${queryText}%`, limit, offset]
   );
 }
 

@@ -181,11 +181,14 @@ export default function TaskDetail() {
   const { id } = useParams<{ id: string }>();
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!id) return;
+    setError('');
     apiGet<TaskDetail>(`/api/tasks/${id}`)
       .then(setTask)
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -198,8 +201,27 @@ export default function TaskDetail() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <Button variant="outline" size="icon" asChild>
+          <Link to="/tasks">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        </Button>
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+          <p className="font-medium">{error.includes('not found') ? '任务不存在' : '加载失败'}</p>
+          <p className="text-sm mt-1">{error}</p>
+          <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.reload()}>
+            重试
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!task) {
-    return <div className="text-destructive">任务不存在</div>;
+    return <div className="text-muted-foreground">任务不存在</div>;
   }
 
   const totalJobs = task.jobs.length;

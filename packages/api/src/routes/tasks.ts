@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import {
-  createTask, getTaskById, listTasks, updateTaskStatus, updateTaskStats,
+  createTask, getTaskById, listTasks, countTasks, updateTaskStatus, updateTaskStats,
   listTaskSteps, listJobsByTask, listStrategyResultsByTask, getStrategyResultStats,
   getTargetStats,
   addTaskTargets, listTaskTargets,
@@ -13,8 +13,12 @@ import type { QueueJob } from '@scopai/core';
 
 export default async function tasksRoutes(app: FastifyInstance) {
   app.get('/tasks', async (request) => {
-    const { status, query: searchQuery } = request.query as Record<string, string>;
-    return listTasks(status, searchQuery);
+    const { status, query: searchQuery, limit = '50', offset = '0' } = request.query as Record<string, string>;
+    const [items, total] = await Promise.all([
+      listTasks(status, searchQuery, parseInt(limit, 10), parseInt(offset, 10)),
+      countTasks(status, searchQuery),
+    ]);
+    return { items, total };
   });
 
   app.get('/tasks/:id', async (request, reply) => {

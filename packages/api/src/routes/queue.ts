@@ -3,12 +3,13 @@ import { retryFailedJobs, resetJobs, getQueueStats, listRecentJobs } from '@scop
 
 export default async function queueRoutes(app: FastifyInstance) {
   app.get('/queue', async (request) => {
-    const { status } = request.query as Record<string, string>;
+    const { status, limit = '50', offset = '0' } = request.query as Record<string, string>;
     const [stats, jobs] = await Promise.all([
       getQueueStats(),
-      listRecentJobs(status || undefined, 50),
+      listRecentJobs(status || undefined, parseInt(limit, 10), parseInt(offset, 10)),
     ]);
-    return { stats, jobs };
+    const total = stats.pending + stats.processing + stats.completed + stats.failed;
+    return { stats, jobs, total };
   });
 
   app.post('/queue/retry', async () => {

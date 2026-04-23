@@ -5,6 +5,7 @@ import { apiGet } from '@/api/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import Pagination from '@/components/Pagination';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -33,34 +34,54 @@ const statusLabelMap: Record<string, string> = {
   failed: '失败',
 };
 
+const PAGE_SIZE = 20;
+
 export default function TaskList() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     setLoading(true);
-    apiGet<Task[]>('/api/tasks')
-      .then((data) => setTasks(data))
-      .catch(() => setTasks([]))
+    setError('');
+    const offset = (page - 1) * PAGE_SIZE;
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
+    if (statusFilter) params.set('status', statusFilter);
+    apiGet<{ items: Task[]; total: number }>(`/api/tasks?${params}`)
+      .then((data) => {
+        setTasks(data.items);
+        setTotal(data.total);
+      })
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, []);
-
-  const filteredTasks = statusFilter
-    ? tasks.filter((t) => t.status === statusFilter)
-    : tasks;
+  }, [page, statusFilter]);
 
   const statusCounts = tasks.reduce<Record<string, number>>((acc, t) => {
     acc[t.status] = (acc[t.status] ?? 0) + 1;
     return acc;
   }, {});
 
+  if (error) {
+    return (
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+        <p className="font-medium">加载失败</p>
+        <p className="text-sm mt-1">{error}</p>
+        <Button variant="outline" size="sm" className="mt-2" onClick={() => setPage(1)}>
+          重试
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">任务列表</h2>
         <p className="text-sm text-muted-foreground">
-          {loading ? '加载中...' : `${tasks.length} 个任务`}
+          {loading ? '加载中...' : `共 ${total} 个任务`}
         </p>
       </div>
 
@@ -70,16 +91,16 @@ export default function TaskList() {
         <Button
           variant={statusFilter === '' ? 'default' : 'outline'}
           size="sm"
-          onClick={() => setStatusFilter('')}
+          onClick={() => { setStatusFilter(''); setPage(1); }}
         >
-          全部 ({tasks.length})
+          全部 ({total})
         </Button>
         {Object.entries(statusCounts).map(([status, count]) => (
           <Button
             key={status}
             variant={statusFilter === status ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setStatusFilter(statusFilter === status ? '' : status)}
+            onClick={() => { setStatusFilter(statusFilter === status ? '' : status); setPage(1); }}
           >
             {statusLabelMap[status] ?? status} ({count})
           </Button>
@@ -93,55 +114,58 @@ export default function TaskList() {
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
         </div>
-      ) : filteredTasks.length === 0 ? (
+      ) : tasks.length === 0 ? (
         <div className="text-center py-12">
           <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground">
             {statusFilter ? '无匹配任务' : '暂无任务'}
           </p>
           {statusFilter && (
-            <Button variant="ghost" size="sm" onClick={() => setStatusFilter('')} className="mt-2">
+            <Button variant="ghost" size="sm" onClick={() => { setStatusFilter(''); setPage(1); }} className="mt-2">
               清除筛选
             </Button>
           )}
         </div>
       ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>名称</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>创建时间</TableHead>
-                <TableHead>更新时间</TableHead>
-                <TableHead className="text-right">操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTasks.map((task) => (
-                <TableRow key={task.id}>
-                  <TableCell className="font-medium">{task.name}</TableCell>
-                  <TableCell>
-                    <Badge variant={statusVariantMap[task.status] ?? 'outline'}>
-                      {statusLabelMap[task.status] ?? task.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {new Date(task.created_at).toLocaleDateString('zh-CN')}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {new Date(task.updated_at).toLocaleDateString('zh-CN')}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to={`/tasks/${task.id}`}>查看详情</Link>
-                    </Button>
-                  </TableCell>
+        <>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>名称</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead>创建时间</TableHead>
+                  <TableHead>更新时间</TableHead>
+                  <TableHead className="text-right">操作</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {tasks.map((task) => (
+                  <TableRow key={task.id}>
+                    <TableCell className="font-medium">{task.name}</TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariantMap[task.status] ?? 'outline'}>
+                        {statusLabelMap[task.status] ?? task.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(task.created_at).toLocaleDateString('zh-CN')}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(task.updated_at).toLocaleDateString('zh-CN')}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link to={`/tasks/${task.id}`}>查看详情</Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={setPage} />
+        </>
       )}
     </div>
   );

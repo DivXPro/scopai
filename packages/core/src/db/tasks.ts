@@ -17,13 +17,24 @@ export async function getTaskById(id: string): Promise<Task | null> {
   return rows[0] ?? null;
 }
 
-export async function listTasks(status?: string, queryText?: string): Promise<Task[]> {
+export async function listTasks(status?: string, queryText?: string, limit = 100, offset = 0): Promise<Task[]> {
   const conditions: string[] = [];
   const params: unknown[] = [];
   if (status) { conditions.push('status = ?'); params.push(status); }
   if (queryText) { conditions.push('name ILIKE ?'); params.push(`%${queryText}%`); }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  return query<Task>(`SELECT * FROM tasks ${where} ORDER BY created_at DESC`, params);
+  params.push(limit, offset);
+  return query<Task>(`SELECT * FROM tasks ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`, params);
+}
+
+export async function countTasks(status?: string, queryText?: string): Promise<number> {
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  if (status) { conditions.push('status = ?'); params.push(status); }
+  if (queryText) { conditions.push('name ILIKE ?'); params.push(`%${queryText}%`); }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const rows = await query<{ cnt: bigint }>(`SELECT COUNT(*) as cnt FROM tasks ${where}`, params);
+  return Number(rows[0]?.cnt ?? 0);
 }
 
 export async function updateTaskStatus(id: string, status: string): Promise<void> {

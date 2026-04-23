@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import Pagination from '@/components/Pagination';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -34,6 +35,7 @@ interface QueueJob {
 interface QueueData {
   stats: QueueStats;
   jobs: QueueJob[];
+  total: number;
 }
 
 const statusVariantMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -58,24 +60,32 @@ function StatCard({ title, value, icon, color }: { title: string; value: number;
   );
 }
 
+const PAGE_SIZE = 20;
+
 export default function QueueMonitor() {
   const [data, setData] = useState<QueueData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [retrying, setRetrying] = useState(false);
+  const [page, setPage] = useState(1);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const params = statusFilter ? `?status=${statusFilter}` : '';
+    setError('');
+    const offset = (page - 1) * PAGE_SIZE;
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
+    if (statusFilter) params.set('status', statusFilter);
     try {
-      const result = await apiGet<QueueData>(`/api/queue${params}`);
+      const result = await apiGet<QueueData>(`/api/queue?${params}`);
       setData(result);
-    } catch {
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '加载失败');
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, page]);
 
   useEffect(() => {
     fetchData();
@@ -95,6 +105,22 @@ export default function QueueMonitor() {
 
   const stats = data?.stats ?? { pending: 0, processing: 0, completed: 0, failed: 0 };
   const jobs = data?.jobs ?? [];
+  const total = data?.total ?? 0;
+
+  if (error && !data) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">队列监控</h2>
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+          <p className="font-medium">加载失败</p>
+          <p className="text-sm mt-1">{error}</p>
+          <Button variant="outline" size="sm" className="mt-2" onClick={fetchData}>
+            重试
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -148,7 +174,7 @@ export default function QueueMonitor() {
         <Button
           variant={statusFilter === '' ? 'default' : 'outline'}
           size="sm"
-          onClick={() => setStatusFilter('')}
+          onClick={() => { setStatusFilter(''); setPage(1); }}
         >
           全部
         </Button>
@@ -157,7 +183,7 @@ export default function QueueMonitor() {
             key={s}
             variant={statusFilter === s ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setStatusFilter(statusFilter === s ? '' : s)}
+            onClick={() => { setStatusFilter(statusFilter === s ? '' : s); setPage(1); }}
           >
             {s === 'pending' ? '待处理' : s === 'processing' ? '处理中' : s === 'completed' ? '已完成' : '失败'}
           </Button>
@@ -176,42 +202,45 @@ export default function QueueMonitor() {
           <p className="text-muted-foreground">暂无队列任务</p>
         </div>
       ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>状态</TableHead>
-                <TableHead>目标类型</TableHead>
-                <TableHead>策略</TableHead>
-                <TableHead>重试次数</TableHead>
-                <TableHead>错误</TableHead>
-                <TableHead>创建时间</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {jobs.map((job) => (
-                <TableRow key={job.id}>
-                  <TableCell>
-                    <Badge variant={statusVariantMap[job.status] ?? 'outline'}>
-                      {job.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm">{job.target_type ?? '-'}</TableCell>
-                  <TableCell className="text-sm font-mono">{job.strategy_id ?? '-'}</TableCell>
-                  <TableCell className="text-sm">
-                    {job.attempts}/{job.max_attempts}
-                  </TableCell>
-                  <TableCell className="text-xs text-destructive max-w-xs truncate">
-                    {job.error ?? '-'}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(job.created_at).toLocaleString('zh-CN')}
-                  </TableCell>
+        <>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>状态</TableHead>
+                  <TableHead>目标类型</TableHead>
+                  <TableHead>策略</TableHead>
+                  <TableHead>重试次数</TableHead>
+                  <TableHead>错误</TableHead>
+                  <TableHead>创建时间</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {jobs.map((job) => (
+                  <TableRow key={job.id}>
+                    <TableCell>
+                      <Badge variant={statusVariantMap[job.status] ?? 'outline'}>
+                        {job.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">{job.target_type ?? '-'}</TableCell>
+                    <TableCell className="text-sm font-mono">{job.strategy_id ?? '-'}</TableCell>
+                    <TableCell className="text-sm">
+                      {job.attempts}/{job.max_attempts}
+                    </TableCell>
+                    <TableCell className="text-xs text-destructive max-w-xs truncate">
+                      {job.error ?? '-'}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {new Date(job.created_at).toLocaleString('zh-CN')}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={setPage} />
+        </>
       )}
     </div>
   );
