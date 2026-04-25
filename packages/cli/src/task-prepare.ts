@@ -21,8 +21,8 @@ export function taskPrepareCommands(program: Command): void {
         process.exit(1);
       }
 
-      const started = await apiPost<{ started?: boolean }>('/tasks/' + opts.taskId + '/prepare-data');
-      if (!started.started) {
+      const result = await apiPost<{ jobId: string; taskId: string; status: string }>('/tasks/' + opts.taskId + '/prepare-data');
+      if (result.status !== 'queued') {
         console.log(pc.red('Failed to start data preparation'));
         process.exit(1);
       }

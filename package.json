@@ -9,7 +9,7 @@
     "test": "pnpm -r test",
     "test:e2e": "node --test --test-concurrency=1 --experimental-strip-types 'test/e2e/**/*.test.ts'",
     "test:record": "npx tsx scripts/record-e2e-fixture.ts --platform xhs --query '上海美食' --limit 2 --output test-data/recorded/$(date +%Y-%m-%d)-xhs-shanghai",
-    "release": "node scripts/release.js",
+    "release": "node scripts/release.js"
   },
   "engines": {
     "node": ">=20.0.0"
