@@ -8,7 +8,7 @@
  *
  * Steps:
  * 1. Read version from argument
- * 2. Update root package.json + all packages/*/package.json
+ * 2. Update root package.json + all workspace packages
  * 3. Build all packages
  * 4. Publish all packages
  */
@@ -20,10 +20,18 @@ const { execSync } = require('child_process');
 const rootDir = path.resolve(__dirname, '..');
 const packagesDir = path.join(rootDir, 'packages');
 
-const version = process.argv[2];
+function bumpVersion(current) {
+  const parts = current.split('.');
+  const patch = parseInt(parts[2], 10);
+  parts[2] = String(patch + 1);
+  return parts.join('.');
+}
+
+let version = process.argv[2];
 if (!version) {
-  console.error('Usage: node scripts/release.js <version>');
-  process.exit(1);
+  const rootPkg = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf-8'));
+  version = bumpVersion(rootPkg.version);
+  console.log(`Auto-bumping version: ${rootPkg.version} → ${version}`);
 }
 
 if (!/^\d+\.\d+\.\d+/.test(version)) {

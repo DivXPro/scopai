@@ -12,27 +12,27 @@ process.env.ANALYZE_CLI_IPC_SOCKET = path.join(TEST_TMP_DIR, 'daemon.sock');
 process.env.ANALYZE_CLI_DAEMON_PID = path.join(TEST_TMP_DIR, 'daemon.pid');
 
 // Lazy-load db modules after env vars are set to ensure they pick up the test paths
-let _dbModule: typeof import('../../../dist/db/client.js') | null = null;
-let _migrateModule: typeof import('../../../dist/db/migrate.js') | null = null;
-let _seedModule: typeof import('../../../dist/db/seed.js') | null = null;
+let _dbModule: typeof import('../../../packages/core/dist/db/client.js') | null = null;
+let _migrateModule: typeof import('../../../packages/core/dist/db/migrate.js') | null = null;
+let _seedModule: typeof import('../../../packages/core/dist/db/seed.js') | null = null;
 
 async function getDbModule() {
   if (!_dbModule) {
-    _dbModule = await import('../../../dist/db/client.js');
+    _dbModule = await import('../../../packages/core/dist/db/client.js');
   }
   return _dbModule;
 }
 
 async function getMigrateModule() {
   if (!_migrateModule) {
-    _migrateModule = await import('../../../dist/db/migrate.js');
+    _migrateModule = await import('../../../packages/core/dist/db/migrate.js');
   }
   return _migrateModule;
 }
 
 async function getSeedModule() {
   if (!_seedModule) {
-    _seedModule = await import('../../../dist/db/seed.js');
+    _seedModule = await import('../../../packages/core/dist/db/seed.js');
   }
   return _seedModule;
 }

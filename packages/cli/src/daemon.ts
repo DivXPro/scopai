@@ -3,7 +3,7 @@ import * as pc from 'picocolors';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import { readLockFile, isApiAlive, removeLockFile } from '@scopai/core';
-import { VERSION } from '@scopai/core';
+import { version } from '@scopai/core';
 
 export function daemonCommands(program: Command): void {
   const daemon = program.command('daemon').description('Manage the analysis daemon');
@@ -126,6 +126,7 @@ export function daemonCommands(program: Command): void {
       }
 
       console.log(pc.green(`Daemon running on port ${lock.port} (PID ${lock.pid})`));
+      console.log(`Version:  ${version}`);
       console.log(`Started:  ${lock.startedAt}`);
 
       try {

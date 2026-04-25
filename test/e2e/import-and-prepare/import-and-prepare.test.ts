@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { closeDb, cleanupByPrefix, query } from '../helpers/db.ts';
 import { runCli, extractId } from '../helpers/cli.ts';
-import { ensureDaemonStopped } from '../helpers/daemon.ts';
+import { ensureDaemonStopped, startDaemon } from '../helpers/daemon.ts';
 import { waitForDataPreparation } from '../helpers/assertions.ts';
 
 const RUN_ID = `e2e_import_${Date.now()}`;
@@ -24,6 +24,7 @@ describe('import-and-prepare', { timeout: 90000 }, () => {
       try { fs.unlinkSync(dbPath); } catch {}
       try { fs.unlinkSync(dbPath + '.wal'); } catch {}
     }
+    await startDaemon();
   });
 
   after(async () => {

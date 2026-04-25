@@ -40,7 +40,7 @@ export function taskCommands(program: Command): void {
         name: opts.name,
         description: opts.description ?? null,
         template_id: templateId,
-        cli_templates: cliTemplates,
+        cli_templates: cliTemplates ? JSON.stringify(cliTemplates) : null,
       });
       console.log(pc.green(`Task created: ${id}`));
       console.log(`  Name: ${opts.name}`);
@@ -143,7 +143,8 @@ export function taskCommands(program: Command): void {
       const params = new URLSearchParams();
       if (opts.status) params.set('status', opts.status);
       if (opts.query) params.set('query', opts.query);
-      const tasks = await apiGet<any[]>('/tasks?' + params.toString());
+      const response = await apiGet<{ items: any[]; total: number }>('/tasks?' + params.toString());
+      const tasks = response.items ?? [];
       if (tasks.length === 0) {
         console.log(pc.yellow('No tasks found'));
         return;

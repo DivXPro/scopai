@@ -8,8 +8,10 @@ import {
   enqueueJob, enqueueJobs, getExistingJobTargets,
   getStrategyById,
   generateId, now,
+  getTaskPostStatuses,
 } from '@scopai/core';
 import type { QueueJob } from '@scopai/core';
+import { getHandlers } from '../daemon/handlers';
 
 export default async function tasksRoutes(app: FastifyInstance) {
   app.get('/tasks', async (request) => {
@@ -32,10 +34,71 @@ export default async function tasksRoutes(app: FastifyInstance) {
     const stats = await getTargetStats(id);
     const steps = await listTaskSteps(id);
     const jobs = await listJobsByTask(id);
+    const postStatuses = await getTaskPostStatuses(id);
+
+    const totalPosts = postStatuses.length;
+    const commentsFetched = postStatuses.filter(p => p.comments_fetched).length;
+    const mediaFetched = postStatuses.filter(p => p.media_fetched).length;
+    const failedPosts = postStatuses.filter(p => p.status === 'failed').length;
+
+    let dataPrepStatus: 'pending' | 'fetching' | 'done' | 'failed' = 'done';
+    if (totalPosts === 0) {
+      dataPrepStatus = 'pending';
+    } else if (failedPosts > 0 && failedPosts === totalPosts) {
+      dataPrepStatus = 'failed';
+    } else if (postStatuses.some(p => p.status === 'fetching')) {
+      dataPrepStatus = 'fetching';
+    } else if (postStatuses.some(p => p.status === 'pending' || p.status === 'failed')) {
+      dataPrepStatus = 'pending';
+    }
+
+    const stepDetails = steps.map(s => ({
+      stepId: s.id,
+      strategyId: s.strategy_id,
+      name: s.name,
+      status: s.status,
+      stats: s.stats ?? { total: 0, done: 0, failed: 0 },
+      stepOrder: s.step_order,
+    }));
+
+    const phase = dataPrepStatus !== 'done'
+      ? 'dataPreparation'
+      : stepDetails.some(s => s.status === 'pending' || s.status === 'running')
+        ? 'analysis'
+        : (task.status as string);
+
+    const jobStats = {
+      totalJobs: jobs.length,
+      completedJobs: jobs.filter(j => j.status === 'completed').length,
+      failedJobs: jobs.filter(j => j.status === 'failed').length,
+      pendingJobs: jobs.filter(j => j.status === 'pending' || j.status === 'waiting_media').length,
+    };
+
+    const recentErrors = jobs
+      .filter(j => j.status === 'failed' && j.error)
+      .slice(0, 3)
+      .map(j => ({
+        target_type: j.target_type ?? 'unknown',
+        target_id: j.target_id ?? '',
+        error: j.error ?? '',
+      }));
 
     return {
       ...task,
-      stats,
+      ...stats,
+      phase,
+      phases: {
+        dataPreparation: {
+          status: dataPrepStatus,
+          totalPosts,
+          commentsFetched,
+          mediaFetched,
+          failedPosts,
+        },
+        steps: stepDetails,
+        analysis: jobStats,
+      },
+      recentErrors,
       steps: steps.map((s) => ({
         id: s.id,
         name: s.name,
@@ -73,12 +136,16 @@ export default async function tasksRoutes(app: FastifyInstance) {
   app.post('/tasks', async (request) => {
     const data = request.body as Record<string, unknown>;
     const id = (data.id as string) ?? generateId();
+    const cliTemplates = data.cli_templates;
+    const cliTemplatesStr = cliTemplates
+      ? (typeof cliTemplates === 'string' ? cliTemplates : JSON.stringify(cliTemplates))
+      : null;
     await createTask({
       id,
       name: data.name as string,
       description: (data.description ?? null) as string | null,
       template_id: (data.template_id ?? null) as string | null,
-      cli_templates: (data.cli_templates ?? null) as string | null,
+      cli_templates: cliTemplatesStr,
       status: 'pending',
       stats: { total: 0, done: 0, failed: 0 },
       created_at: now(),
@@ -116,23 +183,9 @@ export default async function tasksRoutes(app: FastifyInstance) {
       throw new Error(`Task not found: ${id}`);
     }
 
-    const jobId = generateId();
-    await enqueueJob({
-      id: jobId,
-      task_id: id,
-      strategy_id: null,
-      target_type: null,
-      target_id: null,
-      status: 'pending',
-      priority: 10,
-      attempts: 0,
-      max_attempts: 3,
-      error: null,
-      created_at: now(),
-      processed_at: null,
-    });
-
-    return { jobId, taskId: id, status: 'queued' };
+    const handlers = getHandlers();
+    const result = await handlers['task.prepareData']({ task_id: id });
+    return { ...result, status: 'queued' };
   });
 
   app.post('/tasks/:id/add-posts', async (request, reply) => {
@@ -151,23 +204,9 @@ export default async function tasksRoutes(app: FastifyInstance) {
       throw new Error(`Task not found: ${id}`);
     }
 
-    const jobId = generateId();
-    await enqueueJob({
-      id: jobId,
-      task_id: id,
-      strategy_id: null,
-      target_type: 'post',
-      target_id: null,
-      status: 'pending',
-      priority: 10,
-      attempts: 0,
-      max_attempts: 3,
-      error: null,
-      created_at: now(),
-      processed_at: null,
-    });
-
-    return { jobId, taskId: id, status: 'queued' };
+    const handlers = getHandlers();
+    const result = await handlers['task.addTargets']({ task_id: id, target_type: 'post', target_ids: postIds });
+    return result;
   });
 
   app.post('/tasks/:id/add-comments', async (request, reply) => {
