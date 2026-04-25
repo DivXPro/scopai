@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { listPosts, searchPosts, listCommentsByPost, listMediaFilesByPost, getPostAnalysisResults, getPostById, countPosts } from '@scopai/core';
+import { listPosts, searchPosts, listCommentsByPost, listMediaFilesByPost, getPostAnalysisResults, getPostById, countPosts, createComment } from '@scopai/core';
 import { createPost, generateId, now, query, run } from '@scopai/core';
 
 const FIELD_NAME_MAP: Record<string, string> = {
@@ -178,6 +178,41 @@ export default async function postsRoutes(app: FastifyInstance) {
   app.get('/posts/:id/comments', async (request) => {
     const { id } = request.params as { id: string };
     return listCommentsByPost(id);
+  });
+
+  app.post('/posts/:id/comments/import', async (request, reply) => {
+    const { id: postId } = request.params as { id: string };
+    const body = request.body as { comments?: Record<string, unknown>[]; platform?: string };
+    if (!body.comments || !Array.isArray(body.comments) || body.comments.length === 0) {
+      reply.code(400);
+      throw new Error('comments array is required and must not be empty');
+    }
+    const platformId = body.platform ?? '';
+    let imported = 0;
+    let skipped = 0;
+    for (const item of body.comments) {
+      try {
+        await createComment({
+          post_id: postId,
+          platform_id: platformId,
+          platform_comment_id: (item.platform_comment_id ?? item.id ?? null) as string | null,
+          parent_comment_id: (item.parent_comment_id ?? null) as string | null,
+          root_comment_id: (item.root_comment_id ?? null) as string | null,
+          depth: Number(item.depth ?? 0),
+          author_id: (item.author_id ?? null) as string | null,
+          author_name: (item.author_name ?? item.author ?? null) as string | null,
+          content: (item.content ?? '') as string,
+          like_count: Number(item.like_count ?? 0),
+          reply_count: Number(item.reply_count ?? 0),
+          published_at: item.published_at ? new Date(item.published_at as string) : null,
+          metadata: (item.metadata ?? null) as Record<string, unknown> | null,
+        });
+        imported++;
+      } catch {
+        skipped++;
+      }
+    }
+    return { imported, skipped };
   });
 
   app.get('/posts/:id/media', async (request) => {

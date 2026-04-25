@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
+import * as fs from 'fs';
 import { apiGet, apiPost } from './api-client';
 
 interface RawCommentItem {
@@ -32,15 +33,29 @@ export function commentCommands(program: Command): void {
         console.log(pc.red('Error: --file is required'));
         process.exit(1);
       }
-
-      const fs = require('fs');
       if (!fs.existsSync(opts.file)) {
         console.log(pc.red(`File not found: ${opts.file}`));
         process.exit(1);
       }
-
-      const result = await apiPost<{ imported: number; skipped: number }>('/posts/' + opts.postId + '/comments/import', { platform: opts.platform, file: opts.file });
-      console.log(pc.green(`Imported: ${result.imported}, Skipped (duplicate): ${result.skipped}`));
+      const content = fs.readFileSync(opts.file, 'utf-8');
+      let commentsData: Record<string, unknown>[];
+      try {
+        const parsed = JSON.parse(content);
+        commentsData = Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        console.log(pc.red('Invalid JSON file'));
+        process.exit(1);
+      }
+      try {
+        const result = await apiPost<{ imported: number; skipped: number }>('/posts/' + opts.postId + '/comments/import', {
+          comments: commentsData,
+          platform: opts.platform,
+        });
+        console.log(pc.green(`Imported: ${result.imported}, Skipped (duplicate): ${result.skipped}`));
+      } catch (err: unknown) {
+        console.log(pc.red(`Error: ${(err as Error).message}`));
+        process.exit(1);
+      }
     });
 
   comment

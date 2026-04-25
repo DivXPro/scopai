@@ -96,8 +96,25 @@ export function strategyCommands(program: Command): void {
         console.log(pc.red('File not found'));
         process.exit(1);
       }
+      let strategyData: Record<string, unknown>;
+      if (opts.json) {
+        try {
+          strategyData = JSON.parse(opts.json);
+        } catch {
+          console.log(pc.red('Invalid JSON string'));
+          process.exit(1);
+        }
+      } else {
+        const content = fs.readFileSync(opts.file!, 'utf-8');
+        try {
+          strategyData = JSON.parse(content);
+        } catch {
+          console.log(pc.red('Invalid JSON file'));
+          process.exit(1);
+        }
+      }
       try {
-        const result = await apiPost<{ imported: boolean; id?: string; reason?: string }>('/strategies/import', { file: opts.file, json: opts.json });
+        const result = await apiPost<{ imported: boolean; id?: string; reason?: string }>('/strategies/import', strategyData);
         if (result.imported) {
           console.log(pc.green(`Strategy imported: ${result.id}`));
         } else {

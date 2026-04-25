@@ -26,12 +26,21 @@ export function taskCommands(program: Command): void {
       }
 
       const id = generateId();
+      let cliTemplates: Record<string, unknown> | null = null;
+      if (opts.cliTemplates) {
+        try {
+          cliTemplates = JSON.parse(opts.cliTemplates);
+        } catch {
+          console.log(pc.red('Invalid JSON for --cli-templates'));
+          process.exit(1);
+        }
+      }
       await apiPost('/tasks', {
         id,
         name: opts.name,
         description: opts.description ?? null,
         template_id: templateId,
-        cli_templates: opts.cliTemplates ?? null,
+        cli_templates: cliTemplates,
       });
       console.log(pc.green(`Task created: ${id}`));
       console.log(`  Name: ${opts.name}`);
@@ -51,7 +60,7 @@ export function taskCommands(program: Command): void {
         process.exit(1);
       }
       const postIds = opts.postIds.split(',').map(id => id.trim());
-      await apiPost('/tasks/' + opts.taskId + '/add-posts', { target_ids: postIds });
+      await apiPost('/tasks/' + opts.taskId + '/add-posts', { post_ids: postIds });
       console.log(pc.green(`Added ${postIds.length} posts to task ${opts.taskId}`));
     });
 
@@ -66,7 +75,7 @@ export function taskCommands(program: Command): void {
         process.exit(1);
       }
       const commentIds = opts.commentIds.split(',').map(id => id.trim());
-      await apiPost('/tasks/' + opts.taskId + '/add-comments', { target_ids: commentIds });
+      await apiPost('/tasks/' + opts.taskId + '/add-comments', { comment_ids: commentIds });
       console.log(pc.green(`Added ${commentIds.length} comments to task ${opts.taskId}`));
     });
 

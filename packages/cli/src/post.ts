@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
+import * as fs from 'fs';
 import { apiGet, apiPost } from './api-client';
 
 interface RawPostItem {
@@ -44,19 +45,31 @@ export function postCommands(program: Command): void {
         console.log(pc.red('Error: --file is required'));
         process.exit(1);
       }
-      const fs = require('fs');
       if (!fs.existsSync(opts.file)) {
         console.log(pc.red(`File not found: ${opts.file}`));
         process.exit(1);
       }
-      const result = await apiPost<{ imported: number; skipped: number; postIds?: string[] }>('/posts/import', {
-        platform: opts.platform,
-        file: opts.file,
-        task_id: opts.taskId,
-      });
-      console.log(pc.green(`Imported: ${result.imported}, Skipped (duplicate): ${result.skipped}`));
-      if (result.postIds && result.postIds.length > 0) {
-        console.log(`Post IDs: ${result.postIds.join(',')}`);
+      const content = fs.readFileSync(opts.file, 'utf-8');
+      let postsData: Record<string, unknown>[];
+      try {
+        const parsed = JSON.parse(content);
+        postsData = Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        console.log(pc.red('Invalid JSON file'));
+        process.exit(1);
+      }
+      try {
+        const result = await apiPost<{ imported: number; skipped: number; postIds?: string[] }>('/posts/import', {
+          posts: postsData.map((p: Record<string, unknown>) => ({ ...p, platform_id: opts.platform })),
+          task_id: opts.taskId,
+        });
+        console.log(pc.green(`Imported: ${result.imported}, Skipped (duplicate): ${result.skipped}`));
+        if (result.postIds && result.postIds.length > 0) {
+          console.log(`Post IDs: ${result.postIds.join(',')}`);
+        }
+      } catch (err: unknown) {
+        console.log(pc.red(`Error: ${(err as Error).message}`));
+        process.exit(1);
       }
     });
 
