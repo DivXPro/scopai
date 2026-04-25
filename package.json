@@ -15,7 +15,6 @@
     "test:e2e:daemon": "node --test --test-concurrency=1 --experimental-strip-types 'test/e2e/daemon-lifecycle/*.test.ts'",
     "test:e2e:strategy-import": "node --test --test-concurrency=1 --experimental-strip-types 'test/e2e/strategy-import/*.test.ts'",
     "test:record": "npx tsx scripts/record-e2e-fixture.ts --platform xhs --query '上海美食' --limit 2 --output test-data/recorded/$(date +%Y-%m-%d)-xhs-shanghai",
-    "publish:all": "pnpm -r publish --access public --no-git-checks",
     "release": "node scripts/release.js",
   },
   "engines": {
