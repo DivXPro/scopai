@@ -26,6 +26,11 @@ export * from './db/strategies';
 export * from './db/queue-jobs';
 export * from './db/analysis-results';
 export * from './db/aggregation';
+export * from './db/creators';
+export * from './db/creator-field-mappings';
+export * from './db/creator-sync-jobs';
+export * from './db/creator-sync-logs';
+export * from './db/creator-sync-schedules';
 
 // === Config ===
 export { loadConfig, config } from './config';
