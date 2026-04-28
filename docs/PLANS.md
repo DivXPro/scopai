@@ -12,14 +12,16 @@
 
 ## 当前活动计划
 
-- `exec-plans/active/2026-04-22-unified-process-architecture.md` — 统一进程架构：合并 Daemon+API+Worker 为单进程，IPC 改 HTTP REST，PID 改 lock file
-- `exec-plans/active/2026-04-21-phase1-core-extraction.md` — Monorepo Phase 1: 提取共享核心包（core）
-- `exec-plans/active/2026-04-21-phase2-api-service.md` — Monorepo Phase 2: API 服务实现
-- `exec-plans/active/2026-04-21-phase3-dashboard-ui.md` — Monorepo Phase 3: Dashboard UI
-- `exec-plans/active/2026-04-21-phase4-cli-slimming.md` — Monorepo Phase 4: CLI 瘦身
-- `exec-plans/active/2026-04-22-api-e2e-test.md` — API 路由 E2E 测试
+（暂无）
 
 ## 当前已归档内容
+
+- `exec-plans/completed/2026-04-22-unified-process-architecture.md` — 统一进程架构：合并 Daemon+API+Worker 为单进程，IPC 改 HTTP REST，PID 改 lock file（已完成）
+- `exec-plans/completed/2026-04-21-phase1-core-extraction.md` — Monorepo Phase 1: 提取共享核心包（core）（已完成）
+- `exec-plans/completed/2026-04-21-phase2-api-service.md` — Monorepo Phase 2: API 服务实现（已完成）
+- `exec-plans/completed/2026-04-21-phase3-dashboard-ui.md` — Monorepo Phase 3: Dashboard UI（已完成）
+- `exec-plans/completed/2026-04-21-phase4-cli-slimming.md` — Monorepo Phase 4: CLI 瘦身（已完成）
+- `exec-plans/completed/2026-04-22-api-e2e-test.md` — API 路由 E2E 测试（已完成）
 
 - `exec-plans/completed/2026-04-13-social-media-analysis-implementation.md`
 - `exec-plans/completed/2026-04-13-manual-e2e-test-plan.md`
