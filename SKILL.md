@@ -87,6 +87,19 @@ Run these **in order** before any workflow:
 | 27 | **run_single_analysis** | `scopai analyze --task-id {tid} --strategy-id {sid}` | Run a one-shot strategy analysis without task steps. |
 | 28 | **view_logs** | `scopai logs show [--lines {n}] [--level {l}]` | View recent API server log entries. |
 
+### Creator Subscription & Sync
+
+| # | Tool | Command | When to Use |
+|---|------|---------|-------------|
+| 29 | **creator_add** | `scopai creator add --platform {id} --author-id {aid} [--name {name}]` | Subscribe to a creator/blogger. Auto-creates sync schedule. |
+| 30 | **creator_list** | `scopai creator list [--platform {id}] [--status {s}]` | List subscribed creators. |
+| 31 | **creator_show** | `scopai creator show --id {id}` | Show creator details and recent sync logs. |
+| 32 | **creator_sync** | `scopai creator sync --id {id} [--initial]` | Trigger manual sync. `--initial` imports all historical posts. |
+| 33 | **creator_pause/resume** | `scopai creator pause|resume --id {id}` | Pause/resume automatic sync. |
+| 34 | **creator_remove** | `scopai creator remove --id {id}` | Unsubscribe from a creator. |
+
+> **Creator sync pipeline**: Independent from task/queue pipeline. Worker polls `creator_sync_jobs` directly, fetches posts via `opencli` (e.g., `opencli xiaohongshu user {author_id} --format json`), normalizes via field mappings, and upserts into `posts` table.
+
 ### Advanced: Create Strategy
 
 | # | Tool | Description |

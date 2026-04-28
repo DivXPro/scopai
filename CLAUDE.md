@@ -72,6 +72,7 @@ ui -> api（通过 HTTP，非 workspace 依赖）
 - `strategy`
 - `queue`
 - `analyze`
+- `creator`
 
 ## API 路由
 
@@ -86,6 +87,12 @@ ui -> api（通过 HTTP，非 workspace 依赖）
 - `POST /api/tasks/:id/steps`、`POST /api/tasks/:id/steps/:stepId/run`、`POST /api/tasks/:id/run-all-steps` — 步骤管理
 - `GET /api/tasks/:id/results` — 分析结果查询
 - `GET /api/queue`、`POST /api/queue/retry|reset` — 队列管理
+- `POST /api/creators`、`GET /api/creators`、`GET /api/creators/:id`、`DELETE /api/creators/:id` — 博主订阅 CRUD
+- `POST /api/creators/:id/sync`、`GET /api/creators/:id/sync-logs` — 博主同步触发与日志
+- `POST /api/creators/:id/pause|resume` — 博主暂停/恢复
+- `GET /api/creators/:id/posts` — 博主帖子列表
+- `GET/POST /api/creators/:id/sync-schedule` — 博主同步调度配置
+- `GET/POST /api/platforms/:id/creator-mappings` — 平台字段映射
 
 ## 测试体系
 
@@ -103,6 +110,7 @@ API e2e 测试使用 child process 启动真实服务器，每个 suite 独立 D
 - `worker` 对 `comment` 路径是主实现路径
 - `media` 路径已有处理代码，但完整生产链路需要结合实际数据确认
 - `post` 目标在 `worker` 中当前会报 `Unsupported target_type`
+- `creator` 博主订阅与同步管道已实现（独立 sync pipeline，通过 opencli 抓取，支持字段映射归一化）
 - 规划文档里部分理想化 Bree 编排能力尚未完全成为当前实现
 - 高价值文档更新前，应先核对真实代码，不要只沿用规划稿
 
