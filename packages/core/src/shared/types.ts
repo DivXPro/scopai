@@ -355,3 +355,76 @@ export interface UnifiedAnalysisResult {
   raw_response: Record<string, unknown> | null;
   analyzed_at: Date;
 }
+
+// === Creator Subscription ===
+
+export interface Creator {
+  id: string;
+  platform_id: string;
+  platform_author_id: string;
+  author_name: string | null;
+  display_name: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  homepage_url: string | null;
+  follower_count: number;
+  following_count: number;
+  post_count: number;
+  status: 'active' | 'paused' | 'unsubscribed';
+  created_at: Date;
+  updated_at: Date;
+  last_synced_at: Date | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface CreatorFieldMapping {
+  id: string;
+  platform_id: string;
+  entity_type: 'creator';
+  system_field: string;
+  platform_field: string;
+  data_type: 'string' | 'number' | 'date' | 'boolean' | 'array' | 'json';
+  is_required: boolean;
+  transform_expr: string | null;
+  description: string | null;
+}
+
+export interface CreatorSyncJob {
+  id: string;
+  creator_id: string;
+  sync_type: 'initial' | 'periodic';
+  status: 'pending' | 'processing' | 'completed' | 'completed_with_errors' | 'failed';
+  posts_imported: number;
+  posts_updated: number;
+  posts_skipped: number;
+  posts_failed: number;
+  cursor: string | null;
+  progress: Record<string, unknown> | null;
+  error: string | null;
+  created_at: Date;
+  processed_at: Date | null;
+}
+
+export interface CreatorSyncLog {
+  id: string;
+  creator_id: string;
+  job_id: string;
+  sync_type: string;
+  status: 'success' | 'partial' | 'failed';
+  result_summary: Record<string, unknown> | null;
+  started_at: Date;
+  completed_at: Date | null;
+}
+
+export interface CreatorSyncSchedule {
+  id: string;
+  creator_id: string;
+  interval_minutes: number;
+  time_window_start: string | null;
+  time_window_end: string | null;
+  max_retries: number;
+  retry_interval_minutes: number;
+  is_enabled: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
