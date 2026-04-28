@@ -11,7 +11,7 @@ import {
   deleteCreatorFieldMapping,
   createCreatorSyncJob,
   hasPendingSyncJob,
-  getCreatorSyncSchedule,
+  getCreatorSyncScheduleByCreatorId,
   createCreatorSyncSchedule,
   updateCreatorSyncSchedule,
   listCreatorSyncLogs,
@@ -148,7 +148,7 @@ export default async function creatorsRoutes(app: FastifyInstance) {
 
   app.get('/creators/:id/sync-schedule', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const schedule = await getCreatorSyncSchedule(id);
+    const schedule = await getCreatorSyncScheduleByCreatorId(id);
     if (!schedule) {
       reply.code(404);
       throw new Error('Schedule not found');
@@ -156,10 +156,15 @@ export default async function creatorsRoutes(app: FastifyInstance) {
     return schedule;
   });
 
-  app.post('/creators/:id/sync-schedule', async (request) => {
+  app.post('/creators/:id/sync-schedule', async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = request.body as Record<string, unknown>;
-    await updateCreatorSyncSchedule(id, {
+    const schedule = await getCreatorSyncScheduleByCreatorId(id);
+    if (!schedule) {
+      reply.code(404);
+      throw new Error('Schedule not found');
+    }
+    await updateCreatorSyncSchedule(schedule.id, {
       interval_minutes: body.interval_minutes !== undefined ? Number(body.interval_minutes) : undefined,
       time_window_start: body.time_window_start !== undefined ? String(body.time_window_start) : undefined,
       time_window_end: body.time_window_end !== undefined ? String(body.time_window_end) : undefined,
@@ -167,7 +172,7 @@ export default async function creatorsRoutes(app: FastifyInstance) {
       retry_interval_minutes: body.retry_interval_minutes !== undefined ? Number(body.retry_interval_minutes) : undefined,
       is_enabled: body.is_enabled !== undefined ? Boolean(body.is_enabled) : undefined,
     });
-    return getCreatorSyncSchedule(id);
+    return getCreatorSyncScheduleByCreatorId(id);
   });
 
   app.get('/platforms/:id/creator-mappings', async (request) => {
