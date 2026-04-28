@@ -43,9 +43,33 @@ export async function createCreatorSyncJob(
   };
 }
 
-export async function getCreatorSyncJob(id: string): Promise<CreatorSyncJob | null> {
+export async function getCreatorSyncJobById(id: string): Promise<CreatorSyncJob | null> {
   const rows = await query<CreatorSyncJob>('SELECT * FROM creator_sync_jobs WHERE id = ?', [id]);
   return rows[0] ?? null;
+}
+
+export async function listCreatorSyncJobs(
+  creatorId?: string,
+  status?: string,
+  limit = 50,
+  offset = 0,
+): Promise<CreatorSyncJob[]> {
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  if (creatorId) {
+    conditions.push('creator_id = ?');
+    params.push(creatorId);
+  }
+  if (status) {
+    conditions.push('status = ?');
+    params.push(status);
+  }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  params.push(limit, offset);
+  return query<CreatorSyncJob>(
+    `SELECT * FROM creator_sync_jobs ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    params,
+  );
 }
 
 export async function getPendingCreatorSyncJobs(limit = 10): Promise<CreatorSyncJob[]> {
@@ -109,4 +133,8 @@ export async function updateCreatorSyncJobStatus(
 
   params.push(id);
   await run(`UPDATE creator_sync_jobs SET ${fields.join(', ')} WHERE id = ?`, params);
+}
+
+export async function deleteCreatorSyncJob(id: string): Promise<void> {
+  await run('DELETE FROM creator_sync_jobs WHERE id = ?', [id]);
 }
