@@ -1,7 +1,7 @@
 {
   "name": "@scopai/core",
   "version": "1.2.0",
-  "description": "Shared core for analyze-cli: database, config, types, utilities",
+  "description": "Shared core for scopai: database, config, types, utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 将 `analyze-cli` 从单包结构重构为 pnpm monorepo，提取共享核心 (`packages/core`) 包含数据库、配置、类型、工具函数，确保现有 CLI 功能不受影响。
+**Goal:** 将 `scopai` 从单包结构重构为 pnpm monorepo，提取共享核心 (`packages/core`) 包含数据库、配置、类型、工具函数，确保现有 CLI 功能不受影响。
 
 **Architecture:** 创建 `packages/core/` 包作为唯一直接操作 DuckDB 的层。`packages/cli/` 通过 workspace 依赖引用 core。根目录保留 workspace 配置。不改动业务逻辑，只移动文件和更新 import 路径。
 
@@ -13,7 +13,7 @@
 ## File Structure
 
 ```
-analyze-cli/
+scopai/
 ├── package.json                    ← 根 workspace 配置（更新）
 ├── pnpm-workspace.yaml             ← 新增
 ├── tsconfig.json                   ← 根 tsconfig（更新 include）
@@ -107,12 +107,12 @@ packages:
 原内容（前51行）：
 ```json
 {
-  "name": "analyze-cli",
+  "name": "scopai",
   "version": "0.1.11",
   "description": "AI-powered social media content analysis CLI tool",
   "main": "dist/cli/index.js",
   "bin": {
-    "analyze-cli": "./bin/analyze-cli.js",
+    "scopai": "./bin/scopai.js",
     "skill": "./bin/skill.js"
   },
   "files": [
@@ -162,7 +162,7 @@ packages:
 新内容：
 ```json
 {
-  "name": "analyze-cli",
+  "name": "scopai",
   "version": "0.1.11",
   "private": true,
   "description": "AI-powered social media content analysis CLI tool",
@@ -236,7 +236,7 @@ git commit -m "chore(monorepo): add workspace configuration"
 {
   "name": "@scopai/core",
   "version": "0.1.11",
-  "description": "Shared core for analyze-cli: database, config, types, utilities",
+  "description": "Shared core for scopai: database, config, types, utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -512,10 +512,10 @@ git commit -m "chore(core): migrate data-fetcher to core package"
 {
   "name": "@scopai/cli",
   "version": "0.1.11",
-  "description": "CLI entry for analyze-cli",
+  "description": "CLI entry for scopai",
   "main": "dist/index.js",
   "bin": {
-    "analyze-cli": "../../bin/analyze-cli.js",
+    "scopai": "../../bin/scopai.js",
     "skill": "../../bin/skill.js"
   },
   "scripts": {
@@ -774,10 +774,10 @@ git commit -m "chore(deps): install workspace dependencies"
 ## Task 9: 更新 bin 脚本
 
 **Files:**
-- Modify: `bin/analyze-cli.js`
+- Modify: `bin/scopai.js`
 - Modify: `bin/skill.js`
 
-- [ ] **Step 9.1: 更新 bin/analyze-cli.js**
+- [ ] **Step 9.1: 更新 bin/scopai.js**
 
 原内容（假设）：
 ```javascript
@@ -920,8 +920,8 @@ pnpm test:e2e
 - [ ] **Step 12.2: CLI smoke test**
 
 ```bash
-node bin/analyze-cli.js --version
-node bin/analyze-cli.js --help
+node bin/scopai.js --version
+node bin/scopai.js --help
 ```
 
 预期：CLI 正常响应，显示版本号和帮助信息。

@@ -1,5 +1,5 @@
 {
-  "name": "analyze-cli",
+  "name": "scopai",
   "version": "1.2.0",
   "private": true,
   "description": "AI-powered social media content analysis CLI tool",

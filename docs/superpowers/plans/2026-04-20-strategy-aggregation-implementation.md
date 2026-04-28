@@ -153,7 +153,7 @@ describe('aggregation', { timeout: 15000 }, () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd /Users/huhui/Projects/analyze-cli && npm run build 2>&1 | tail -5
+cd /Users/huhui/Projects/scopai && npm run build 2>&1 | tail -5
 node --test --test-concurrency=1 'test/integration/aggregation.test.ts' 2>&1 | head -20
 ```
 Expected: FAIL with "Cannot find module '../../dist/db/aggregation.js'"
@@ -376,7 +376,7 @@ export async function getFullStats(strategyId: string, taskId: string): Promise<
 - [ ] **Step 4: Build and run tests**
 
 ```bash
-cd /Users/huhui/Projects/analyze-cli && npm run build 2>&1 | tail -10
+cd /Users/huhui/Projects/scopai && npm run build 2>&1 | tail -10
 node --test --test-concurrency=1 'test/integration/aggregation.test.ts' 2>&1
 ```
 Expected: PASS (all 9 tests green)
@@ -435,7 +435,7 @@ async 'strategy.result.aggregate'(params) {
 - [ ] **Step 2: Verify build**
 
 ```bash
-cd /Users/huhui/Projects/analyze-cli && npm run build 2>&1 | grep -E "(error|warning|success)" | tail -5
+cd /Users/huhui/Projects/scopai && npm run build 2>&1 | grep -E "(error|warning|success)" | tail -5
 ```
 
 - [ ] **Step 3: Commit**
@@ -659,7 +659,7 @@ async 'strategy.result.fullStats'(params) {
 - [ ] **Step 5: Build and verify**
 
 ```bash
-cd /Users/huhui/Projects/analyze-cli && npm run build 2>&1 | grep -E "error" | head -10
+cd /Users/huhui/Projects/scopai && npm run build 2>&1 | grep -E "error" | head -10
 ```
 
 - [ ] **Step 6: Commit**
@@ -712,7 +712,7 @@ Also add to `runAggregate` to pass the `having` parameter through.
 - [ ] **Step 2: Test HAVING**
 
 ```bash
-cd /Users/huhui/Projects/analyze-cli && npm run build && node --test --test-concurrency=1 'test/integration/aggregation.test.ts' 2>&1
+cd /Users/huhui/Projects/scopai && npm run build && node --test --test-concurrency=1 'test/integration/aggregation.test.ts' 2>&1
 ```
 
 - [ ] **Step 3: Commit**

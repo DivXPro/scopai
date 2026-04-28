@@ -9,7 +9,7 @@
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  AI Agent / User (CLI)                                       │
-│  analyze-cli <command> [subcommand] [options]                │
+│  scopai <command> [subcommand] [options]                │
 └──────────────────────────┬────────────────────────────────────┘
                            │ Unix Socket (IPC)
                            ▼
@@ -292,33 +292,33 @@ CREATE INDEX idx_queue_jobs_status ON queue_jobs(status);
 ## 三、CLI 命令设计
 
 ```
-analyze-cli <command> [subcommand] [options]
+scopai <command> [subcommand] [options]
 ```
 
 ### 3.1 平台管理
 
 ```
-analyze-cli platform list                       # 列出已注册平台
-analyze-cli platform add --id xhs --name xiaohongshu --description "小红书"
-analyze-cli platform mapping list --platform xhs --entity post
-analyze-cli platform mapping add --platform xhs --entity post \
+scopai platform list                       # 列出已注册平台
+scopai platform add --id xhs --name xiaohongshu --description "小红书"
+scopai platform mapping list --platform xhs --entity post
+scopai platform mapping add --platform xhs --entity post \
     --system title --platform displayTitle --type string --required false
-analyze-cli platform mapping import --platform xhs --file ./xhs-mapping.json
+scopai platform mapping import --platform xhs --file ./xhs-mapping.json
 ```
 
 ### 3.2 数据导入
 
 ```
 # 帖子导入
-analyze-cli post import --platform xhs --file ./posts.jsonl
-analyze-cli post import --platform weibo --csv ./weibo.csv --mapping ./weibo-post-mapping.json
+scopai post import --platform xhs --file ./posts.jsonl
+scopai post import --platform weibo --csv ./weibo.csv --mapping ./weibo-post-mapping.json
 
 # 评论导入
-analyze-cli comment import --platform xhs --file ./comments.jsonl
-analyze-cli comment import --platform xhs --post-id <id> --file ./comments.jsonl
+scopai comment import --platform xhs --file ./comments.jsonl
+scopai comment import --platform xhs --post-id <id> --file ./comments.jsonl
 
 # 单条导入（Agent 实时追加数据）
-analyze-cli post add --platform xhs \
+scopai post add --platform xhs \
     --platform-post-id 697f6c74... \
     --title "测试标题" \
     --content "正文内容" \
@@ -327,73 +327,73 @@ analyze-cli post add --platform xhs \
     --url https://www.xiaohongshu.com/...
 
 # 数据查询
-analyze-cli post list --platform xhs --limit 50 --offset 0
-analyze-cli post list --platform xhs --where "like_count > 100"
-analyze-cli post search --platform xhs --query "关键词"
-analyze-cli comment list --post-id <id>
+scopai post list --platform xhs --limit 50 --offset 0
+scopai post list --platform xhs --where "like_count > 100"
+scopai post search --platform xhs --query "关键词"
+scopai comment list --post-id <id>
 ```
 
 ### 3.3 任务管理
 
 ```
 # 创建分析任务
-analyze-cli task create \
+scopai task create \
     --name "Q1产品反馈分析" \
     --platforms xhs,weibo \
     --template sentiment-topics \
     --description "分析Q1各平台产品反馈"
 
 # 任务关联数据
-analyze-cli task add-posts --task-id <id> --post-ids <id1>,<id2>
-analyze-cli task add-posts --task-id <id> --platform xhs --where "like_count > 50"
-analyze-cli task add-comments --task-id <id> --post-id <id>
+scopai task add-posts --task-id <id> --post-ids <id1>,<id2>
+scopai task add-posts --task-id <id> --platform xhs --where "like_count > 50"
+scopai task add-comments --task-id <id> --post-id <id>
 
 # 任务控制
-analyze-cli task start --task-id <id>           # 手动触发
-analyze-cli task pause --task-id <id>
-analyze-cli task resume --task-id <id>
-analyze-cli task cancel --task-id <id>
+scopai task start --task-id <id>           # 手动触发
+scopai task pause --task-id <id>
+scopai task resume --task-id <id>
+scopai task cancel --task-id <id>
 
 # 任务查询
-analyze-cli task list --status running
-analyze-cli task status --task-id <id>          # 进度统计
+scopai task list --status running
+scopai task status --task-id <id>          # 进度统计
 ```
 
 ### 3.4 Prompt 模板管理
 
 ```
-analyze-cli template list
-analyze-cli template add --name sentiment-topics \
+scopai template list
+scopai template add --name sentiment-topics \
     --description "情感+话题分析" \
     --template "分析以下内容的情感倾向和话题分类..."
-analyze-cli template update --id <id> --template "新模板内容..."
-analyze-cli template test --id <id> --input "这个产品很好用"
+scopai template update --id <id> --template "新模板内容..."
+scopai template test --id <id> --input "这个产品很好用"
 ```
 
 ### 3.5 分析结果查询
 
 ```
 # 查询结果
-analyze-cli result list --task-id <id> --target comment --limit 50
-analyze-cli result list --task-id <id> --filter "sentiment_label = 'negative'"
-analyze-cli result show --id <result-id>
+scopai result list --task-id <id> --target comment --limit 50
+scopai result list --task-id <id> --filter "sentiment_label = 'negative'"
+scopai result show --id <result-id>
 
 # 统计聚合
-analyze-cli result stats --task-id <id>
+scopai result stats --task-id <id>
 
 # 导出
-analyze-cli result export --task-id <id> --format csv --output ./results.csv
-analyze-cli result export --task-id <id> --format json --output ./results.jsonl
+scopai result export --task-id <id> --format csv --output ./results.csv
+scopai result export --task-id <id> --format json --output ./results.jsonl
 ```
 
 ### 3.6 守护进程管理
 
 ```
-analyze-cli daemon start       # 启动守护进程（后台）
-analyze-cli daemon start --fg   # 前台运行（调试）
-analyze-cli daemon stop          # 停止守护进程
-analyze-cli daemon status        # 查看状态
-analyze-cli daemon restart       # 重启
+scopai daemon start       # 启动守护进程（后台）
+scopai daemon start --fg   # 前台运行（调试）
+scopai daemon stop          # 停止守护进程
+scopai daemon status        # 查看状态
+scopai daemon restart       # 重启
 ```
 
 ---
@@ -412,7 +412,7 @@ analyze-cli daemon restart       # 重启
 ```bash
 # CLI 请求示例
 echo '{"jsonrpc":"2.0","method":"task.create","params":{"name":"测试"},"id":1}' \
-  | nc -U /tmp/analyze-cli.sock
+  | nc -U /tmp/scopai.sock
 
 # 响应
 {"jsonrpc":"2.0","result":{"id":"uuid-xxx"},"id":1}
@@ -481,7 +481,7 @@ const result = JSON.parse(response.content[0].text);
 ### 6.1 配置文件路径
 
 ```
-优先: ~/.analyze-cli/config.json
+优先: ~/.scopai/config.json
 降级: Claude Code 配置文件 (实时读取，不导入)
 最后: 环境变量 / 默认值
 ```
@@ -491,7 +491,7 @@ const result = JSON.parse(response.content[0].text);
 ```json
 {
   "database": {
-    "path": "~/.analyze-cli/data.duckdb"
+    "path": "~/.scopai/data.duckdb"
   },
   "anthropic": {
     "api_key": "${ANTHROPIC_API_KEY}",
@@ -505,8 +505,8 @@ const result = JSON.parse(response.content[0].text);
     "retry_delay_ms": 2000
   },
   "paths": {
-    "media_dir": "~/.analyze-cli/media",
-    "export_dir": "~/.analyze-cli/exports"
+    "media_dir": "~/.scopai/media",
+    "export_dir": "~/.scopai/exports"
   },
   "logging": {
     "level": "info"
@@ -526,7 +526,7 @@ const result = JSON.parse(response.content[0].text);
 |---|---|---|
 | `ANTHROPIC_API_KEY` | Claude API Key | (必填) |
 | `ANTHROPIC_BASE_URL` | API 端点 | `https://api.anthropic.com` |
-| `ANALYZE_CLI_DB_PATH` | 数据库路径 | `~/.analyze-cli/data.duckdb` |
+| `ANALYZE_CLI_DB_PATH` | 数据库路径 | `~/.scopai/data.duckdb` |
 | `ANALYZE_CLI_WORKERS` | Worker 数量 | `2` |
 | `ANALYZE_CLI_LOG_LEVEL` | 日志级别 | `info` |
 
@@ -537,7 +537,7 @@ const result = JSON.parse(response.content[0].text);
 ### 7.1 目录结构
 
 ```
-~/.analyze-cli/
+~/.scopai/
 ├── config.json           # 配置文件
 ├── data.duckdb          # 数据库文件
 ├── media/               # 下载的媒体文件
@@ -552,7 +552,7 @@ const result = JSON.parse(response.content[0].text);
 ### 7.2 npm 包结构
 
 ```
-analyze-cli/
+scopai/
 ├── package.json
 ├── src/
 │   ├── cli/              # CLI 命令入口
@@ -580,17 +580,17 @@ analyze-cli/
 │   ├── risk.json
 │   └── media-image.json
 └── bin/
-    └── analyze-cli.js
+    └── scopai.js
 ```
 
 ### 7.3 初始化流程
 
 ```bash
 # 安装
-npm install -g analyze-cli
+npm install -g scopai
 
 # 首次运行
-analyze-cli daemon start
+scopai daemon start
 
 # 初始化时:
 # 1. 检测 Claude Code 配置文件路径，实时读取 API Key

@@ -1,10 +1,10 @@
 {
   "name": "@scopai/cli",
   "version": "1.2.0",
-  "description": "CLI entry for analyze-cli",
+  "description": "CLI entry for scopai",
   "main": "dist/index.js",
   "bin": {
-    "analyze-cli": "./dist/index.js"
+    "scopai": "./dist/index.js"
   },
   "scripts": {
     "build": "tsup",

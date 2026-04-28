@@ -1,19 +1,19 @@
 ---
-name: analyze-cli
+name: scopai
 description: Social media data analysis CLI — search, import, download comments/media, and run multi-step strategy analysis.
 type: tool-use
 ---
 
-# analyze-cli Skill
+# scopai Skill
 
-You operate the `analyze-cli` command-line tool for social media content analysis.
+You operate the `scopai` command-line tool for social media content analysis.
 
 ## Pre-execution Checks
 
 Run these **in order** before any workflow:
 
-1. **Verify CLI is executable**: `analyze-cli --version`
-2. **Ensure API server is running**: `analyze-cli daemon status` → `analyze-cli daemon start` if needed
+1. **Verify CLI is executable**: `scopai --version`
+2. **Ensure API server is running**: `scopai daemon status` → `scopai daemon start` if needed
 3. **Read opencli skill** before using any `opencli` command
 4. **Verify opencli**: `opencli --help` or `opencli doctor`
 
@@ -28,32 +28,32 @@ Run these **in order** before any workflow:
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
 | 1 | **search_posts** | `opencli <site> <command> {query} --limit {limit} -f json` | Discover posts before importing. **Commands vary by platform** — (1) run `opencli list \| grep <keyword>` to find the platform, (2) run `opencli <platform> --help` to list available commands, (3) run `opencli <platform> <command> -h` to understand specific command usage.|
-| 2 | **add_platform** | `analyze-cli platform add --id {id} --name {name}` | Register a platform if not already in `analyze-cli platform list`. |
-| 3 | **import_posts** | `analyze-cli post import --platform {id} --file {path} [--task-id {tid}]` | Import search results. **Do NOT manually fetch note details before import** — let `prepare-data` enrich posts via `fetch_note` template. Duplicates are updated, not skipped. |
-| 4 | **import_comments** | `analyze-cli comment import --platform {id} --post-id {id} --file {path}` | Import comments from JSON/JSONL after fetching. Duplicates skipped. |
+| 2 | **add_platform** | `scopai platform add --id {id} --name {name}` | Register a platform if not already in `scopai platform list`. |
+| 3 | **import_posts** | `scopai post import --platform {id} --file {path} [--task-id {tid}]` | Import search results. **Do NOT manually fetch note details before import** — let `prepare-data` enrich posts via `fetch_note` template. Duplicates are updated, not skipped. |
+| 4 | **import_comments** | `scopai comment import --platform {id} --post-id {id} --file {path}` | Import comments from JSON/JSONL after fetching. Duplicates skipped. |
 
 ### Phase 2: Task Setup
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 5 | **create_task** | `analyze-cli task create --name {name} [--cli-templates '{...}']` | Create task before adding steps. **Required template**: `fetch_note` (enriches post content). Optional: `fetch_comments`, `fetch_media`. |
-| 6 | **add_step_to_task** | `analyze-cli task step add --task-id {tid} --strategy-id {sid} [--name {n}] [--order {n}]` | Add each strategy the user needs. |
-| 7 | **list_strategies** | `analyze-cli strategy list` | Check available strategy IDs before adding steps. |
+| 5 | **create_task** | `scopai task create --name {name} [--cli-templates '{...}']` | Create task before adding steps. **Required template**: `fetch_note` (enriches post content). Optional: `fetch_comments`, `fetch_media`. |
+| 6 | **add_step_to_task** | `scopai task step add --task-id {tid} --strategy-id {sid} [--name {n}] [--order {n}]` | Add each strategy the user needs. |
+| 7 | **list_strategies** | `scopai strategy list` | Check available strategy IDs before adding steps. |
 
 ### Phase 3: Data Preparation
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 8 | **prepare_task_data** | `analyze-cli task prepare-data --task-id {tid}` | Fetch full post details, comments, and media. **Resumable** — continues from unfinished posts on retry. Fails if `cli_templates` lacks `fetch_note`. |
+| 8 | **prepare_task_data** | `scopai task prepare-data --task-id {tid}` | Fetch full post details, comments, and media. **Resumable** — continues from unfinished posts on retry. Fails if `cli_templates` lacks `fetch_note`. |
 
 ### Phase 4: Analysis Execution
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 9 | **run_all_steps** | `analyze-cli task run-all-steps --task-id {tid}` | **Default `--wait`**: blocks until all steps complete, printing progress. Use `--no-wait` for fire-and-forget. |
-| 10 | **run_task_step** | `analyze-cli task step run --task-id {tid} --step-id {sid}` | Run a single step. **Default `--wait`**: blocks until completion. |
-| 11 | **start_task** | `analyze-cli task start --task-id {tid}` | Enqueue jobs for pending targets **without** running strategy steps. |
-| 12 | **reset_task_step** | `analyze-cli task step reset --task-id {tid} --step-id {sid}` | Reset a failed step to pending for retry. |
+| 9 | **run_all_steps** | `scopai task run-all-steps --task-id {tid}` | **Default `--wait`**: blocks until all steps complete, printing progress. Use `--no-wait` for fire-and-forget. |
+| 10 | **run_task_step** | `scopai task step run --task-id {tid} --step-id {sid}` | Run a single step. **Default `--wait`**: blocks until completion. |
+| 11 | **start_task** | `scopai task start --task-id {tid}` | Enqueue jobs for pending targets **without** running strategy steps. |
+| 12 | **reset_task_step** | `scopai task step reset --task-id {tid} --step-id {sid}` | Reset a failed step to pending for retry. |
 
 > **Progress output** (`--wait` mode):
 > ```
@@ -65,27 +65,27 @@ Run these **in order** before any workflow:
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 13 | **get_task_results** | `analyze-cli task results --task-id {tid}` | After all steps complete. Shows result summary. |
-| 14 | **get_task_status** | `analyze-cli task show --task-id {tid}` | Show full task details including phases, steps, jobs, and recent failures. **Not needed when using `--wait` mode.** |
-| 15 | **list_tasks** | `analyze-cli task list [--status {s}] [--query {text}]` | View existing tasks. Filter by status or search by name. |
-| 16 | **list_task_steps** | `analyze-cli task step list --task-id {tid}` | Inspect step states before running. |
-| 17 | **strategy_result_list** | `analyze-cli strategy result list --task-id {tid} --strategy {sid}` | Inspect per-post results. |
-| 18 | **strategy_result_export** | `analyze-cli strategy result export --task-id {tid} --strategy {sid} [--format csv|json] [--output {path}]` | Export results to file. |
-| 19 | **strategy_result_stats** | `analyze-cli strategy result stats --task-id {tid} --strategy {sid}` | Show numeric and text field statistics. |
-| 20 | **strategy_result_aggregate** | `analyze-cli strategy result aggregate --task-id {tid} --strategy {sid} --group-by {field} [--agg count|sum|avg|min|max] [--format table|csv|json]` | Aggregate a specific result field. |
+| 13 | **get_task_results** | `scopai task results --task-id {tid}` | After all steps complete. Shows result summary. |
+| 14 | **get_task_status** | `scopai task show --task-id {tid}` | Show full task details including phases, steps, jobs, and recent failures. **Not needed when using `--wait` mode.** |
+| 15 | **list_tasks** | `scopai task list [--status {s}] [--query {text}]` | View existing tasks. Filter by status or search by name. |
+| 16 | **list_task_steps** | `scopai task step list --task-id {tid}` | Inspect step states before running. |
+| 17 | **strategy_result_list** | `scopai strategy result list --task-id {tid} --strategy {sid}` | Inspect per-post results. |
+| 18 | **strategy_result_export** | `scopai strategy result export --task-id {tid} --strategy {sid} [--format csv|json] [--output {path}]` | Export results to file. |
+| 19 | **strategy_result_stats** | `scopai strategy result stats --task-id {tid} --strategy {sid}` | Show numeric and text field statistics. |
+| 20 | **strategy_result_aggregate** | `scopai strategy result aggregate --task-id {tid} --strategy {sid} --group-by {field} [--agg count|sum|avg|min|max] [--format table|csv|json]` | Aggregate a specific result field. |
 
 ### Utility & Recovery
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 21 | **retry_failed_queue_jobs** | `analyze-cli queue retry [--task-id {tid}]` | Re-run only failed jobs. |
-| 22 | **reset_queue_jobs** | `analyze-cli queue reset [--task-id {tid}]` | **Blunt instrument**: force-reset all non-pending jobs. Prefer `queue retry`. |
-| 23 | **list_queue_jobs** | `analyze-cli queue list --task-id {tid} [--failed-only] [--limit {n}]` | Inspect queue job status. |
-| 24 | **pause_task / resume_task / cancel_task** | `analyze-cli task pause|resume|cancel --task-id {tid}` | Control running tasks. |
-| 25 | **list_posts / search_posts_db** | `analyze-cli post list [--platform {id}]` / `analyze-cli post search --platform {id} --query {text}` | Browse imported data. |
-| 26 | **daemon management** | `analyze-cli daemon start [--fg] [--verbose]` / `stop` / `restart` / `status` | Manage API server lifecycle. CLI auto-restarts if version mismatch. |
-| 27 | **run_single_analysis** | `analyze-cli analyze --task-id {tid} --strategy-id {sid}` | Run a one-shot strategy analysis without task steps. |
-| 28 | **view_logs** | `analyze-cli logs show [--lines {n}] [--level {l}]` | View recent API server log entries. |
+| 21 | **retry_failed_queue_jobs** | `scopai queue retry [--task-id {tid}]` | Re-run only failed jobs. |
+| 22 | **reset_queue_jobs** | `scopai queue reset [--task-id {tid}]` | **Blunt instrument**: force-reset all non-pending jobs. Prefer `queue retry`. |
+| 23 | **list_queue_jobs** | `scopai queue list --task-id {tid} [--failed-only] [--limit {n}]` | Inspect queue job status. |
+| 24 | **pause_task / resume_task / cancel_task** | `scopai task pause|resume|cancel --task-id {tid}` | Control running tasks. |
+| 25 | **list_posts / search_posts_db** | `scopai post list [--platform {id}]` / `scopai post search --platform {id} --query {text}` | Browse imported data. |
+| 26 | **daemon management** | `scopai daemon start [--fg] [--verbose]` / `stop` / `restart` / `status` | Manage API server lifecycle. CLI auto-restarts if version mismatch. |
+| 27 | **run_single_analysis** | `scopai analyze --task-id {tid} --strategy-id {sid}` | Run a one-shot strategy analysis without task steps. |
+| 28 | **view_logs** | `scopai logs show [--lines {n}] [--level {l}]` | View recent API server log entries. |
 
 ### Advanced: Create Strategy
 
@@ -172,28 +172,28 @@ opencli xiaohongshu note --help           # → requires "Full note URL"
 opencli xiaohongshu search "上海美食" --limit 10 -f json > posts.json
 
 # 3. Setup
-analyze-cli platform add --id xhs --name "小红书"
-analyze-cli task create --name "上海美食分析" \
+scopai platform add --id xhs --name "小红书"
+scopai task create --name "上海美食分析" \
   --cli-templates '{"fetch_note":"opencli xiaohongshu note {url} -f json","fetch_comments":"opencli xiaohongshu comments {url} --limit 100 -f json"}'
 
 # 4. Import
-analyze-cli post import --platform xhs --file posts.json --task-id <task_id>
+scopai post import --platform xhs --file posts.json --task-id <task_id>
 
 # 5. Add strategies
-analyze-cli task step add --task-id <task_id> --strategy-id sentiment-topics --name "情感分析"
-analyze-cli task step add --task-id <task_id> --strategy-id risk-detection --name "风险检测"
+scopai task step add --task-id <task_id> --strategy-id sentiment-topics --name "情感分析"
+scopai task step add --task-id <task_id> --strategy-id risk-detection --name "风险检测"
 
 # 6. Prepare data (blocks, resumable)
-analyze-cli task prepare-data --task-id <task_id>
+scopai task prepare-data --task-id <task_id>
 
 # 7. Run analysis (blocks with progress output)
-analyze-cli task run-all-steps --task-id <task_id>
+scopai task run-all-steps --task-id <task_id>
 # → [10:23:45] Steps progress: 0/2 completed | running: 情感分析
 # → [10:24:12] Steps progress: 1/2 completed | running: 风险检测
 # → [10:24:45] Steps progress: 2/2 completed
 
 # 8. Results
-analyze-cli task results --task-id <task_id>
+scopai task results --task-id <task_id>
 ```
 
 ### Alternative: Non-blocking Mode
@@ -202,22 +202,22 @@ If the user wants to start the analysis and check back later (e.g., running mult
 
 ```bash
 # Data preparation still blocks
-analyze-cli task prepare-data --task-id <task_id>
+scopai task prepare-data --task-id <task_id>
 
 # But analysis runs in background
-analyze-cli task run-all-steps --task-id <task_id> --no-wait
+scopai task run-all-steps --task-id <task_id> --no-wait
 # → "All steps processed" (returns immediately)
 
 # Check status later
-analyze-cli task status --task-id <task_id>
+scopai task status --task-id <task_id>
 ```
 
 ### Recovery from Failure
 
 ```bash
 # If a step fails after all retries:
-analyze-cli task step reset --task-id <tid> --step-id <sid>
-analyze-cli task step run --task-id <tid> --step-id <sid> --wait
+scopai task step reset --task-id <tid> --step-id <sid>
+scopai task step run --task-id <tid> --step-id <sid> --wait
 ```
 
 ---
@@ -265,15 +265,15 @@ analyze-cli task step run --task-id <tid> --step-id <sid> --wait
 
 - Validation fails → read exact error, fix field, retry (max 2 retries)
 - Same version exists → ask to bump version or change ID
-- After approval: `analyze-cli strategy import --json '<json>'`, then `analyze-cli strategy show --id <id>`
+- After approval: `scopai strategy import --json '<json>'`, then `scopai strategy show --id <id>`
 
 ---
 
 ## Global Rules
 
-1. **Never write temporary polling scripts** looping `analyze-cli task status`. Use built-in `--wait` mode.
+1. **Never write temporary polling scripts** looping `scopai task status`. Use built-in `--wait` mode.
 2. **Never use direct database access** (e.g., `node -e` scripts opening DuckDB). Always use CLI commands.
 3. **Rate limit (429) recovery**: workers auto-requeue with exponential backoff. Only intervene when status becomes `failed` after all retries.
-4. **Platform check first**: always `analyze-cli platform list` before `platform add` to avoid "already exists" errors.
+4. **Platform check first**: always `scopai platform list` before `platform add` to avoid "already exists" errors.
 5. **Do NOT manually fetch note details before import**: let `prepare-data` handle enrichment via the `fetch_note` template.
-6. **Daemon = API server**: `analyze-cli daemon start` launches the unified API server (Fastify + in-process workers). CLI commands communicate via HTTP, not IPC.
+6. **Daemon = API server**: `scopai daemon start` launches the unified API server (Fastify + in-process workers). CLI commands communicate via HTTP, not IPC.

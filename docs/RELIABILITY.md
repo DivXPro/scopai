@@ -15,6 +15,6 @@
 
 ## 推荐检查
 
-- `analyze-cli daemon status`
-- `analyze-cli task status --task-id <taskId>`
-- `analyze-cli result stats --task-id <taskId>`
+- `scopai daemon status`
+- `scopai task status --task-id <taskId>`
+- `scopai result stats --task-id <taskId>`

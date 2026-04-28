@@ -1,6 +1,6 @@
-# analyze-cli Agent Skill 原子化任务与子任务设计
+# scopai Agent Skill 原子化任务与子任务设计
 
-**Goal:** 让 AI Agent 通过调用 Custom Skill 的方式，以原子化工具操作 analyze-cli，完成从数据搜索、导入、下载评论/媒体、到多步骤策略分析的全流程，并支持 Agent 轮询任务状态与断点续传。
+**Goal:** 让 AI Agent 通过调用 Custom Skill 的方式，以原子化工具操作 scopai，完成从数据搜索、导入、下载评论/媒体、到多步骤策略分析的全流程，并支持 Agent 轮询任务状态与断点续传。
 
 **Architecture:** 在现有 `tasks` 体系上引入 `task_steps` 子任务（步骤）表，每个步骤绑定一个 `strategy`（套路）；数据准备（`prepare-data`）作为 task 级别前置阶段，分析执行拆分为可独立运行、可追加的步骤。Skill 以原子 CLI 命令封装暴露给 Agent。
 
@@ -10,7 +10,7 @@
 
 ## 背景与约束
 
-- 已通过 `record-e2e-fixture.ts` 验证了 OpenCLI 与 analyze-cli CLI 的联动能力。
+- 已通过 `record-e2e-fixture.ts` 验证了 OpenCLI 与 scopai CLI 的联动能力。
 - 用户明确要求：**不做同步阻塞等待**，由 **Agent 轮询**确认任务进度。
 - 用户要求 CLI 具备**完整任务接受能力**，且支持**后续对已有 task 追加策略分析步骤**。
 - `task.prepareData` 当前存在 bug：每次调用会重置所有 `task_post_status` 为 `pending`，导致无法断点续传。
@@ -56,17 +56,17 @@ CREATE TABLE IF NOT EXISTS task_steps (
 | 工具名 | 对应 CLI 命令 | 说明 |
 |--------|--------------|------|
 | `search_posts` | `opencli xiaohongshu search {query} --limit {n} -f json` | 搜索帖子 |
-| `add_platform` | `analyze-cli platform add --id {id} --name {name}` | 添加平台 |
-| `import_posts` | `analyze-cli post import --platform {id} --file {path} [--task-id {tid}]` | 导入帖子，自动绑定 task；已存在则更新 |
-| `list_posts` | `analyze-cli post list --platform {id} --limit {n}` | 查询已导入帖子 |
-| `create_task` | `analyze-cli task create --name {name} [--cli-templates '{...}']` | 创建分析任务 |
-| `add_step_to_task` | `analyze-cli task step add --task-id {tid} --strategy-id {sid} [--name {name}] [--order {n}]` | 为 task 追加分析步骤 |
-| `list_task_steps` | `analyze-cli task step list --task-id {tid}` | 查看 task 下所有步骤 |
-| `prepare_task_data` | `analyze-cli task prepare-data --task-id {tid}` | 遍历下载评论和媒体（支持断点续传） |
-| `run_task_step` | `analyze-cli task step run --task-id {tid} --step-id {sid}` | 执行指定步骤 |
-| `run_all_steps` | `analyze-cli task run-all-steps --task-id {tid}` | 顺序执行所有 pending/failed 步骤 |
-| `get_task_status` | `analyze-cli task status --task-id {tid}` | 聚合返回 dataPreparation + steps 进度 |
-| `get_task_results` | `analyze-cli task results --task-id {tid}` | 返回最终分析报告 |
+| `add_platform` | `scopai platform add --id {id} --name {name}` | 添加平台 |
+| `import_posts` | `scopai post import --platform {id} --file {path} [--task-id {tid}]` | 导入帖子，自动绑定 task；已存在则更新 |
+| `list_posts` | `scopai post list --platform {id} --limit {n}` | 查询已导入帖子 |
+| `create_task` | `scopai task create --name {name} [--cli-templates '{...}']` | 创建分析任务 |
+| `add_step_to_task` | `scopai task step add --task-id {tid} --strategy-id {sid} [--name {name}] [--order {n}]` | 为 task 追加分析步骤 |
+| `list_task_steps` | `scopai task step list --task-id {tid}` | 查看 task 下所有步骤 |
+| `prepare_task_data` | `scopai task prepare-data --task-id {tid}` | 遍历下载评论和媒体（支持断点续传） |
+| `run_task_step` | `scopai task step run --task-id {tid} --step-id {sid}` | 执行指定步骤 |
+| `run_all_steps` | `scopai task run-all-steps --task-id {tid}` | 顺序执行所有 pending/failed 步骤 |
+| `get_task_status` | `scopai task status --task-id {tid}` | 聚合返回 dataPreparation + steps 进度 |
+| `get_task_results` | `scopai task results --task-id {tid}` | 返回最终分析报告 |
 
 ### 3. `task status` 聚合返回结构
 
@@ -172,7 +172,7 @@ Agent 继续轮询：
 | `src/daemon/handlers.ts` | `task.status` 聚合返回；修复 `task.prepareData` 断点续传；新增 `task.step.add`、`task.step.run`、`task.runAllSteps` handlers |
 | `src/cli/task.ts` | 新增 CLI 子命令：`task step add/list/run`、`task run-all-steps`、`task results` |
 | `src/cli/post.ts` | `post import` 增加 `--task-id`，并改为 upsert 而非 skip |
-| `.claude/skills/analyze-cli/skill.md` | Custom Skill 定义（后续计划实施） |
+| `.claude/skills/scopai/skill.md` | Custom Skill 定义（后续计划实施） |
 
 ---
 

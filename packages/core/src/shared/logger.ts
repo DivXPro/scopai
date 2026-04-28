@@ -18,7 +18,7 @@ function formatTimestamp(d = new Date()): string {
 }
 
 function getLogDir(): string {
-  return expandPath('~/.analyze-cli/logs');
+  return expandPath('~/.scopai/logs');
 }
 
 export function getLogFilePath(date?: string): string {

@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const targetDir = path.join(process.cwd(), '.claude', 'skills');
-const targetFile = path.join(targetDir, 'analyze-cli.md');
+const targetFile = path.join(targetDir, 'scopai.md');
 
 const bundled = path.join(__dirname, '..', 'SKILL.md');
 if (!fs.existsSync(bundled)) {

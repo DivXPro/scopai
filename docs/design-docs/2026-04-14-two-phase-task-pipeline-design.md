@@ -5,7 +5,7 @@
 
 ## 目标
 
-在现有 `analyze-cli` 架构之上，实现一个端到端的任务执行流水线：
+在现有 `scopai` 架构之上，实现一个端到端的任务执行流水线：
 
 1. Agent 输入任务指令（含帖子 IDs + opencli 调用模板）
 2. 阶段一（数据准备）：遍历帖子，调用 opencli 下载媒体/评论，导入 DuckDB
@@ -101,7 +101,7 @@ ALTER TABLE tasks ADD COLUMN cli_templates VARCHAR;
 **命令签名：**
 
 ```
-analyze-cli task prepare-data --task-id <taskId> [--concurrency N] [--retry]
+scopai task prepare-data --task-id <taskId> [--concurrency N] [--retry]
 ```
 
 **执行流程：**
@@ -174,25 +174,25 @@ export async function fetchViaOpencli(
 
 ```bash
 # 1. 创建任务，传入 opencli 调用模板
-analyze-cli task create \
+scopai task create \
   --name "微博舆情分析" \
   --template sentiment_analysis \
   --cli-templates '{"fetch_comments":"opencli weibo comments --post-id {post_id} --limit 100 -f json","fetch_media":"opencli weibo download --post-id {post_id} -f json"}'
 
 # 2. 绑定帖子 IDs
-analyze-cli task add-posts --task-id <taskId> --post-ids "p1,p2,p3"
+scopai task add-posts --task-id <taskId> --post-ids "p1,p2,p3"
 
 # 3. 执行数据准备（可重复执行，自动断点恢复）
-analyze-cli task prepare-data --task-id <taskId>
+scopai task prepare-data --task-id <taskId>
 
 # 4. 启动 LLM 分析
-analyze-cli task start --task-id <taskId>
+scopai task start --task-id <taskId>
 
 # 5. 查看进度
-analyze-cli task status --task-id <taskId>
+scopai task status --task-id <taskId>
 
 # 6. 导出结果
-analyze-cli result export --task-id <taskId> --format json --output result.json
+scopai result export --task-id <taskId> --format json --output result.json
 ```
 
 ## 不变的部分

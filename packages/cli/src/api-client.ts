@@ -17,11 +17,11 @@ function getBaseUrl(lock: LockFileData): string {
 async function requireLock(): Promise<LockFileData> {
   const lock = readLockFile();
   if (!lock) {
-    throw new Error('Daemon is not running. Start it with: analyze-cli daemon start');
+    throw new Error('Daemon is not running. Start it with: scopai daemon start');
   }
   const alive = await isApiAlive(lock.port);
   if (!alive) {
-    throw new Error('Daemon is not responding. Try: analyze-cli daemon restart');
+    throw new Error('Daemon is not responding. Try: scopai daemon restart');
   }
   return lock;
 }

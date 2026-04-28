@@ -24,13 +24,13 @@
 
 ```bash
 # 阻塞到该步骤执行完成（默认）
-analyze-cli task step run --task-id <id> --step-id <id> --wait
+scopai task step run --task-id <id> --step-id <id> --wait
 
 # 立即返回（保持现有行为）
-analyze-cli task step run --task-id <id> --step-id <id> --no-wait
+scopai task step run --task-id <id> --step-id <id> --no-wait
 
 # 阻塞到所有步骤执行完成
-analyze-cli task run-all-steps --task-id <id> --wait
+scopai task run-all-steps --task-id <id> --wait
 ```
 
 输出格式（默认 Agent 模式）：

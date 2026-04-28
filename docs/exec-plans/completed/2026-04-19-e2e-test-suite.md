@@ -15,7 +15,7 @@
 | File | Responsibility |
 |------|---------------|
 | `test/e2e/helpers/db.ts` | 数据库连接隔离、cleanup、种子数据加载 |
-| `test/e2e/helpers/cli.ts` | 执行 CLI 命令（`node bin/analyze-cli.js`），解析输出提取 ID |
+| `test/e2e/helpers/cli.ts` | 执行 CLI 命令（`node bin/scopai.js`），解析输出提取 ID |
 | `test/e2e/helpers/daemon.ts` | daemon 生命周期管理（start/stop/status/isRunning） |
 | `test/e2e/helpers/assertions.ts` | 轮询工具、常用断言 |
 | `test/e2e/fixtures/posts/sample-xhs.json` | 测试用小红书帖子数据 |
@@ -234,7 +234,7 @@ import { spawn } from 'child_process';
 import * as path from 'path';
 import * as os from 'os';
 
-const CLI_PATH = path.join(process.cwd(), 'bin', 'analyze-cli.js');
+const CLI_PATH = path.join(process.cwd(), 'bin', 'scopai.js');
 
 export interface CliResult {
   stdout: string;
@@ -244,7 +244,7 @@ export interface CliResult {
 
 function getTestEnv(): Record<string, string> {
   const runId = `e2e_${Date.now()}_${process.pid}`;
-  const tmpDir = path.join(os.tmpdir(), 'analyze-cli-e2e', runId);
+  const tmpDir = path.join(os.tmpdir(), 'scopai-e2e', runId);
   return {
     ...process.env,
     ANALYZE_CLI_DB_PATH: path.join(tmpDir, 'test.duckdb'),

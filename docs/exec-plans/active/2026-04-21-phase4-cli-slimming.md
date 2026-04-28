@@ -301,7 +301,7 @@ import { registerTaskCommands } from './task';
 
 const program = new Command();
 program
-  .name('analyze-cli')
+  .name('scopai')
   .version(version)
   .option('--api-url <url>', 'API server URL', 'http://127.0.0.1:3000')
   .hook('preAction', (thisCommand) => {
@@ -354,10 +354,10 @@ cd packages/cli && pnpm build
 
 ```bash
 # 测试同步查询（直接调 core，无需 API）
-node bin/analyze-cli.js task list
+node bin/scopai.js task list
 
 # 测试异步操作（自动启动嵌入 API）
-node bin/analyze-cli.js task start --task-id <some-id>
+node bin/scopai.js task start --task-id <some-id>
 ```
 
 - [ ] **Step 6.4: Commit**
@@ -388,10 +388,10 @@ pnpm test:e2e
 node packages/api/dist/index.js &
 
 # 2. 创建任务
-node bin/analyze-cli.js task create --name "Test"
+node bin/scopai.js task create --name "Test"
 
 # 3. 查看任务列表
-node bin/analyze-cli.js task list
+node bin/scopai.js task list
 
 # 4. 在浏览器中打开 Dashboard
 curl http://localhost:3000

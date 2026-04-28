@@ -10,7 +10,8 @@ tmp/
 .vscode/
 .idea/
 
-.claude/
+.claude/*
+!.claude/agents/
 .qwen/
 .agent/
 .trae/

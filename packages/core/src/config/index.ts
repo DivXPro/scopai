@@ -6,7 +6,7 @@ import { loadClaudeConfig } from './claude-config';
 
 const DEFAULT_CONFIG: Config = {
   database: {
-    path: expandPath('~/.analyze-cli/data.duckdb'),
+    path: expandPath('~/.scopai/data.duckdb'),
   },
   anthropic: {
     api_key: '',
@@ -73,7 +73,7 @@ function resolveEnvVariables(obj: unknown): unknown {
 
 export function loadConfig(): Config {
   // Load file config first (highest priority)
-  const configPath = expandPath('~/.analyze-cli/config.json');
+  const configPath = expandPath('~/.scopai/config.json');
   let fileConfig: Partial<Config> = {};
   if (fs.existsSync(configPath)) {
     try {

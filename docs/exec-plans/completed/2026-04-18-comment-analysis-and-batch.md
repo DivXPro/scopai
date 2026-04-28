@@ -745,4 +745,4 @@ git commit -m "build: verify comment analysis compiles cleanly"
 如需回滚：
 1. `git revert` 最后一批 commit
 2. `npm run build` 确认编译通过
-3. `analyze-cli daemon restart` 重启 daemon
+3. `scopai daemon restart` 重启 daemon

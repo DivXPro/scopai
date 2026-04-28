@@ -2,7 +2,7 @@
 
 ## Overview
 
-Allow users to create new analysis strategies (套路) for `analyze-cli` by describing their needs in natural language to the Claude Code AI Agent. After a brief interactive clarification, the Agent generates a valid strategy JSON and registers it directly into the system.
+Allow users to create new analysis strategies (套路) for `scopai` by describing their needs in natural language to the Claude Code AI Agent. After a brief interactive clarification, the Agent generates a valid strategy JSON and registers it directly into the system.
 
 ## Goals
 
@@ -41,7 +41,7 @@ Allow users to create new analysis strategies (套路) for `analyze-cli` by desc
 
 **Example:**
 ```bash
-analyze-cli strategy import --json '{"id":"monetization-v1","name":"带货潜力分析",...}'
+scopai strategy import --json '{"id":"monetization-v1","name":"带货潜力分析",...}'
 ```
 
 ### 2. Error Handling
@@ -53,7 +53,7 @@ analyze-cli strategy import --json '{"id":"monetization-v1","name":"带货潜力
 ## Skill Update
 
 **File to modify:**
-- `.claude/skills/analyze-cli/skill.md`
+- `.claude/skills/scopai/skill.md`
 
 ### New Capability: `create_strategy`
 
@@ -78,7 +78,7 @@ User approves or requests edits
   ├─ Edits → regenerate JSON → present again
   └─ Approves → call CLI import
         ↓
-  analyze-cli strategy import --json '<json>'
+  scopai strategy import --json '<json>'
         ↓
   ├─ Validation fails → show error → fix JSON → retry (max 2 retries)
   └─ Success → run `strategy show --id <id>` → confirm to user
@@ -171,6 +171,6 @@ The generated JSON must satisfy `validateStrategyJson` and match the database sc
 ## Implementation Steps
 
 1. Extend `strategy import` CLI and daemon handler to accept `--json`
-2. Update `.claude/skills/analyze-cli/skill.md` with `create_strategy` capability
+2. Update `.claude/skills/scopai/skill.md` with `create_strategy` capability
 3. Run manual skill conversation tests
 4. Commit both code and skill changes

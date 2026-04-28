@@ -65,7 +65,7 @@ describe('prepare-data — flow with real XHS data', { timeout: 600000 }, () => 
     for (const item of realPosts) {
       const noteId = item.id || item.note_id;
       if (noteId) {
-        const downloadDir = path.join(os.homedir(), '.analyze-cli', 'downloads', 'xhs', String(noteId));
+        const downloadDir = path.join(os.homedir(), '.scopai', 'downloads', 'xhs', String(noteId));
         try { fs.rmSync(downloadDir, { recursive: true, force: true }); } catch { }
       }
     }

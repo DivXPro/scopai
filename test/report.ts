@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Test Report Generator for analyze-cli
+ * Test Report Generator for scopai
  * 
  * Usage:
  *   node --experimental-strip-types test/report.ts              # Run all tests + generate report
@@ -126,7 +126,7 @@ async function runTest(file: string): Promise<TestResult> {
 function generateMarkdown(report: Report): string {
   const lines: string[] = [];
   
-  lines.push('# analyze-cli Test Report');
+  lines.push('# scopai Test Report');
   lines.push('');
   lines.push(`> Generated: ${report.generated_at}`);
   lines.push('');

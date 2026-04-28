@@ -2,11 +2,11 @@
 
 ## 说明
 
-本文件是 `analyze-cli` 项目的 **开发方 agent** 工作入口。所有 agent 均围绕项目代码开发、架构维护和功能迭代设计，通过 `superpowers` 技能进行编排执行。
+本文件是 `scopai` 项目的 **开发方 agent** 工作入口。所有 agent 均围绕项目代码开发、架构维护和功能迭代设计，通过 `superpowers` 技能进行编排执行。
 
 ## 项目概览
 
-`analyze-cli` 是一个基于 TypeScript 和 Node.js 的社交媒体内容分析平台，采用 pnpm monorepo 架构。
+`scopai` 是一个基于 TypeScript 和 Node.js 的社交媒体内容分析平台，采用 pnpm monorepo 架构。
 
 当前主链路：
 
@@ -52,7 +52,7 @@ ui -> api（通过 HTTP，非 workspace 依赖）
 ## 关键入口
 
 - CLI 入口：`packages/cli/src/index.ts`
-- 可执行入口：`bin/analyze-cli.js`
+- 可执行入口：`bin/scopai.js`
 - API 入口：`packages/api/src/index.ts`
 - API 路由注册：`packages/api/src/routes/index.ts`
 - worker consumer：`packages/api/src/worker/consumer.ts`
@@ -118,7 +118,7 @@ API e2e 测试使用 child process 启动真实服务器，每个 suite 独立 D
 
 1. **需求澄清**：`orchestrator` 判断需求类型和涉及模块
 2. **架构设计**：`project-architect` 产出设计文档（如需）
-3. **计划编写**：`orchestrator` 或 `project-architect` 产出 `docs/superpowers/plans/`
+3. **计划编写**：`orchestrator` 或 `project-architect` 产出 `docs/exec-plans/active/`
 4. **任务实现**：派发 `feature-developer`、`cli-developer`、`db-developer` 或 `integration-developer`
 5. **测试验证**：`test-engineer` 补充测试并执行
 6. **代码审查**：`code-reviewer` 检查架构一致性、代码质量、逻辑正确性、安全性、可测试性
@@ -135,7 +135,7 @@ API e2e 测试使用 child process 启动真实服务器，每个 suite 独立 D
 - agent 主入口：`AGENTS.md`（本文件）
 - 技能入口：`SKILL.md`
 - 详细文档目录：`docs/`
-- 项目 agent 编排包：`agents/`
+- 项目 agent 编排包：`.claude/agents/`
 
 ### 推荐阅读顺序
 
@@ -150,24 +150,24 @@ API e2e 测试使用 child process 启动真实服务器，每个 suite 独立 D
 
 ## 项目 Agent 入口文件
 
-项目根目录 `agents/` 是仓库的开发协作文档入口。
+项目根目录 `.claude/agents/` 是仓库的开发协作文档入口。
 
 ### 开发方 Agent（面向 CLI 开发者）
 
 主入口：
 
-- `agents/README.md` — harness 总览与编排流程
+- `.claude/agents/README.md` — harness 总览与编排流程
 
 角色入口：
 
-- `agents/orchestrator.md` — 开发需求总控、阶段编排
-- `agents/project-architect.md` — 架构设计、模块边界
-- `agents/feature-developer.md` — 跨模块功能实现
-- `agents/cli-developer.md` — CLI 命令开发、交互设计
-- `agents/db-developer.md` — 数据库 schema、migration、数据流
-- `agents/integration-developer.md` — opencli 集成、外部 API 对接
-- `agents/test-engineer.md` — 测试策略、测试实现、测试执行
-- `agents/code-reviewer.md` — 代码审查、架构一致性、安全与质量检查
+- `.claude/agents/orchestrator.md` — 开发需求总控、阶段编排
+- `.claude/agents/project-architect.md` — 架构设计、模块边界
+- `.claude/agents/feature-developer.md` — 跨模块功能实现
+- `.claude/agents/cli-developer.md` — CLI 命令开发、交互设计
+- `.claude/agents/db-developer.md` — 数据库 schema、migration、数据流
+- `.claude/agents/integration-developer.md` — opencli 集成、外部 API 对接
+- `.claude/agents/test-engineer.md` — 测试策略、测试实现、测试执行
+- `.claude/agents/code-reviewer.md` — 代码审查、架构一致性、安全与质量检查
 
 ## Agent 职责
 
@@ -226,7 +226,7 @@ API e2e 测试使用 child process 启动真实服务器，每个 suite 独立 D
 
 - 优先读取真实代码，再修改高价值文档
 - 不要把设计文档当成实现事实
-- 做 agent 编排时优先复用 `agents/` 下现有角色
+- 做 agent 编排时优先复用 `.claude/agents/` 下现有角色
 - 新功能必须伴随测试
 - 如果需求含糊，先给用户方案选择，再继续执行
 - 涉及安装依赖、执行脚本或补充命令示例时，默认优先使用 `pnpm`

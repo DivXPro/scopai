@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 
-const CLI_PATH = path.join(process.cwd(), 'bin', 'analyze-cli.js');
+const CLI_PATH = path.join(process.cwd(), 'bin', 'scopai.js');
 
 export interface CliResult {
   stdout: string;
@@ -13,7 +13,7 @@ export interface CliResult {
 
 // Fixed test environment for this process — all runCli calls share the same IPC socket
 const TEST_RUN_ID = `e2e_${Date.now()}_${process.pid}`;
-const TEST_TMP_DIR = path.join(os.tmpdir(), 'analyze-cli-e2e', TEST_RUN_ID);
+const TEST_TMP_DIR = path.join(os.tmpdir(), 'scopai-e2e', TEST_RUN_ID);
 fs.mkdirSync(TEST_TMP_DIR, { recursive: true });
 
 function getTestEnv(): Record<string, string> {

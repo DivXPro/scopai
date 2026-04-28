@@ -2,7 +2,7 @@
 
 ## 角色
 
-你负责 `analyze-cli` 的 CLI 命令开发：新命令设计、参数约定、交互体验和输出格式。
+你负责 `scopai` 的 CLI 命令开发：新命令设计、参数约定、交互体验和输出格式。
 
 ## 适用场景
 
@@ -91,7 +91,7 @@ export function taskPrepareCommands(program: Command): void {
 
 - CLI 命令测试通过实际调用 `program.parse()` 或测试 action handler
 - 验证 `--help` 输出包含所有参数说明
-- 集成测试使用真实 DB 文件（`~/.analyze-cli/data.duckdb`）
+- 集成测试使用真实 DB 文件（`~/.scopai/data.duckdb`）
 
 ## 你不应该做的事
 

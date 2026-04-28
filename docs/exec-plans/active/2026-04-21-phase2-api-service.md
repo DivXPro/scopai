@@ -55,7 +55,7 @@ packages/api/
 {
   "name": "@scopai/api",
   "version": "0.1.11",
-  "description": "HTTP API service for analyze-cli",
+  "description": "HTTP API service for scopai",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsup src/index.ts --format cjs --out-dir dist --external @scopai/core --external duckdb --external fastify --minify",

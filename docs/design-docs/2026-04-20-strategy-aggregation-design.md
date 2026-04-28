@@ -2,7 +2,7 @@
 
 ## Overview
 
-Extend analyze-cli's result querying capabilities with two complementary features:
+Extend scopai's result querying capabilities with two complementary features:
 
 1. **Auto-expand `strategy result stats`** — automatically detect and aggregate VARCHAR[], DOUBLE[], BOOLEAN[], and JSON array fields from dynamic strategy result tables
 2. **New `strategy result aggregate` command** — explicit single-field aggregation with flexible options for power users
@@ -46,7 +46,7 @@ Output columns use field-name prefix to avoid cross-field conflicts:
 Automatically appends Array/JSON field aggregation to existing output:
 
 ```
-$ analyze-cli strategy result stats --task-id <id> --strategy <sid>
+$ scopai strategy result stats --task-id <id> --strategy <sid>
 
 Total: 42
 
@@ -69,7 +69,7 @@ JSON object array fields are skipped with a hint to use the `aggregate` command 
 ### `strategy result aggregate` (new)
 
 ```bash
-analyze-cli strategy result aggregate \
+scopai strategy result aggregate \
   --task-id <id> \
   --strategy <sid> \
   --group-by <field> \
@@ -85,14 +85,14 @@ analyze-cli strategy result aggregate \
 
 ```bash
 # VARCHAR[] tag frequency
-analyze-cli strategy result aggregate --task-id t1 --strategy s1 --group-by tags
+scopai strategy result aggregate --task-id t1 --strategy s1 --group-by tags
 
 # JSON object array, extract .name field
-analyze-cli strategy result aggregate --task-id t1 --strategy s1 \
+scopai strategy result aggregate --task-id t1 --strategy s1 \
   --group-by topics --json-key name --having "count > 2"
 
 # DOUBLE[] numeric array average
-analyze-cli strategy result aggregate --task-id t1 --strategy s1 \
+scopai strategy result aggregate --task-id t1 --strategy s1 \
   --group-by scores --agg avg
 ```
 

@@ -123,8 +123,8 @@ async function runAnalyzeCli(args: string[]): Promise<{ success: boolean; stdout
   }
 }
 
-const DAEMON_PID_FILE = process.env.ANALYZE_CLI_DAEMON_PID || '/tmp/analyze-cli.pid';
-const IPC_SOCKET_PATH = process.env.ANALYZE_CLI_IPC_SOCKET || '/tmp/analyze-cli.sock';
+const DAEMON_PID_FILE = process.env.ANALYZE_CLI_DAEMON_PID || '/tmp/scopai.pid';
+const IPC_SOCKET_PATH = process.env.ANALYZE_CLI_IPC_SOCKET || '/tmp/scopai.sock';
 
 function isDaemonRunning(): boolean {
   if (!fs.existsSync(DAEMON_PID_FILE)) return false;

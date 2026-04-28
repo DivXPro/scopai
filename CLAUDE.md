@@ -1,71 +1,232 @@
-AGENTS.md
+# AGENTS.md
 
-## 文档生成规则
+## 说明
 
-当使用 superpowers 技能（如 `superpowers:writing-plans`、`superpowers:brainstorming`）生成计划或设计文档时，必须覆盖其默认保存路径，按以下项目规则存放：
+本文件是 `scopai` 项目的 **开发方 agent** 工作入口。所有 agent 均围绕项目代码开发、架构维护和功能迭代设计，通过 `superpowers` 技能进行编排执行。
 
-| 文档类型 | 正确存放目录 | 说明 |
-|---------|-------------|------|
-| 执行计划 | `docs/exec-plans/active/` | 实施计划、测试计划、迁移计划 |
-| 设计文档 | `docs/design-docs/` | 架构设计、模块设计、技术方案 |
+## 项目概览
 
-### 生成后必须执行的操作
+`scopai` 是一个基于 TypeScript 和 Node.js 的社交媒体内容分析平台，采用 pnpm monorepo 架构。
 
-1. **移动文件**：将 `docs/superpowers/plans/` 下的新文件移到 `docs/exec-plans/active/`
-2. **移动设计稿**：将 `docs/superpowers/specs/` 下的新文件移到 `docs/design-docs/`
-3. **更新索引**：
-   - 执行计划更新 `docs/PLANS.md`
-   - 设计文档更新 `docs/design-docs/index.md`
-4. **清理空目录**：删除 `docs/superpowers/` 下因此变空的子目录
-5. **提交变更**：将移动和索引更新一起提交
+当前主链路：
 
-### 命名规范
+```text
+CLI command / Web UI
+  -> API server (Fastify)
+  -> DuckDB data / task records (core)
+  -> daemon + worker pool
+  -> Anthropic analysis
+  -> result query / export
+```
 
-文件命名统一使用 `YYYY-MM-DD-<简短描述>.md` 格式。
+## 技术栈
 
-### 状态流转
+- 语言：TypeScript
+- 运行时：Node.js 20+
+- 包管理：pnpm（monorepo workspace）
+- CLI：`commander`
+- API：`fastify`
+- UI：React 19 + Vite + TailwindCSS + shadcn/ui
+- 存储：`duckdb`
+- 调度：`bree`
+- 模型调用：`@anthropic-ai/sdk`
+- 输出：终端结果 + JSON/CSV 导出 + Web Dashboard
 
-- 计划完成后，从 `docs/exec-plans/active/` 移至 `docs/exec-plans/completed/`
-- 同步更新 `docs/PLANS.md` 中的状态索引
+## Monorepo 包结构
 
-## AI 编程准则
+| 包 | 路径 | 说明 |
+|---|------|------|
+| `@scopai/core` | `packages/core` | 数据库、配置、共享逻辑（DB CRUD、migration、seed、shutdown、lock-file 等） |
+| `@scopai/api` | `packages/api` | Fastify HTTP API 服务 + in-process worker consumer |
+| `@scopai/ui` | `packages/ui` | React Web Dashboard（Vite + TailwindCSS + shadcn/ui） |
+| `@scopai/cli` | `packages/cli` | CLI 命令入口（commander） |
 
-### 1. 先想清楚再动手 (Think Before Coding)
+包间依赖关系：
 
-不假设。不隐藏疑惑。暴露权衡。在实现代码之前：
+```text
+cli -> core
+api -> core
+ui -> api（通过 HTTP，非 workspace 依赖）
+```
 
-- 明确说出你的假设。如果不确定，直接问。
-- 如果有多种理解方式，全部列出来——不要默默地替用户做选择。
-- 如果有更简单的方法，指出来。在必要时勇于推翻不合理的思路。
-- 如果哪里不清楚，立刻停下。指出让人困惑的点。直接问。
+## 关键入口
 
-### 2. 简单至上 (Simplicity First)
+- CLI 入口：`packages/cli/src/index.ts`
+- 可执行入口：`bin/scopai.js`
+- API 入口：`packages/api/src/index.ts`
+- API 路由注册：`packages/api/src/routes/index.ts`
+- worker consumer：`packages/api/src/worker/consumer.ts`
+- 配置入口：`packages/core/src/config/index.ts`
+- DB 入口：`packages/core/src/db/client.ts`
+- UI 入口：`packages/ui/src/main.tsx`
 
-写能解决问题的最少代码。拒绝任何猜测性开发。
+## 当前 CLI 命令组
 
-- 绝不添加没有被要求的功能。
-- 绝不为只用一次的代码创建抽象封装。
-- 绝不添加未经要求的"灵活性"或"可配置性"。
-- 绝不为不可能发生的情况编写错误处理逻辑。
-- 如果你写了 200 行代码，但其实 50 行就能搞定，立刻重写。
+- `daemon`
+- `platform`
+- `post`
+- `comment`
+- `task`
+- `template`
+- `result`
+- `strategy`
+- `queue`
+- `analyze`
 
-### 3. 外科手术式修改 (Surgical Changes)
+## API 路由
 
-只碰你必须碰的地方。只清理你制造的垃圾。当修改现有代码时：
+- `GET /health` — 健康检查
+- `GET /api/status` — 服务状态（含 queue_stats）
+- `GET /api/platforms` — 平台列表
+- `GET/POST /api/posts`、`POST /api/posts/import` — 帖子 CRUD 与导入
+- `GET /api/posts/:id/comments`、`GET /api/posts/:id/media` — 评论与媒体
+- `GET/POST/DELETE /api/strategies`、`POST /api/strategies/import` — 策略 CRUD 与导入
+- `GET/POST /api/tasks`、`POST /api/tasks/:id/start|pause|cancel|resume` — 任务生命周期
+- `POST /api/tasks/:id/prepare-data|add-posts|add-comments` — 任务数据操作
+- `POST /api/tasks/:id/steps`、`POST /api/tasks/:id/steps/:stepId/run`、`POST /api/tasks/:id/run-all-steps` — 步骤管理
+- `GET /api/tasks/:id/results` — 分析结果查询
+- `GET /api/queue`、`POST /api/queue/retry|reset` — 队列管理
 
-- 绝不"顺手优化"旁边的代码、注释或格式。
-- 绝不重构没有坏掉的代码。
-- 哪怕你有你认为更好的写法，也必须严格遵守现有的代码风格。
-- 如果你发现了不相关的废弃代码，提出来——但绝不要删掉它。
-- 清除无主代码的原则：只删除你的修改导致不再使用的 import/变量/函数；除非明确要求，否则绝不删除原本就已经存在的废弃代码。
-- 检验标准：你修改的每一行，都必须能直接追溯到用户的原始请求。
+## 测试体系
 
-### 4. 目标驱动执行 (Goal-Driven Execution)
+| 类型 | 位置 | 运行命令 | 说明 |
+|------|------|----------|------|
+| 根级 e2e | `test/e2e/` | `pnpm test:e2e` | 全链路 e2e（daemon lifecycle、import-prepare、strategy-workflow、queue-recovery） |
+| 根级 integration | `test/integration/` | `pnpm test:integration` | DB + worker 集成测试 |
+| 根级 unit | `test/unit/` | `pnpm test` | 纯逻辑单元测试 |
+| API e2e | `packages/api/test/e2e/` | `pnpm --filter @scopai/api test:e2e` | HTTP API 路由 e2e（46 tests，动态端口隔离） |
 
-定义成功的标准。循环验证直至成功。将任务转化为可验证的目标：
+API e2e 测试使用 child process 启动真实服务器，每个 suite 独立 DuckDB + 动态端口，通过 `PORT` 环境变量避免端口冲突。
 
-- "添加验证逻辑" → "先为无效输入写测试，再写代码让测试通过"
-- "修复 bug" → "先写一个复现该 bug 的测试，再写代码让测试通过"
-- "重构 X" → "确保重构前后的测试都能通过"
+## 当前实现边界
 
-强大的成功标准让你能够独立完成闭环循环。如果标准很弱（例如"让它跑起来"），就会导致在犯错后不断需要用户澄清。
+- `worker` 对 `comment` 路径是主实现路径
+- `media` 路径已有处理代码，但完整生产链路需要结合实际数据确认
+- `post` 目标在 `worker` 中当前会报 `Unsupported target_type`
+- 规划文档里部分理想化 Bree 编排能力尚未完全成为当前实现
+- 高价值文档更新前，应先核对真实代码，不要只沿用规划稿
+
+## 推荐开发工作流
+
+### 初始化
+
+- 安装依赖：`pnpm install`
+- 构建：`pnpm build`
+- API e2e 测试：`pnpm --filter @scopai/api test:e2e`
+
+### 开发 Agent 编排
+
+1. **需求澄清**：`orchestrator` 判断需求类型和涉及模块
+2. **架构设计**：`project-architect` 产出设计文档（如需）
+3. **计划编写**：`orchestrator` 或 `project-architect` 产出 `docs/superpowers/plans/`
+4. **任务实现**：派发 `feature-developer`、`cli-developer`、`db-developer` 或 `integration-developer`
+5. **测试验证**：`test-engineer` 补充测试并执行
+6. **代码审查**：`code-reviewer` 检查架构一致性、代码质量、逻辑正确性、安全性、可测试性
+7. **合并收尾**：`superpowers:finishing-a-development-branch`
+
+## 文档管理
+
+- 文档规范入口：`docs/index.md`（含 Skill/Agent 生成文档存放规则）
+- 所有 skill、agent 自动生成的新文档必须按规范存放到 `docs/` 对应子目录
+
+### 核心文档结构
+
+- 架构说明：`ARCHITECTURE.md`
+- agent 主入口：`AGENTS.md`（本文件）
+- 技能入口：`SKILL.md`
+- 详细文档目录：`docs/`
+- 项目 agent 编排包：`agents/`
+
+### 推荐阅读顺序
+
+1. `SKILL.md`
+2. `AGENTS.md`
+3. `ARCHITECTURE.md`
+4. `docs/DESIGN.md`
+5. `docs/PLANS.md`
+6. `docs/product-specs/index.md`
+7. `docs/design-docs/index.md`
+8. `docs/generated/db-schema.md`
+
+## 项目 Agent 入口文件
+
+项目根目录 `agents/` 是仓库的开发协作文档入口。
+
+### 开发方 Agent（面向 CLI 开发者）
+
+主入口：
+
+- `agents/README.md` — harness 总览与编排流程
+
+角色入口：
+
+- `agents/orchestrator.md` — 开发需求总控、阶段编排
+- `agents/project-architect.md` — 架构设计、模块边界
+- `agents/feature-developer.md` — 跨模块功能实现
+- `agents/cli-developer.md` — CLI 命令开发、交互设计
+- `agents/db-developer.md` — 数据库 schema、migration、数据流
+- `agents/integration-developer.md` — opencli 集成、外部 API 对接
+- `agents/test-engineer.md` — 测试策略、测试实现、测试执行
+- `agents/code-reviewer.md` — 代码审查、架构一致性、安全与质量检查
+
+## Agent 职责
+
+### orchestrstrator
+
+- 需求澄清与分类
+- 阶段编排与 agent 派发
+- 串并行决策
+- 验收下游交接物
+
+### project-architect
+
+- 架构设计与技术选型
+- 模块边界划分
+- 产出设计文档和实现计划
+
+### feature-developer
+
+- 端到端功能实现
+- 跨模块协调
+- 按 plan 逐步推进并提交
+
+### cli-developer
+
+- CLI 命令设计与实现
+- 参数约定和输出格式
+- 命令注册和错误处理
+
+### db-developer
+
+- DuckDB schema 设计
+- migration 管理
+- CRUD 模块实现
+
+### integration-developer
+
+- 外部工具集成
+- 数据获取管道
+- 测试数据管理
+
+### test-engineer
+
+- 测试策略制定
+- 测试用例编写
+- 测试执行与回归验证
+
+### code-reviewer
+
+- 架构一致性审查
+- 代码质量与冗余检查
+- 逻辑正确性验证
+- 安全隐患排查（SQL 注入、命令注入、路径遍历等）
+- 可测试性评估
+
+## 给 Claude 的工作约束
+
+- 优先读取真实代码，再修改高价值文档
+- 不要把设计文档当成实现事实
+- 做 agent 编排时优先复用 `agents/` 下现有角色
+- 新功能必须伴随测试
+- 如果需求含糊，先给用户方案选择，再继续执行
+- 涉及安装依赖、执行脚本或补充命令示例时，默认优先使用 `pnpm`

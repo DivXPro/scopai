@@ -13,7 +13,7 @@
 ## 文件结构
 
 ```
-analyze-cli/
+scopai/
 ├── package.json
 ├── tsconfig.json
 ├── src/
@@ -63,7 +63,7 @@ analyze-cli/
 │   ├── risk.json             # 风险检测模板
 │   └── media-image.json       # 媒体图片分析模板
 └── bin/
-    └── analyze-cli.js         # 可执行入口 (#!/usr/bin/env node)
+    └── scopai.js         # 可执行入口 (#!/usr/bin/env node)
 ```
 
 ---
@@ -75,7 +75,7 @@ analyze-cli/
 **Files:**
 - Create: `package.json`
 - Create: `tsconfig.json`
-- Create: `bin/analyze-cli.js`
+- Create: `bin/scopai.js`
 - Create: `src/shared/types.ts`
 - Create: `src/shared/constants.ts`
 - Create: `src/shared/utils.ts`
@@ -84,12 +84,12 @@ analyze-cli/
 
 ```json
 {
-  "name": "analyze-cli",
+  "name": "scopai",
   "version": "0.1.0",
   "description": "AI-powered social media content analysis CLI tool",
   "main": "dist/cli/index.js",
   "bin": {
-    "analyze-cli": "./bin/analyze-cli.js"
+    "scopai": "./bin/scopai.js"
   },
   "scripts": {
     "build": "tsc",
@@ -436,8 +436,8 @@ export const MEDIA_TYPES = ['image', 'video', 'audio'] as const;
 export const MEDIA_CONTENT_TYPES = ['product', 'person', 'scene', 'text', 'screenshot', 'meme', 'other'] as const;
 export const QUEUE_STATUSES = ['pending', 'processing', 'completed', 'failed'] as const;
 
-export const IPC_SOCKET_PATH = '/tmp/analyze-cli.sock';
-export const DAEMON_PID_FILE = '/tmp/analyze-cli.pid';
+export const IPC_SOCKET_PATH = '/tmp/scopai.sock';
+export const DAEMON_PID_FILE = '/tmp/scopai.pid';
 export const DEFAULT_WORKERS = 2;
 ```
 
@@ -483,22 +483,22 @@ export function retryWithBackoff<T>(
 }
 ```
 
-- [ ] **Step 6: 创建 bin/analyze-cli.js**
+- [ ] **Step 6: 创建 bin/scopai.js**
 
 ```js
 #!/usr/bin/env node
 require('../dist/cli/index.js');
 ```
 
-Run: `chmod +x bin/analyze-cli.js`
+Run: `chmod +x bin/scopai.js`
 
 - [ ] **Step 7: 安装依赖**
 
-Run: `npm install` in /Users/huhui/Projects/analyze-cli/
+Run: `npm install` in /Users/huhui/Projects/scopai/
 
 - [ ] **Step 8: 编译验证**
 
-Run: `npx tsc` in /Users/huhui/Projects/analyze-cli/
+Run: `npx tsc` in /Users/huhui/Projects/scopai/
 Expected: 无编译错误
 
 - [ ] **Step 9: 提交**
@@ -558,7 +558,7 @@ import { loadClaudeConfig } from './claude-config';
 
 const DEFAULT_CONFIG: Config = {
   database: {
-    path: expandPath('~/.analyze-cli/data.duckdb'),
+    path: expandPath('~/.scopai/data.duckdb'),
   },
   anthropic: {
     api_key: '',
@@ -572,8 +572,8 @@ const DEFAULT_CONFIG: Config = {
     retry_delay_ms: 2000,
   },
   paths: {
-    media_dir: expandPath('~/.analyze-cli/media'),
-    export_dir: expandPath('~/.analyze-cli/exports'),
+    media_dir: expandPath('~/.scopai/media'),
+    export_dir: expandPath('~/.scopai/exports'),
   },
   logging: {
     level: 'info',
@@ -614,7 +614,7 @@ function resolveEnvVariables(obj: unknown): unknown {
 }
 
 export function loadConfig(): Config {
-  const configPath = expandPath('~/.analyze-cli/config.json');
+  const configPath = expandPath('~/.scopai/config.json');
   let fileConfig: Partial<Config> = {};
   if (fs.existsSync(configPath)) {
     try {
@@ -669,7 +669,7 @@ export const config = loadConfig();
 
 - [ ] **Step 3: 编译验证**
 
-Run: `npx tsc` in /Users/huhui/Projects/analyze-cli/
+Run: `npx tsc` in /Users/huhui/Projects/scopai/
 Expected: 无编译错误
 
 - [ ] **Step 4: 提交**
@@ -950,7 +950,7 @@ function run(sql: string): void {
 
 - [ ] **Step 4: 编译验证**
 
-Run: `npx tsc` in /Users/huhui/Projects/analyze-cli/
+Run: `npx tsc` in /Users/huhui/Projects/scopai/
 Expected: 无编译错误
 
 - [ ] **Step 5: 提交**
@@ -1084,7 +1084,7 @@ export function countPosts(platformId?: string): number {
 
 - [ ] **Step 11: 编译验证**
 
-Run: `npx tsc` in /Users/huhui/Projects/analyze-cli/
+Run: `npx tsc` in /Users/huhui/Projects/scopai/
 Expected: 无编译错误
 
 - [ ] **Step 12: 提交**
@@ -1262,7 +1262,7 @@ export function seedAll(): void {
 
 - [ ] **Step 2: 编译验证**
 
-Run: `npx tsc` in /Users/huhui/Projects/analyze-cli/
+Run: `npx tsc` in /Users/huhui/Projects/scopai/
 Expected: 无编译错误
 
 - [ ] **Step 3: 提交**
@@ -1372,7 +1372,7 @@ export async function sendIpcRequest(method: string, params: Record<string, unkn
 
 - [ ] **Step 2: 编译验证**
 
-Run: `npx tsc` in /Users/huhui/Projects/analyze-cli/
+Run: `npx tsc` in /Users/huhui/Projects/scopai/
 Expected: 无编译错误
 
 - [ ] **Step 3: 提交**
@@ -1458,7 +1458,7 @@ export class BreeDuckDBAdapter {
 
 - [ ] **Step 2: 编译验证**
 
-Run: `npx tsc` in /Users/huhui/Projects/analyze-cli/
+Run: `npx tsc` in /Users/huhui/Projects/scopai/
 Expected: 无编译错误
 
 - [ ] **Step 3: 提交**
@@ -1663,7 +1663,7 @@ function scheduleBree(bree: B): void {
 
 - [ ] **Step 2: 编译验证**
 
-Run: `npx tsc` in /Users/huhui/Projects/analyze-cli/
+Run: `npx tsc` in /Users/huhui/Projects/scopai/
 Expected: 无编译错误（注意类型导入需正确）
 
 - [ ] **Step 3: 提交**
@@ -1811,7 +1811,7 @@ if (require.main === module) {
 
 - [ ] **Step 3: 编译验证**
 
-Run: `npx tsc` in /Users/huhui/Projects/analyze-cli/
+Run: `npx tsc` in /Users/huhui/Projects/scopai/
 Expected: 无编译错误
 
 - [ ] **Step 4: 提交**
@@ -2202,7 +2202,7 @@ main().catch(console.error);
 
 - [ ] **Step 5: 编译验证**
 
-Run: `npx tsc` in /Users/huhui/Projects/analyze-cli/
+Run: `npx tsc` in /Users/huhui/Projects/scopai/
 Expected: 无编译错误
 
 - [ ] **Step 6: 提交**
@@ -2235,7 +2235,7 @@ import { config } from '../config';
 
 export function makeDaemonCommands(program: Command): void {
   const daemon = new Command('daemon');
-  daemon.description('Manage the analyze-cli daemon process');
+  daemon.description('Manage the scopai daemon process');
 
   daemon
     .command('start')
@@ -2816,7 +2816,7 @@ import { makeTemplateCommands } from './template';
 const program = new Command();
 
 program
-  .name('analyze-cli')
+  .name('scopai')
   .description('AI-powered social media content analysis CLI tool')
   .version('0.1.0');
 
@@ -2833,7 +2833,7 @@ program.parse(process.argv);
 
 - [ ] **Step 2: 编译验证**
 
-Run: `npx tsc` in /Users/huhui/Projects/analyze-cli/
+Run: `npx tsc` in /Users/huhui/Projects/scopai/
 Expected: 无编译错误
 
 - [ ] **Step 3: 测试 CLI 基本运行**
@@ -2855,9 +2855,9 @@ git add src/cli/index.ts && git commit -m "feat: add CLI main entry with all com
 
 **Files:**
 - Modify: `package.json` (scripts)
-- Modify: `bin/analyze-cli.js` (正确路径)
+- Modify: `bin/scopai.js` (正确路径)
 
-- [ ] **Step 1: 更新 bin/analyze-cli.js**
+- [ ] **Step 1: 更新 bin/scopai.js**
 
 ```js
 #!/usr/bin/env node
@@ -2892,7 +2892,7 @@ Expected: 显示完整命令帮助
 - [ ] **Step 3: 提交**
 
 ```bash
-git add bin/analyze-cli.js && git commit -m "feat: finalize CLI entry point and package bin"
+git add bin/scopai.js && git commit -m "feat: finalize CLI entry point and package bin"
 ```
 
 ---

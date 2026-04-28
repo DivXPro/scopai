@@ -17,7 +17,7 @@ import { version } from '@scopai/core';
 const program = new Command();
 
 program
-  .name('analyze-cli')
+  .name('scopai')
   .description('AI-powered social media content analysis CLI tool')
   .version(version);
 
@@ -55,6 +55,6 @@ logsCommands(program);
 program.parse(process.argv);
 
 if (!process.argv.slice(2).length) {
-  console.log(pc.bold('\n  analyze-cli') + ' - AI-powered social media content analysis\n');
+  console.log(pc.bold('\n  scopai') + ' - AI-powered social media content analysis\n');
   program.outputHelp();
 }

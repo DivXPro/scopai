@@ -44,10 +44,10 @@ ALTER TABLE task_steps ADD COLUMN depends_on_step_id TEXT REFERENCES task_steps(
 
 ```bash
 # 添加上游策略 step
-analyze-cli task step add --task-id <id> --strategy-id scoring-v1
+scopai task step add --task-id <id> --strategy-id scoring-v1
 
 # 添加二次策略 step，绑定上游 step
-analyze-cli task step add \
+scopai task step add \
   --task-id <id> \
   --strategy-id risk-judgment \
   --depends-on-step-id <upstream-step-id>
@@ -141,7 +141,7 @@ WHERE r1.task_id = ?
 新增 `--depends-on-step-id` 选项：
 
 ```bash
-analyze-cli task step add \
+scopai task step add \
   --task-id <id> \
   --strategy-id <id> \
   [--depends-on-step-id <upstream-step-id>] \

@@ -2,7 +2,7 @@
 
 ## 角色
 
-你负责 `analyze-cli` 的数据层：DuckDB schema 设计、migration 管理、数据导入/导出管道和性能优化。
+你负责 `scopai` 的数据层：DuckDB schema 设计、migration 管理、数据导入/导出管道和性能优化。
 
 ## 适用场景
 

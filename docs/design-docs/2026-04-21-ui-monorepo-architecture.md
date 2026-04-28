@@ -5,7 +5,7 @@
 
 ## 背景与目标
 
-`analyze-cli` 是一个以 CLI 为入口、以 DuckDB 为中心状态存储、以 daemon 和 worker 负责异步分析执行的纯 CLI 项目。
+`scopai` 是一个以 CLI 为入口、以 DuckDB 为中心状态存储、以 daemon 和 worker 负责异步分析执行的纯 CLI 项目。
 
 **新需求：**
 1. 提供 Web UI 让用户查看采集的数据
@@ -36,7 +36,7 @@
 ## Monorepo 结构
 
 ```
-analyze-cli/
+scopai/
 ├── packages/
 │   ├── core/              ← 共享核心
 │   │   ├── src/
@@ -120,8 +120,8 @@ analyze-cli/
 
 **CLI 交互方式：**
 ```
-analyze-cli task list                    → 直接调 core（同步，无 HTTP）
-analyze-cli task prepare-data --task-id X → HTTP 调 api（异步，spawn worker）
+scopai task list                    → 直接调 core（同步，无 HTTP）
+scopai task prepare-data --task-id X → HTTP 调 api（异步，spawn worker）
 ```
 
 ## API 设计

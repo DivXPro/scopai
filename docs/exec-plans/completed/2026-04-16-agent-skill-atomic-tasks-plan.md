@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 在 analyze-cli 中引入 `task_steps` 子任务表，修复 `prepare-data` 断点续传，升级 `task status` 聚合返回，新增 CLI 子任务命令，修改 `post import` 支持 upsert 与自动绑定 task，最终创建 Claude Code Custom Skill。
+**Goal:** 在 scopai 中引入 `task_steps` 子任务表，修复 `prepare-data` 断点续传，升级 `task status` 聚合返回，新增 CLI 子任务命令，修改 `post import` 支持 upsert 与自动绑定 task，最终创建 Claude Code Custom Skill。
 
 **Architecture:** 新增 `task_steps` 数据表及 CRUD 模块；`src/daemon/handlers.ts` 中修复数据准备逻辑并扩展 task 相关 handlers；`src/cli/task.ts` 和 `src/cli/post.ts` 新增 CLI 子命令；最后以 Markdown 形式定义 Custom Skill 暴露给 Agent。
 
@@ -21,7 +21,7 @@
 | `src/daemon/handlers.ts` | 修复 `task.prepareData`；扩展 `task.status` 聚合；新增 `task.step.add`、`task.step.run`、`task.runAllSteps` handlers |
 | `src/cli/task.ts` | 新增 `task step add/list/run`、`task run-all-steps`、`task results` CLI 命令 |
 | `src/cli/post.ts` | `post import` 增加 `--task-id` 选项，重复帖子改 upsert |
-| `.claude/skills/analyze-cli/skill.md` | Custom Skill Markdown 定义 |
+| `.claude/skills/scopai/skill.md` | Custom Skill Markdown 定义 |
 
 ---
 
@@ -945,22 +945,22 @@ git commit -m "feat(daemon): implement task step add, list, run and run-all hand
 ### Task 8: 创建 Claude Code Custom Skill
 
 **Files:**
-- Create: `.claude/skills/analyze-cli/skill.md`
+- Create: `.claude/skills/scopai/skill.md`
 
 - [ ] **Step 1: 编写 skill.md**
 
-创建 `.claude/skills/analyze-cli/skill.md`：
+创建 `.claude/skills/scopai/skill.md`：
 
 ```markdown
 ---
-name: analyze-cli
+name: scopai
 description: Social media data analysis CLI — search, import, download comments/media, and run multi-step strategy analysis.
 type: tool-use
 ---
 
-# analyze-cli Skill
+# scopai Skill
 
-You are an agent that operates the `analyze-cli` command-line tool for social media content analysis.
+You are an agent that operates the `scopai` command-line tool for social media content analysis.
 
 ## Capabilities
 
@@ -973,50 +973,50 @@ Search for posts on a platform via OpenCLI.
 
 ### 2. add_platform
 Register a platform if it does not already exist.
-- Command: `analyze-cli platform add --id {id} --name {name}`
+- Command: `scopai platform add --id {id} --name {name}`
 - When to use: before importing posts for a new platform.
 
 ### 3. import_posts
 Import posts from a JSON/JSONL file and optionally bind them to a task.
-- Command: `analyze-cli post import --platform {id} --file {path} [--task-id {task_id}]`
+- Command: `scopai post import --platform {id} --file {path} [--task-id {task_id}]`
 - When to use: after search results have been saved to a file.
 - Duplicate posts (same platform_id + platform_post_id) are updated, not skipped.
 
 ### 4. create_task
 Create an analysis task.
-- Command: `analyze-cli task create --name {name} [--cli-templates '{"fetch_comments":"...","fetch_media":"..."}']`
+- Command: `scopai task create --name {name} [--cli-templates '{"fetch_comments":"...","fetch_media":"..."}']`
 - When to use: before adding analysis steps or binding posts.
 
 ### 5. add_step_to_task
 Add a strategy-based analysis step to a task.
-- Command: `analyze-cli task step add --task-id {task_id} --strategy-id {strategy_id} [--name {name}] [--order {n}]`
+- Command: `scopai task step add --task-id {task_id} --strategy-id {strategy_id} [--name {name}] [--order {n}]`
 - When to use: the user wants to analyze data with a specific strategy (sentiment-topics, risk-detection, etc.).
 
 ### 6. prepare_task_data
 Download comments and media for all posts bound to a task.
-- Command: `analyze-cli task prepare-data --task-id {task_id}`
+- Command: `scopai task prepare-data --task-id {task_id}`
 - When to use: after posts have been imported and bound to the task.
 - This command is resumable; interrupted runs will continue from unfinished posts.
 
 ### 7. run_task_step
 Run a single task step.
-- Command: `analyze-cli task step run --task-id {task_id} --step-id {step_id}`
+- Command: `scopai task step run --task-id {task_id} --step-id {step_id}`
 - When to use: the user wants to execute one specific strategy step.
 
 ### 8. run_all_steps
 Run all pending/failed steps for a task in order.
-- Command: `analyze-cli task run-all-steps --task-id {task_id}`
+- Command: `scopai task run-all-steps --task-id {task_id}`
 - When to use: the user wants to start the full analysis pipeline after data preparation.
 
 ### 9. get_task_status
 Check the current status of a task, including data-preparation progress and each step's progress.
-- Command: `analyze-cli task status --task-id {task_id}`
+- Command: `scopai task status --task-id {task_id}`
 - When to use: after starting analysis to monitor progress.
 - Read the `phase` field (`dataPreparation` or `analysis`) and the `phases` object to report progress.
 
 ### 10. get_task_results
 Show analysis results for a completed task.
-- Command: `analyze-cli task results --task-id {task_id}`
+- Command: `scopai task results --task-id {task_id}`
 - When to use: after the task status shows `completed`.
 
 ## Workflow Guidance
@@ -1035,8 +1035,8 @@ Show analysis results for a completed task.
 - [ ] **Step 2: Commit**
 
 ```bash
-git add .claude/skills/analyze-cli/skill.md
-git commit -m "feat(skill): add Claude Code custom skill for analyze-cli"
+git add .claude/skills/scopai/skill.md
+git commit -m "feat(skill): add Claude Code custom skill for scopai"
 ```
 
 ---

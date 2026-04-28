@@ -6,7 +6,7 @@ import { getLogFilePath } from '@scopai/core';
 import { expandPath } from '@scopai/core';
 
 function getLogDir(): string {
-  return expandPath('~/.analyze-cli/logs');
+  return expandPath('~/.scopai/logs');
 }
 
 function readLastLines(filePath: string, lineCount: number): string[] {

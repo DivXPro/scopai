@@ -242,19 +242,19 @@ SELECT json_extract(columns, '$.replicate_score') as score FROM analysis_results
 
 ```bash
 # 查看所有已导入的套路
-analyze-cli strategy list
+scopai strategy list
 
 # 导入单个套路文件
-analyze-cli strategy import ./strategies/replicability-v1.json
+scopai strategy import ./strategies/replicability-v1.json
 
 # 导入整个目录
-analyze-cli strategy import-all ./strategies/
+scopai strategy import-all ./strategies/
 
 # 查看套路详情
-analyze-cli strategy show replicability-v1
+scopai strategy show replicability-v1
 
 # 删除套路（仅删除记录，不删文件）
-analyze-cli strategy remove replicability-v1
+scopai strategy remove replicability-v1
 ```
 
 ### 3.2 分析命令
@@ -263,29 +263,29 @@ analyze-cli strategy remove replicability-v1
 
 ```bash
 # 创建分析任务并运行（指定套路）
-analyze-cli analyze run --task-id xxx --strategy replicability-v1
+scopai analyze run --task-id xxx --strategy replicability-v1
 
 # 追加分析（已有 task 上加新套路）
-analyze-cli analyze append --task-id xxx --strategy replicability-v1
+scopai analyze append --task-id xxx --strategy replicability-v1
 
 # 对单个帖子追加分析（自动创建临时 task）
-analyze-cli analyze append --post-id xxx --strategy replicability-v1
+scopai analyze append --post-id xxx --strategy replicability-v1
 
 # 批量追加分析（多个帖子 + 多个套路）
-analyze-cli analyze append --task-id xxx --strategy replicability-v1,sentiment-v1
+scopai analyze append --task-id xxx --strategy replicability-v1,sentiment-v1
 
 # 手动同步 waiting_media 状态的 jobs（通常在 task prepare-data 后执行）
-analyze-cli analyze sync --task-id xxx
+scopai analyze sync --task-id xxx
 ```
 
 ### 3.3 结果查看命令
 
 ```bash
 # 查看某策略的分析结果统计
-analyze-cli result stats --strategy replicability-v1
+scopai result stats --strategy replicability-v1
 
 # 导出分析结果
-analyze-cli result export --task-id xxx --strategy replicability-v1 --format json
+scopai result export --task-id xxx --strategy replicability-v1 --format json
 ```
 
 ## 4. 执行流程
@@ -366,7 +366,7 @@ analyze run --task-id xxx --strategy replicability-v1
    - 每个帖子完成媒体下载后，执行 `syncWaitingMediaJobs(taskId, postId)`
    - 将 `queue_jobs` 中该 `task_id + target_id(post_id) + status = waiting_media` 的记录更新为 `pending`
 4. **手动同步兜底**：
-   - `analyze-cli analyze sync --task-id xxx` 可手动扫描并唤醒所有 `waiting_media` 的 jobs
+   - `scopai analyze sync --task-id xxx` 可手动扫描并唤醒所有 `waiting_media` 的 jobs
 
 **为什么不用 Task 绑定策略？**
 - 保持 Task（分析范围）和 Strategy（分析方法）正交

@@ -31,12 +31,12 @@
 | Node.js 版本 | `node --version` | >= 20 |
 | pnpm 可用 | `pnpm --version` | 有输出 |
 | 项目构建 | `pnpm build` | 无报错 |
-| CLI 可用 | `analyze-cli --version` 或 `node bin/analyze-cli.js --version` | 有版本号 |
+| CLI 可用 | `scopai --version` 或 `node bin/scopai.js --version` | 有版本号 |
 | opencli 可用 | `opencli --version` | 有版本号 |
 | Chrome + 小红书登录 | `opencli doctor` | 无 browser bridge 报错 |
 | ANTHROPIC_API_KEY | `echo $ANTHROPIC_API_KEY` | 非空字符串 |
-| 平台注册 | `analyze-cli platform list` | 含 `xhs` 平台 |
-| 模板可用 | `analyze-cli template list` | 含 `sentiment-topics` 模板 |
+| 平台注册 | `scopai platform list` | 含 `xhs` 平台 |
+| 模板可用 | `scopai template list` | 含 `sentiment-topics` 模板 |
 
 **任一项失败 → 停止执行，向用户报告具体缺失项，等待修复。**
 
@@ -83,11 +83,11 @@ opencli xiaohongshu search --query "AI" --limit 10 -f json \
 
 ### Step 2 — 格式转换：raw JSON → JSONL
 
-opencli 输出的字段名称需要对应到 analyze-cli 的 `posts` 表结构（platform `xhs` 的 `field_mappings` 已内置 13 条映射）。
+opencli 输出的字段名称需要对应到 scopai 的 `posts` 表结构（platform `xhs` 的 `field_mappings` 已内置 13 条映射）。
 
 ```bash
 # 查看 xhs 字段映射，确认转换规则
-analyze-cli platform mapping list --platform xhs
+scopai platform mapping list --platform xhs
 ```
 
 转换脚本（使用内联 node 执行，避免创建额外文件）：
@@ -119,8 +119,8 @@ console.log('Converted', lines.length, 'posts');
 ### Step 3 — 导入帖子
 
 ```bash
-analyze-cli post import --platform xhs --file test-data/xhs_ai_posts.jsonl
-analyze-cli post list --platform xhs --limit 10
+scopai post import --platform xhs --file test-data/xhs_ai_posts.jsonl
+scopai post list --platform xhs --limit 10
 ```
 
 **验收标准：**
@@ -166,10 +166,10 @@ done < test-data/xhs_note_ids.txt
 
 对每个 noteId，执行以下三步：
 
-**a) 查询 analyze-cli 内部 post_id**
+**a) 查询 scopai 内部 post_id**
 
 ```bash
-analyze-cli post list --platform xhs --limit 100
+scopai post list --platform xhs --limit 100
 ```
 
 从输出中找到 `platform_post_id == <noteId>` 对应的 `id`（UUID），记为 `<POST_ID>`。
@@ -201,7 +201,7 @@ console.log('Converted', lines.length, 'comments for', noteId);
 **c) 导入评论**
 
 ```bash
-analyze-cli comment import --platform xhs --post-id <POST_ID> \
+scopai comment import --platform xhs --post-id <POST_ID> \
   --file test-data/comments/comments_<noteId>.jsonl
 ```
 
@@ -210,12 +210,12 @@ analyze-cli comment import --platform xhs --post-id <POST_ID> \
 **完成后验证：**
 
 ```bash
-analyze-cli comment list --limit 5
+scopai comment list --limit 5
 ```
 
 **验收标准：**
 - 每帖 import 输出无报错
-- `analyze-cli comment list` 有结果
+- `scopai comment list` 有结果
 - 总评论数目标：每帖 <= 100 条，共 <= 1000 条
 
 ---
@@ -263,15 +263,15 @@ Phase 1a 完成后，向 orchestrator 输出以下结构（写入 `test-data/dat
 ### Step 1 — 确认模板
 
 ```bash
-analyze-cli template list
+scopai template list
 ```
 
-选择 `sentiment-topics` 模板（同时覆盖情感分析 + 用户反馈分类）。若不存在，检查 `analyze-cli template add`。
+选择 `sentiment-topics` 模板（同时覆盖情感分析 + 用户反馈分类）。若不存在，检查 `scopai template add`。
 
 ### Step 2 — 创建任务
 
 ```bash
-analyze-cli task create --name "xhs-ai-热帖分析-2026-04-14" --template sentiment-topics
+scopai task create --name "xhs-ai-热帖分析-2026-04-14" --template sentiment-topics
 ```
 
 **Agent 操作：** 从命令输出中读取并记录 `task_id`（UUID 格式），后续步骤统一使用 `<TASK_ID>` 代指该值。
@@ -279,7 +279,7 @@ analyze-cli task create --name "xhs-ai-热帖分析-2026-04-14" --template senti
 ### Step 3 — 获取评论 ID 列表
 
 ```bash
-analyze-cli comment list --limit 1000
+scopai comment list --limit 1000
 ```
 
 **Agent 操作：** 从输出中收集所有评论的 `id`（或 `comment_id`）字段，组成逗号分隔列表。
@@ -287,12 +287,12 @@ analyze-cli comment list --limit 1000
 ### Step 4 — 绑定评论目标
 
 ```bash
-analyze-cli task add-comments --task-id <TASK_ID> --comment-ids <id1,id2,...>
+scopai task add-comments --task-id <TASK_ID> --comment-ids <id1,id2,...>
 ```
 
 **说明：** 将 Step 3 收集到的所有 comment_id 以逗号连接，填入 `--comment-ids` 参数。
 
-**验收标准：** 绑定无报错，`analyze-cli task status --task-id $TASK_ID` 显示 pending 数量 > 0。
+**验收标准：** 绑定无报错，`scopai task status --task-id $TASK_ID` 显示 pending 数量 > 0。
 
 ### template-task-architect 交接物
 
@@ -330,21 +330,21 @@ analyze-cli task add-comments --task-id <TASK_ID> --comment-ids <id1,id2,...>
 ### Step 1 — 确认 daemon
 
 ```bash
-analyze-cli daemon status
+scopai daemon status
 ```
 
 若未运行：
 
 ```bash
-analyze-cli daemon start
+scopai daemon start
 sleep 3
-analyze-cli daemon status  # 确认已启动
+scopai daemon status  # 确认已启动
 ```
 
 ### Step 2 — 启动任务
 
 ```bash
-analyze-cli task start --task-id "$TASK_ID"
+scopai task start --task-id "$TASK_ID"
 ```
 
 **预期输出：** "Enqueued N jobs"，N == 绑定的评论数。
@@ -353,7 +353,7 @@ analyze-cli task start --task-id "$TASK_ID"
 
 ```bash
 for i in $(seq 1 30); do
-  STATUS=$(analyze-cli task status --task-id "$TASK_ID" -f json 2>/dev/null)
+  STATUS=$(scopai task status --task-id "$TASK_ID" -f json 2>/dev/null)
   DONE=$(echo "$STATUS" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8'); const s=JSON.parse(d); console.log(s.done||s.completed||0)")
   TOTAL=$(echo "$STATUS" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8'); const s=JSON.parse(d); console.log(s.total||0)")
   FAILED=$(echo "$STATUS" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8'); const s=JSON.parse(d); console.log(s.failed||0)")
@@ -372,7 +372,7 @@ done
 **验收标准：** `done == total`，`failed` 为 0 或极少（< 5%）。
 
 **失败回路：**
-- `failed > total * 0.05` → 检查 `analyze-cli result list --task-id $TASK_ID --status failed`，报告具体错误
+- `failed > total * 0.05` → 检查 `scopai result list --task-id $TASK_ID --status failed`，报告具体错误
 - daemon 停止 → 重新 `daemon start` 后重试
 - API 配额耗尽 → 等待后继续，不重新创建任务
 
@@ -401,7 +401,7 @@ done
 ### Step 1 — 统计汇总
 
 ```bash
-analyze-cli result stats --task-id "$TASK_ID"
+scopai result stats --task-id "$TASK_ID"
 ```
 
 **预期输出：**
@@ -411,7 +411,7 @@ analyze-cli result stats --task-id "$TASK_ID"
 ### Step 2 — 抽样核查（取前 20 条）
 
 ```bash
-analyze-cli result list --task-id "$TASK_ID" --limit 20
+scopai result list --task-id "$TASK_ID" --limit 20
 ```
 
 逐条确认结果字段完整（sentiment、intent/category、summary 等），无明显解析异常。
@@ -419,7 +419,7 @@ analyze-cli result list --task-id "$TASK_ID" --limit 20
 ### Step 3 — 导出 JSON 结果
 
 ```bash
-analyze-cli result export \
+scopai result export \
   --task-id "$TASK_ID" \
   --format json \
   --output docs/exec-plans/active/xhs-ai-analysis-results.json
@@ -430,7 +430,7 @@ echo "Export complete: docs/exec-plans/active/xhs-ai-analysis-results.json"
 ### Step 4 — 导出 CSV（备用）
 
 ```bash
-analyze-cli result export \
+scopai result export \
   --task-id "$TASK_ID" \
   --format csv \
   --output docs/exec-plans/active/xhs-ai-analysis-results.csv
@@ -481,7 +481,7 @@ analyze-cli result export \
 2. **评论数量不足** — 部分帖子评论数 < 100 为正常现象，按实际可用评论数导入。
 3. **API 调用耗时** — 1000 条评论全量分析可能需要数分钟。`run-supervisor` 轮询上限 30 次 × 10 秒 = 5 分钟，若仍未完成可适当增加轮询次数。
 4. **ANTHROPIC_API_KEY 缺失** — 前置条件检查中必须确认。Key 无效时 worker 会将 job 标记为 failed。
-5. **`post import` 字段校验** — analyze-cli 要求 `platform_post_id` 非空。转换时如遇空值，该条记录会被 skip，属正常行为。
+5. **`post import` 字段校验** — scopai 要求 `platform_post_id` 非空。转换时如遇空值，该条记录会被 skip，属正常行为。
 
 ---
 

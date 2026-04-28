@@ -2,7 +2,7 @@
 
 ## 概览
 
-`analyze-cli` 是一个以 CLI 为入口、以 DuckDB 为中心状态存储、以 daemon 和 worker 负责异步分析执行的社交媒体内容分析平台。项目采用 pnpm monorepo 架构，包含 CLI、API 服务、Web UI 和核心库四个包。
+`scopai` 是一个以 CLI 为入口、以 DuckDB 为中心状态存储、以 daemon 和 worker 负责异步分析执行的社交媒体内容分析平台。项目采用 pnpm monorepo 架构，包含 CLI、API 服务、Web UI 和核心库四个包。
 
 核心链路：
 
@@ -165,13 +165,13 @@ UI 通过 HTTP 调用 API 服务，API 在生产模式下通过 `@fastify/static
 
 ```text
 1. 数据准备阶段（dataPreparation）
-   - Agent 调用 analyze-cli task prepare-data --task-id <id>
+   - Agent 调用 scopai task prepare-data --task-id <id>
    - Daemon 异步遍历 task 下所有 post，执行 cli_templates 中的 fetch_note → fetch_comments → fetch_media
    - 进度写入 task_post_status
 
 2. 分析执行阶段（analysis）
-   - Agent 调用 analyze-cli task step add 追加 strategy 步骤
-   - 调用 analyze-cli task run-all-steps 顺序执行 pending/failed 步骤
+   - Agent 调用 scopai task step add 追加 strategy 步骤
+   - 调用 scopai task run-all-steps 顺序执行 pending/failed 步骤
    - 每个步骤生成 queue_jobs，由 worker consumer 消费并写入对应的 strategy_result_ 表
 ```
 

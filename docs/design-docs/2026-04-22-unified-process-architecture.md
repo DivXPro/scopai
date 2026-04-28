@@ -40,7 +40,7 @@ Startup sequence:
 4. Start Fastify HTTP server (TCP)
 5. Register REST routes (CLI + UI shared)
 6. Start N in-process workers (runConsumer)
-7. Write lock file (~/.analyze-cli/api.lock)
+7. Write lock file (~/.scopai/api.lock)
 8. Register graceful shutdown handlers
 ```
 
@@ -60,7 +60,7 @@ Long tasks (e.g., `task.prepare-data`):
 ### Lock File Mechanism (replaces PID file)
 
 ```
-Path: ~/.analyze-cli/api.lock
+Path: ~/.scopai/api.lock
 Content: {"port":3000,"startedAt":"2026-04-22T10:00:00Z","pid":12345}
 ```
 
@@ -120,7 +120,7 @@ Replace `ipc-client.ts` with `api-client.ts`:
 ```typescript
 async function getApiBaseUrl(): Promise<string> {
   const lock = readLockFile();
-  if (!lock) throw new Error('Daemon not running. Run: analyze-cli daemon start');
+  if (!lock) throw new Error('Daemon not running. Run: scopai daemon start');
   return `http://localhost:${lock.port}`;
 }
 

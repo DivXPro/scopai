@@ -164,9 +164,9 @@ New handlers added to `src/daemon/handlers.ts`:
 New commands in `src/cli/strategy.ts`:
 
 ```bash
-analyze-cli strategy result list --task-id <id> --strategy <id> [--limit <n>]
-analyze-cli strategy result stats --task-id <id> --strategy <id>
-analyze-cli strategy result export --task-id <id> --strategy <id> [--format csv|json] [--output <path>]
+scopai strategy result list --task-id <id> --strategy <id> [--limit <n>]
+scopai strategy result stats --task-id <id> --strategy <id>
+scopai strategy result export --task-id <id> --strategy <id> [--format csv|json] [--output <path>]
 ```
 
 ---

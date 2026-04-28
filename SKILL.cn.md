@@ -1,19 +1,19 @@
 ---
-name: analyze-cli
+name: scopai
 description: 社交媒体数据分析 CLI — 搜索、导入、下载评论/媒体，并运行多步骤策略分析。
 type: tool-use
 ---
 
-# analyze-cli 技能
+# scopai 技能
 
-你是一个操作 `analyze-cli` 命令行工具的代理，用于社交媒体内容分析。
+你是一个操作 `scopai` 命令行工具的代理，用于社交媒体内容分析。
 
 ## 执行前检查
 
 按顺序执行：
 
-1. **验证 CLI 可执行**: `analyze-cli --version`
-2. **确保守护进程运行**: `analyze-cli daemon status` → 如未运行则 `analyze-cli daemon start`
+1. **验证 CLI 可执行**: `scopai --version`
+2. **确保守护进程运行**: `scopai daemon status` → 如未运行则 `scopai daemon start`
 3. **使用 opencli 前先阅读 opencli 技能**
 4. **验证 opencli**: `opencli --help` 或 `opencli doctor`
 
@@ -28,32 +28,32 @@ type: tool-use
 | # | 工具 | 命令 | 使用场景 |
 |---|------|------|----------|
 | 1 | **search_posts** | `opencli <site> <command> {query} --limit {limit} -f json` | 导入前发现帖子。**各平台命令不同** — (1) 用 `opencli list | grep <keyword>` 找平台，(2) 用 `opencli <platform> --help` 查看可用命令，(3) 用 `opencli <platform> <command> -h` 了解具体用法。|
-| 2 | **add_platform** | `analyze-cli platform add --id {id} --name {name}` | 如果 `analyze-cli platform list` 中没有该平台，则注册。 |
-| 3 | **import_posts** | `analyze-cli post import --platform {id} --file {path} [--task-id {tid}]` | 导入搜索结果。**不要**在导入前手动获取笔记详情 — 让 `prepare-data` 通过 `fetch_note` 模板来丰富帖子内容。重复帖子会更新而非跳过。 |
-| 4 | **import_comments** | `analyze-cli comment import --platform {id} --post-id {id} --file {path}` | 获取评论后从 JSON/JSONL 导入。重复评论会被跳过。 |
+| 2 | **add_platform** | `scopai platform add --id {id} --name {name}` | 如果 `scopai platform list` 中没有该平台，则注册。 |
+| 3 | **import_posts** | `scopai post import --platform {id} --file {path} [--task-id {tid}]` | 导入搜索结果。**不要**在导入前手动获取笔记详情 — 让 `prepare-data` 通过 `fetch_note` 模板来丰富帖子内容。重复帖子会更新而非跳过。 |
+| 4 | **import_comments** | `scopai comment import --platform {id} --post-id {id} --file {path}` | 获取评论后从 JSON/JSONL 导入。重复评论会被跳过。 |
 
 ### 阶段 2：任务设置
 
 | # | 工具 | 命令 | 使用场景 |
 |---|------|------|----------|
-| 5 | **create_task** | `analyze-cli task create --name {name} [--cli-templates '{...}']` | 添加步骤前创建任务。**必填模板**: `fetch_note`（丰富帖子内容）。可选：`fetch_comments`、`fetch_media`。 |
-| 6 | **add_step_to_task** | `analyze-cli task step add --task-id {tid} --strategy-id {sid} [--name {n}] [--order {n}]` | 添加用户需要的每个策略。 |
-| 7 | **list_strategies** | `analyze-cli strategy list` | 添加步骤前确认可用的策略 ID。 |
+| 5 | **create_task** | `scopai task create --name {name} [--cli-templates '{...}']` | 添加步骤前创建任务。**必填模板**: `fetch_note`（丰富帖子内容）。可选：`fetch_comments`、`fetch_media`。 |
+| 6 | **add_step_to_task** | `scopai task step add --task-id {tid} --strategy-id {sid} [--name {n}] [--order {n}]` | 添加用户需要的每个策略。 |
+| 7 | **list_strategies** | `scopai strategy list` | 添加步骤前确认可用的策略 ID。 |
 
 ### 阶段 3：数据准备
 
 | # | 工具 | 命令 | 使用场景 |
 |---|------|------|----------|
-| 8 | **prepare_task_data** | `analyze-cli task prepare-data --task-id {tid}` | 获取帖子详情、评论和媒体。**可恢复** — 中断后重新运行会从上次未完成处继续。如果 `cli_templates` 缺少 `fetch_note` 会报错终止。 |
+| 8 | **prepare_task_data** | `scopai task prepare-data --task-id {tid}` | 获取帖子详情、评论和媒体。**可恢复** — 中断后重新运行会从上次未完成处继续。如果 `cli_templates` 缺少 `fetch_note` 会报错终止。 |
 
 ### 阶段 4：分析执行
 
 | # | 工具 | 命令 | 使用场景 |
 |---|------|------|----------|
-| 9 | **run_all_steps** | `analyze-cli task run-all-steps --task-id {tid}` | **默认 `--wait`**：阻塞直到所有步骤完成，期间打印进度。使用 `--no-wait` 可入队后立即返回。 |
-| 10 | **run_task_step** | `analyze-cli task step run --task-id {tid} --step-id {sid}` | 运行单个步骤。**默认 `--wait`**：阻塞直到完成。 |
-| 11 | **start_task** | `analyze-cli task start --task-id {tid}` | 为待处理目标入队作业，**不**运行策略步骤。 |
-| 12 | **reset_task_step** | `analyze-cli task step reset --task-id {tid} --step-id {sid}` | 将失败步骤重置为待处理以便重试。 |
+| 9 | **run_all_steps** | `scopai task run-all-steps --task-id {tid}` | **默认 `--wait`**：阻塞直到所有步骤完成，期间打印进度。使用 `--no-wait` 可入队后立即返回。 |
+| 10 | **run_task_step** | `scopai task step run --task-id {tid} --step-id {sid}` | 运行单个步骤。**默认 `--wait`**：阻塞直到完成。 |
+| 11 | **start_task** | `scopai task start --task-id {tid}` | 为待处理目标入队作业，**不**运行策略步骤。 |
+| 12 | **reset_task_step** | `scopai task step reset --task-id {tid} --step-id {sid}` | 将失败步骤重置为待处理以便重试。 |
 
 > **进度输出**（`--wait` 模式）：
 > ```
@@ -65,22 +65,22 @@ type: tool-use
 
 | # | 工具 | 命令 | 使用场景 |
 |---|------|------|----------|
-| 13 | **get_task_results** | `analyze-cli task results --task-id {tid}` | 所有步骤完成后查看结果。 |
-| 14 | **get_task_status** | `analyze-cli task show --task-id {tid}` | 显示完整任务详情，包括阶段、步骤、作业和最近的失败。**使用 `--wait` 模式时不需要。** |
-| 15 | **list_tasks** | `analyze-cli task list [--status {s}] [--query {text}]` | 查看现有任务。可按状态过滤或按名称搜索。 |
-| 16 | **list_task_steps** | `analyze-cli task step list --task-id {tid}` | 运行前检查步骤状态。 |
-| 17 | **strategy_result_list** | `analyze-cli strategy result list --task-id {tid} --strategy {sid}` | 查看每个帖子的分析结果。 |
-| 18 | **strategy_result_export** | `analyze-cli strategy result export --task-id {tid} --strategy {sid} [--format csv|json]` | 导出结果到文件。 |
+| 13 | **get_task_results** | `scopai task results --task-id {tid}` | 所有步骤完成后查看结果。 |
+| 14 | **get_task_status** | `scopai task show --task-id {tid}` | 显示完整任务详情，包括阶段、步骤、作业和最近的失败。**使用 `--wait` 模式时不需要。** |
+| 15 | **list_tasks** | `scopai task list [--status {s}] [--query {text}]` | 查看现有任务。可按状态过滤或按名称搜索。 |
+| 16 | **list_task_steps** | `scopai task step list --task-id {tid}` | 运行前检查步骤状态。 |
+| 17 | **strategy_result_list** | `scopai strategy result list --task-id {tid} --strategy {sid}` | 查看每个帖子的分析结果。 |
+| 18 | **strategy_result_export** | `scopai strategy result export --task-id {tid} --strategy {sid} [--format csv|json]` | 导出结果到文件。 |
 
 ### 工具与恢复
 
 | # | 工具 | 命令 | 使用场景 |
 |---|------|------|----------|
-| 19 | **retry_failed_queue_jobs** | `analyze-cli queue retry [--task-id {tid}]` | 只重试失败的作业。 |
-| 20 | **reset_queue_jobs** | `analyze-cli queue reset [--task-id {tid}]` | **粗旷工具**：强制重置所有非待处理作业。优先使用 `queue retry`。 |
-| 21 | **pause_task / resume_task / cancel_task** | `analyze-cli task pause|resume|cancel --task-id {tid}` | 控制正在运行的任务。 |
-| 22 | **list_posts / search_posts_db** | `analyze-cli post list [--platform {id}]` / `analyze-cli post search --platform {id} --query {text}` | 浏览已导入的数据。 |
-| 23 | **daemon management** | `analyze-cli daemon start [--fg]` / `stop` / `restart` / `status` | 管理守护进程生命周期。版本不匹配时 CLI 会自动重启守护进程。 |
+| 19 | **retry_failed_queue_jobs** | `scopai queue retry [--task-id {tid}]` | 只重试失败的作业。 |
+| 20 | **reset_queue_jobs** | `scopai queue reset [--task-id {tid}]` | **粗旷工具**：强制重置所有非待处理作业。优先使用 `queue retry`。 |
+| 21 | **pause_task / resume_task / cancel_task** | `scopai task pause|resume|cancel --task-id {tid}` | 控制正在运行的任务。 |
+| 22 | **list_posts / search_posts_db** | `scopai post list [--platform {id}]` / `scopai post search --platform {id} --query {text}` | 浏览已导入的数据。 |
+| 23 | **daemon management** | `scopai daemon start [--fg]` / `stop` / `restart` / `status` | 管理守护进程生命周期。版本不匹配时 CLI 会自动重启守护进程。 |
 
 ### 高级：创建策略
 
@@ -167,28 +167,28 @@ opencli xiaohongshu note --help           # → 要求 "Full note URL"
 opencli xiaohongshu search "上海美食" --limit 10 -f json > posts.json
 
 # 3. 设置
-analyze-cli platform add --id xhs --name "小红书"
-analyze-cli task create --name "上海美食分析" \
+scopai platform add --id xhs --name "小红书"
+scopai task create --name "上海美食分析" \
   --cli-templates '{"fetch_note":"opencli xiaohongshu note {url} -f json","fetch_comments":"opencli xiaohongshu comments {url} --limit 100 -f json"}'
 
 # 4. 导入
-analyze-cli post import --platform xhs --file posts.json --task-id <task_id>
+scopai post import --platform xhs --file posts.json --task-id <task_id>
 
 # 5. 添加策略
-analyze-cli task step add --task-id <task_id> --strategy-id sentiment-topics --name "情感分析"
-analyze-cli task step add --task-id <task_id> --strategy-id risk-detection --name "风险检测"
+scopai task step add --task-id <task_id> --strategy-id sentiment-topics --name "情感分析"
+scopai task step add --task-id <task_id> --strategy-id risk-detection --name "风险检测"
 
 # 6. 准备数据（阻塞，可恢复）
-analyze-cli task prepare-data --task-id <task_id>
+scopai task prepare-data --task-id <task_id>
 
 # 7. 运行分析（阻塞，带进度输出）
-analyze-cli task run-all-steps --task-id <task_id>
+scopai task run-all-steps --task-id <task_id>
 # → [10:23:45] Steps progress: 0/2 completed | running: 情感分析
 # → [10:24:12] Steps progress: 1/2 completed | running: 风险检测
 # → [10:24:45] Steps progress: 2/2 completed
 
 # 8. 查看结果
-analyze-cli task results --task-id <task_id>
+scopai task results --task-id <task_id>
 ```
 
 ### 替代方案：非阻塞模式
@@ -197,22 +197,22 @@ analyze-cli task results --task-id <task_id>
 
 ```bash
 # 数据准备仍然是阻塞的
-analyze-cli task prepare-data --task-id <task_id>
+scopai task prepare-data --task-id <task_id>
 
 # 但分析在后台运行
-analyze-cli task run-all-steps --task-id <task_id> --no-wait
+scopai task run-all-steps --task-id <task_id> --no-wait
 # → "All steps processed"（立即返回）
 
 # 稍后检查状态
-analyze-cli task show --task-id <task_id>
+scopai task show --task-id <task_id>
 ```
 
 ### 从失败中恢复
 
 ```bash
 # 如果步骤在所有重试后仍然失败：
-analyze-cli task step reset --task-id <tid> --step-id <sid>
-analyze-cli task step run --task-id <tid> --step-id <sid> --wait
+scopai task step reset --task-id <tid> --step-id <sid>
+scopai task step run --task-id <tid> --step-id <sid> --wait
 ```
 
 ---
@@ -260,14 +260,14 @@ analyze-cli task step run --task-id <tid> --step-id <sid> --wait
 
 - 验证失败 → 读取确切错误，修复字段，重试（最多 2 次）
 - 相同版本已存在 → 询问是增加版本号还是更改 ID
-- 用户批准后：`analyze-cli strategy import --json '<json>'`，然后 `analyze-cli strategy show --id <id>`
+- 用户批准后：`scopai strategy import --json '<json>'`，然后 `scopai strategy show --id <id>`
 
 ---
 
 ## 全局规则
 
-1. **永远不要编写临时轮询脚本**循环调用 `analyze-cli task show`。使用内置的 `--wait` 模式。
+1. **永远不要编写临时轮询脚本**循环调用 `scopai task show`。使用内置的 `--wait` 模式。
 2. **永远不要使用直接数据库访问**（例如运行打开 DuckDB 的 `node -e` 脚本）。始终使用 CLI 命令。
 3. **速率限制（429）恢复**：工作进程自动使用指数退避重新入队。只有当状态在所有重试后变为 `failed` 时才需要介入。
-4. **先检查平台**：使用 `analyze-cli platform list` 确认平台是否已注册，避免 "already exists" 错误。
+4. **先检查平台**：使用 `scopai platform list` 确认平台是否已注册，避免 "already exists" 错误。
 5. **不要在导入前手动获取笔记详情**：让 `prepare-data` 通过 `fetch_note` 模板处理数据丰富。

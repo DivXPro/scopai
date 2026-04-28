@@ -26,7 +26,7 @@ function getFreePort(): Promise<number> {
 }
 
 export async function startServer(): Promise<TestContext> {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'analyze-cli-e2e-'));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scopai-e2e-'));
   const dbPath = path.join(tmpDir, 'test.duckdb');
 
   const distPath = path.resolve(__dirname, '../../dist/index.js');

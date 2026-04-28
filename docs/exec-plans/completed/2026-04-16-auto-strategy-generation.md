@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Extend `analyze-cli strategy import` to accept JSON strings via `--json`, and update the `analyze-cli` Claude Code skill to support interactive strategy creation from natural language.
+**Goal:** Extend `scopai strategy import` to accept JSON strings via `--json`, and update the `scopai` Claude Code skill to support interactive strategy creation from natural language.
 
-**Architecture:** Add a `--json` option to the existing `strategy import` CLI command and daemon handler (mutually exclusive with `--file`). Then extend the `.claude/skills/analyze-cli/skill.md` with a new `create_strategy` capability that orchestrates multi-turn clarification, JSON generation, and self-healing import via the CLI.
+**Architecture:** Add a `--json` option to the existing `strategy import` CLI command and daemon handler (mutually exclusive with `--file`). Then extend the `.claude/skills/scopai/skill.md` with a new `create_strategy` capability that orchestrates multi-turn clarification, JSON generation, and self-healing import via the CLI.
 
 **Tech Stack:** TypeScript, Node.js, Commander.js, Claude Code skills (markdown-based)
 
@@ -16,7 +16,7 @@
 |------|----------------|
 | `src/cli/strategy.ts` | CLI command definitions for `strategy import`; add `--json` option and mutual exclusion with `--file` |
 | `src/daemon/handlers.ts` | Daemon RPC handler for `strategy.import`; accept `json` param and parse string directly |
-| `.claude/skills/analyze-cli/skill.md` | Claude Code skill instructions; add `create_strategy` capability with generation rules and error recovery |
+| `.claude/skills/scopai/skill.md` | Claude Code skill instructions; add `create_strategy` capability with generation rules and error recovery |
 
 ---
 
@@ -144,7 +144,7 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 ### Task 3: Update Skill with `create_strategy` Capability
 
 **Files:**
-- Modify: `.claude/skills/analyze-cli/skill.md`
+- Modify: `.claude/skills/scopai/skill.md`
 
 - [ ] **Step 1: Append the new capability before the `## Workflow Guidance` section**
 
@@ -163,9 +163,9 @@ Create a new analysis strategy via natural language conversation.
   2. **Generate strategy JSON** using the strict rules below. The JSON must pass `validateStrategyJson`.
   3. **Present the JSON** in a markdown code block and ask the user to approve or request edits.
   4. **If edits requested**, apply them and regenerate the JSON, then present again.
-  5. **If approved**, call `analyze-cli strategy import --json '<generated_json>'`.
+  5. **If approved**, call `scopai strategy import --json '<generated_json>'`.
   6. **If import fails** (validation error, invalid JSON, etc.), read the error message, fix the JSON, and retry up to 2 times.
-  7. **On success**, run `analyze-cli strategy show --id <id>` and summarize for the user.
+  7. **On success**, run `scopai strategy show --id <id>` and summarize for the user.
 
 #### JSON Generation Rules
 The generated strategy must satisfy the project's `validateStrategyJson` and database schema.
@@ -221,10 +221,10 @@ The generated strategy must satisfy the project's `validateStrategyJson` and dat
 - [ ] **Step 2: Commit skill change**
 
 ```bash
-git add .claude/skills/analyze-cli/skill.md
+git add .claude/skills/scopai/skill.md
 git commit -m "feat(skill): add create_strategy capability
 
-Enables natural-language strategy creation via the analyze-cli
+Enables natural-language strategy creation via the scopai
 Claude Code skill, including interactive clarification and
 self-healing import via --json.
 
@@ -240,7 +240,7 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 Run:
 ```bash
 npm run build
-./bin/analyze-cli.js strategy import --json '{"id":"test-plan-strategy","name":"Test Strategy","version":"1.0.0","target":"post","prompt":"Analyze: {{content}}","output_schema":{"type":"object","properties":{"score":{"type":"number"}}}}'
+./bin/scopai.js strategy import --json '{"id":"test-plan-strategy","name":"Test Strategy","version":"1.0.0","target":"post","prompt":"Analyze: {{content}}","output_schema":{"type":"object","properties":{"score":{"type":"number"}}}}'
 ```
 Expected output: `Strategy imported: test-plan-strategy`
 
@@ -253,7 +253,7 @@ Expected output: `Skipped: same version already exists`
 
 Run with bad JSON:
 ```bash
-./bin/analyze-cli.js strategy import --json '{"id":"bad","target":"post"}'
+./bin/scopai.js strategy import --json '{"id":"bad","target":"post"}'
 ```
 Expected output: `Error: Missing required field: name` (or similar validation error)
 
@@ -261,7 +261,7 @@ Expected output: `Error: Missing required field: name` (or similar validation er
 
 Run:
 ```bash
-./bin/analyze-cli.js strategy remove --id test-plan-strategy
+./bin/scopai.js strategy remove --id test-plan-strategy
 ```
 (If `remove` does not exist, delete directly from the DB or skip this step.)
 

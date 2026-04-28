@@ -1,6 +1,6 @@
-# analyze-cli Development Agent Harness
+# scopai Development Agent Harness
 
-This harness is for **developing** the `analyze-cli` project, not for using it to analyze data. All agents are orchestrated through `superpowers` skills for structured, high-quality software development.
+This harness is for **developing** the `scopai` project, not for using it to analyze data. All agents are orchestrated through `superpowers` skills for structured, high-quality software development.
 
 ## Agent Topology
 
@@ -33,8 +33,8 @@ orchestrator
 - `feature-developer` for isolated feature work
 
 Outputs:
-- Design spec in `docs/superpowers/specs/`
-- Implementation plan in `docs/superpowers/plans/`
+- Design spec in `docs/design-docs/`
+- Implementation plan in `docs/exec-plans/active/`
 
 **Recommended skill:** `superpowers:writing-plans`
 
@@ -105,5 +105,5 @@ pnpm test
 node --test --experimental-strip-types 'test/<file>.test.ts'
 
 # CLI (for manual verification)
-node ./bin/analyze-cli.js <command>
+node ./bin/scopai.js <command>
 ```

@@ -1,4 +1,4 @@
-# analyze-cli 测试报告
+# scopai 测试报告
 
 > 测试日期: 2026-04-13
 > 测试环境: macOS, Node.js v25.8.1, DuckDB
@@ -54,5 +54,5 @@
 3. 运行 `opencli xiaohongshu search "关键词" --limit 5 -f json > /tmp/xhs.json`
 4. 转换 JSON 格式为 JSONL 并导入：
    ```bash
-   analyze-cli post import --platform xhs --file /tmp/xhs_posts.jsonl
+   scopai post import --platform xhs --file /tmp/xhs_posts.jsonl
    ```

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 实现 `scripts/record-e2e-fixture.ts`，使 Agent 能够通过 OpenCLI 获取真实平台数据、调用 analyze-cli CLI 完成导入，并自动生成 fixture 和离线测试文件。
+**Goal:** 实现 `scripts/record-e2e-fixture.ts`，使 Agent 能够通过 OpenCLI 获取真实平台数据、调用 scopai CLI 完成导入，并自动生成 fixture 和离线测试文件。
 
-**Architecture:** 录制脚本作为协调器，内部封装 OpenCLI 执行器、analyze-cli CLI 执行器、fixture 写入器和测试生成器；所有原始数据落盘到 `test-data/recorded/<run>/`，离线测试生成到 `test/`。
+**Architecture:** 录制脚本作为协调器，内部封装 OpenCLI 执行器、scopai CLI 执行器、fixture 写入器和测试生成器；所有原始数据落盘到 `test-data/recorded/<run>/`，离线测试生成到 `test/`。
 
 **Tech Stack:** TypeScript, Node 20, `child_process`, `fs`, `node:test` (for generated tests)
 
@@ -104,7 +104,7 @@ git commit -m "feat(scripts): add record-e2e-fixture skeleton with arg parsing"
 
 ---
 
-### Task 2: 实现 OpenCLI 执行器与 analyze-cli CLI 执行器
+### Task 2: 实现 OpenCLI 执行器与 scopai CLI 执行器
 
 **Files:**
 - Modify: `scripts/record-e2e-fixture.ts`
@@ -180,8 +180,8 @@ async function runAnalyzeCli(args: string[]): Promise<{ success: boolean; stdout
 继续在同一文件中插入：
 
 ```typescript
-const DAEMON_PID_FILE = path.join(process.cwd(), '.analyze-cli', 'daemon.pid');
-const IPC_SOCKET_PATH = path.join(process.cwd(), '.analyze-cli', 'daemon.sock');
+const DAEMON_PID_FILE = path.join(process.cwd(), '.scopai', 'daemon.pid');
+const IPC_SOCKET_PATH = path.join(process.cwd(), '.scopai', 'daemon.sock');
 
 function isDaemonRunning(): boolean {
   if (!fs.existsSync(DAEMON_PID_FILE)) return false;
@@ -259,7 +259,7 @@ Expected: 显示 Daemon is running。
 
 ```bash
 git add scripts/record-e2e-fixture.ts
-git commit -m "feat(scripts): add OpenCLI and analyze-cli wrappers with daemon lifecycle"
+git commit -m "feat(scripts): add OpenCLI and scopai wrappers with daemon lifecycle"
 ```
 
 ---
@@ -820,7 +820,7 @@ git commit -m "chore(scripts): add test:record npm script for fixture recording"
 | Spec 要求 | 对应 Task |
 |-----------|-----------|
 | Agent 调用 OpenCLI 搜索帖子 | Task 3 |
-| Agent 调用 analyze-cli CLI 导入帖子 | Task 3 |
+| Agent 调用 scopai CLI 导入帖子 | Task 3 |
 | 遍历帖子下载评论/媒体 | Task 4 |
 | 保存原始响应为 fixture | Task 3, Task 4 |
 | 自动生成离线测试文件 | Task 5 |

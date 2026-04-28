@@ -152,11 +152,11 @@ function getBaseUrl(lock: LockFileData): string {
 async function requireLock(): Promise<LockFileData> {
   const lock = readLockFile();
   if (!lock) {
-    throw new Error('Daemon is not running. Start it with: analyze-cli daemon start');
+    throw new Error('Daemon is not running. Start it with: scopai daemon start');
   }
   const alive = await isApiAlive(lock.port);
   if (!alive) {
-    throw new Error('Daemon is not responding. Try: analyze-cli daemon restart');
+    throw new Error('Daemon is not responding. Try: scopai daemon restart');
   }
   return lock;
 }
@@ -586,7 +586,7 @@ import * as path from 'path';
 import { readLockFile, isApiAlive, removeLockFile } from '@scopai/core';
 
 const daemonCmd = new Command('daemon')
-  .description('Manage the analyze-cli daemon');
+  .description('Manage the scopai daemon');
 
 daemonCmd
   .command('start')
@@ -907,12 +907,12 @@ Expected: All endpoints return 200 with valid JSON
 pnpm --filter @scopai/api start &
 sleep 3
 # Check lock file exists
-cat ~/.analyze-cli/api.lock
+cat ~/.scopai/api.lock
 # Stop API
 kill %1
 sleep 2
 # Check lock file removed
-ls ~/.analyze-cli/api.lock 2>&1
+ls ~/.scopai/api.lock 2>&1
 ```
 
 Expected: Lock file created on start, removed on stop
@@ -948,7 +948,7 @@ Expected: No results (all references migrated)
 - [ ] **Step 2: Search for remaining PID file references**
 
 ```bash
-grep -r "analyze-cli\.pid\|/tmp/analyze-cli" packages/ --include="*.ts"
+grep -r "scopai\.pid\|/tmp/scopai" packages/ --include="*.ts"
 ```
 
 Expected: No results (all replaced with lock file)

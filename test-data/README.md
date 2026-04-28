@@ -1,11 +1,11 @@
 # 测试文件存放规范
 
-> 本文档定义 `analyze-cli` 项目中所有测试相关文件的存放位置和命名规则。
+> 本文档定义 `scopai` 项目中所有测试相关文件的存放位置和命名规则。
 
 ## 目录结构
 
 ```
-analyze-cli/
+scopai/
 ├── test/                          # 测试代码（.ts 文件）
 │   ├── opencli.test.ts
 │   ├── import-offline.test.ts
@@ -184,7 +184,7 @@ node --experimental-strip-types test/report.ts
 pnpm test:xhs
 
 # 2. 从 DuckDB 导出数据作为新的 mock 数据
-duckdb ~/.analyze-cli/data.duckdb \
+duckdb ~/.scopai/data.duckdb \
   "COPY (SELECT * FROM posts WHERE platform_id LIKE 'xhs_%') TO 'test-data/mock/xhs_posts_export.jsonl' (FORMAT JSON);"
 
 # 3. 复制到 mock 目录供离线测试使用

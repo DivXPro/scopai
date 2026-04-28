@@ -3,7 +3,7 @@ import * as os from 'os';
 
 // Generate a consistent test run ID and DB path shared with cli.ts
 const TEST_RUN_ID = `e2e_${Date.now()}_${process.pid}`;
-const TEST_TMP_DIR = path.join(os.tmpdir(), 'analyze-cli-e2e', TEST_RUN_ID);
+const TEST_TMP_DIR = path.join(os.tmpdir(), 'scopai-e2e', TEST_RUN_ID);
 const TEST_DB_PATH = path.join(TEST_TMP_DIR, 'test.duckdb');
 
 // Set env vars BEFORE any db modules are loaded
