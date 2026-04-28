@@ -27,7 +27,17 @@ export async function createCreatorSyncSchedule(
   return { ...data, id, created_at: ts, updated_at: ts };
 }
 
-export async function getCreatorSyncSchedule(creatorId: string): Promise<CreatorSyncSchedule | null> {
+export async function getCreatorSyncScheduleById(id: string): Promise<CreatorSyncSchedule | null> {
+  const rows = await query<CreatorSyncSchedule>(
+    'SELECT * FROM creator_sync_schedules WHERE id = ?',
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
+export async function getCreatorSyncScheduleByCreatorId(
+  creatorId: string,
+): Promise<CreatorSyncSchedule | null> {
   const rows = await query<CreatorSyncSchedule>(
     'SELECT * FROM creator_sync_schedules WHERE creator_id = ?',
     [creatorId],
@@ -35,50 +45,74 @@ export async function getCreatorSyncSchedule(creatorId: string): Promise<Creator
   return rows[0] ?? null;
 }
 
+export async function listCreatorSyncSchedules(isEnabled?: boolean): Promise<CreatorSyncSchedule[]> {
+  if (isEnabled !== undefined) {
+    return query<CreatorSyncSchedule>(
+      'SELECT * FROM creator_sync_schedules WHERE is_enabled = ? ORDER BY created_at',
+      [isEnabled],
+    );
+  }
+  return query<CreatorSyncSchedule>('SELECT * FROM creator_sync_schedules ORDER BY created_at');
+}
+
 export async function updateCreatorSyncSchedule(
-  creatorId: string,
-  data: Partial<Omit<CreatorSyncSchedule, 'id' | 'creator_id' | 'created_at'>>,
+  id: string,
+  updates: Partial<Omit<CreatorSyncSchedule, 'id' | 'created_at'>>,
 ): Promise<void> {
   const fields: string[] = [];
-  const params: unknown[] = [];
+  const values: unknown[] = [];
 
-  if (data.interval_minutes !== undefined) {
+  if (updates.creator_id !== undefined) {
+    fields.push('creator_id = ?');
+    values.push(updates.creator_id);
+  }
+  if (updates.interval_minutes !== undefined) {
     fields.push('interval_minutes = ?');
-    params.push(data.interval_minutes);
+    values.push(updates.interval_minutes);
   }
-  if (data.time_window_start !== undefined) {
+  if (updates.time_window_start !== undefined) {
     fields.push('time_window_start = ?');
-    params.push(data.time_window_start);
+    values.push(updates.time_window_start);
   }
-  if (data.time_window_end !== undefined) {
+  if (updates.time_window_end !== undefined) {
     fields.push('time_window_end = ?');
-    params.push(data.time_window_end);
+    values.push(updates.time_window_end);
   }
-  if (data.max_retries !== undefined) {
+  if (updates.max_retries !== undefined) {
     fields.push('max_retries = ?');
-    params.push(data.max_retries);
+    values.push(updates.max_retries);
   }
-  if (data.retry_interval_minutes !== undefined) {
+  if (updates.retry_interval_minutes !== undefined) {
     fields.push('retry_interval_minutes = ?');
-    params.push(data.retry_interval_minutes);
+    values.push(updates.retry_interval_minutes);
   }
-  if (data.is_enabled !== undefined) {
+  if (updates.is_enabled !== undefined) {
     fields.push('is_enabled = ?');
-    params.push(data.is_enabled);
+    values.push(updates.is_enabled);
   }
 
   if (fields.length === 0) return;
   fields.push('updated_at = ?');
-  params.push(now());
-  params.push(creatorId);
+  values.push(now());
+  values.push(id);
 
-  await run(`UPDATE creator_sync_schedules SET ${fields.join(', ')} WHERE creator_id = ?`, params);
+  await run(`UPDATE creator_sync_schedules SET ${fields.join(', ')} WHERE id = ?`, values);
 }
 
-export async function listEnabledSyncSchedules(): Promise<CreatorSyncSchedule[]> {
-  return query<CreatorSyncSchedule>(
-    `SELECT s.* FROM creator_sync_schedules s
-     JOIN creators c ON s.creator_id = c.id
-     WHERE s.is_enabled = true AND c.status = 'active'`,
-  );
+export async function enableCreatorSyncSchedule(id: string): Promise<void> {
+  await run(`UPDATE creator_sync_schedules SET is_enabled = true, updated_at = ? WHERE id = ?`, [
+    now(),
+    id,
+  ]);
+}
+
+export async function disableCreatorSyncSchedule(id: string): Promise<void> {
+  await run(`UPDATE creator_sync_schedules SET is_enabled = false, updated_at = ? WHERE id = ?`, [
+    now(),
+    id,
+  ]);
+}
+
+export async function deleteCreatorSyncSchedule(id: string): Promise<void> {
+  await run('DELETE FROM creator_sync_schedules WHERE id = ?', [id]);
 }
