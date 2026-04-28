@@ -5,6 +5,7 @@ import platformsRoutes from './platforms';
 import strategiesRoutes from './strategies';
 import queueRoutes from './queue';
 import statusRoutes from './status';
+import creatorsRoutes from './creators';
 
 export async function registerRoutes(app: FastifyInstance) {
   await app.register(tasksRoutes, { prefix: '/api' });
@@ -13,4 +14,5 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(strategiesRoutes, { prefix: '/api' });
   await app.register(queueRoutes, { prefix: '/api' });
   await app.register(statusRoutes, { prefix: '/api' });
+  await app.register(creatorsRoutes, { prefix: '/api' });
 }

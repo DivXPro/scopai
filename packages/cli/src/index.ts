@@ -12,6 +12,7 @@ import { strategyCommands } from './strategy';
 import { analyzeCommands } from './analyze';
 import { queueCommands } from './queue';
 import { logsCommands } from './logs';
+import { creatorCommands } from './creator';
 import { version } from '@scopai/core';
 
 const program = new Command();
@@ -51,6 +52,7 @@ strategyCommands(program);
 analyzeCommands(program);
 queueCommands(program);
 logsCommands(program);
+creatorCommands(program);
 
 program.parse(process.argv);
 
