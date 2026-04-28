@@ -79,7 +79,7 @@ export function creatorCommands(program: Command): void {
         console.log(pc.bold('\nRecent Syncs:'));
         for (const log of logs) {
           const status = log.status === 'success' ? pc.green('✓') : log.status === 'partial' ? pc.yellow('~') : pc.red('✗');
-          const summary = log.result_summary ?? {};
+          const summary = typeof log.result_summary === 'string' ? JSON.parse(log.result_summary) : (log.result_summary ?? {});
           console.log(`  ${status} ${log.sync_type} — imported:${summary.imported ?? 0} updated:${summary.updated ?? 0} ${new Date(log.started_at).toLocaleString()}`);
         }
       }

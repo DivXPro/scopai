@@ -21,11 +21,12 @@ const FIELD_NAME_MAP: Record<string, string> = {
   plays: 'play_count',
   note_id: 'platform_post_id',
   author: 'author_name',
+  cover: 'cover_url',
 };
 
 // Default opencli templates per platform (can be overridden via config in future)
 const DEFAULT_CREATOR_TEMPLATES: Record<string, string> = {
-  xhs: 'opencli xhs creator-posts --author-id {author_id}',
+  xhs: 'opencli xiaohongshu user {author_id} --format json',
 };
 
 function getCreatorTemplate(platformId: string): string | null {
