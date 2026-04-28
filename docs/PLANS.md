@@ -12,7 +12,7 @@
 
 ## 当前活动计划
 
-（暂无）
+- `exec-plans/active/2026-04-28-creator-subscription.md` — 博主订阅功能：独立 Creator Sync Pipeline，支持手动/自动同步，字段映射归一化
 
 ## 当前已归档内容
 
