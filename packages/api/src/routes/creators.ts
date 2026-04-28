@@ -14,6 +14,7 @@ import {
   getCreatorSyncScheduleByCreatorId,
   createCreatorSyncSchedule,
   updateCreatorSyncSchedule,
+  deleteCreatorSyncSchedule,
   listCreatorSyncLogs,
   listPosts,
 } from '@scopai/core';
@@ -85,23 +86,23 @@ export default async function creatorsRoutes(app: FastifyInstance) {
 
   app.post('/creators/:id/sync', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const body = request.body as Record<string, unknown>;
+    const body = (request.body as Record<string, unknown>) ?? {};
     const syncType = (body.sync_type as 'initial' | 'periodic') ?? 'periodic';
 
     const creator = await getCreatorById(id);
     if (!creator) {
       reply.code(404);
-      throw new Error('Creator not found');
+      return { error: 'Creator not found' };
     }
     if (creator.status === 'unsubscribed') {
       reply.code(400);
-      throw new Error('Cannot sync unsubscribed creator');
+      return { error: 'Cannot sync unsubscribed creator' };
     }
 
     const hasPending = await hasPendingSyncJob(id);
     if (hasPending) {
       reply.code(409);
-      throw new Error('Sync already in progress for this creator');
+      return { error: 'Sync already in progress for this creator' };
     }
 
     const job = await createCreatorSyncJob({ creator_id: id, sync_type: syncType });
@@ -111,8 +112,19 @@ export default async function creatorsRoutes(app: FastifyInstance) {
 
   app.delete('/creators/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
+    const creator = await getCreatorById(id);
+    if (!creator) {
+      reply.code(404);
+      throw new Error('Creator not found');
+    }
+    // Remove sync schedule first to avoid FK constraint violation
+    const schedule = await getCreatorSyncScheduleByCreatorId(id);
+    if (schedule) {
+      await deleteCreatorSyncSchedule(schedule.id);
+    }
     await updateCreatorStatus(id, 'unsubscribed');
     reply.code(204);
+    reply.send();
   });
 
   app.post('/creators/:id/pause', async (request, reply) => {
