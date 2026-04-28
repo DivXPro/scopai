@@ -228,3 +228,82 @@ CREATE TABLE IF NOT EXISTS task_steps (
 
 CREATE INDEX IF NOT EXISTS idx_task_steps_task ON task_steps(task_id);
 
+CREATE TABLE IF NOT EXISTS creators (
+    id                  TEXT PRIMARY KEY,
+    platform_id         TEXT NOT NULL REFERENCES platforms(id),
+    platform_author_id  TEXT NOT NULL,
+    author_name         TEXT,
+    display_name        TEXT,
+    bio                 TEXT,
+    avatar_url          TEXT,
+    homepage_url        TEXT,
+    follower_count      INTEGER DEFAULT 0,
+    following_count     INTEGER DEFAULT 0,
+    post_count          INTEGER DEFAULT 0,
+    status              TEXT DEFAULT 'active' CHECK(status IN ('active','paused','unsubscribed')),
+    created_at          TIMESTAMP DEFAULT NOW(),
+    updated_at          TIMESTAMP DEFAULT NOW(),
+    last_synced_at      TIMESTAMP,
+    metadata            JSON,
+    UNIQUE(platform_id, platform_author_id)
+);
+
+CREATE TABLE IF NOT EXISTS creator_field_mappings (
+    id              TEXT PRIMARY KEY,
+    platform_id     TEXT NOT NULL REFERENCES platforms(id),
+    entity_type     TEXT NOT NULL DEFAULT 'creator' CHECK(entity_type IN ('creator')),
+    system_field    TEXT NOT NULL,
+    platform_field  TEXT NOT NULL,
+    data_type       TEXT NOT NULL CHECK(data_type IN ('string','number','date','boolean','array','json')),
+    is_required     BOOLEAN DEFAULT false,
+    transform_expr  TEXT,
+    description     TEXT,
+    UNIQUE(platform_id, entity_type, system_field)
+);
+
+CREATE TABLE IF NOT EXISTS creator_sync_jobs (
+    id              TEXT PRIMARY KEY,
+    creator_id      TEXT NOT NULL REFERENCES creators(id),
+    sync_type       TEXT NOT NULL CHECK(sync_type IN ('initial','periodic')),
+    status          TEXT DEFAULT 'pending' CHECK(status IN ('pending','processing','completed','completed_with_errors','failed')),
+    posts_imported  INTEGER DEFAULT 0,
+    posts_updated   INTEGER DEFAULT 0,
+    posts_skipped   INTEGER DEFAULT 0,
+    posts_failed    INTEGER DEFAULT 0,
+    cursor          TEXT,
+    progress        JSON,
+    error           TEXT,
+    created_at      TIMESTAMP DEFAULT NOW(),
+    processed_at    TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS creator_sync_logs (
+    id              TEXT PRIMARY KEY,
+    creator_id      TEXT NOT NULL REFERENCES creators(id),
+    job_id          TEXT NOT NULL REFERENCES creator_sync_jobs(id),
+    sync_type       TEXT NOT NULL,
+    status          TEXT NOT NULL CHECK(status IN ('success','partial','failed')),
+    result_summary  JSON,
+    started_at      TIMESTAMP DEFAULT NOW(),
+    completed_at    TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS creator_sync_schedules (
+    id                      TEXT PRIMARY KEY,
+    creator_id              TEXT NOT NULL UNIQUE REFERENCES creators(id),
+    interval_minutes        INTEGER NOT NULL DEFAULT 60,
+    time_window_start       TIME,
+    time_window_end         TIME,
+    max_retries             INTEGER DEFAULT 3,
+    retry_interval_minutes  INTEGER DEFAULT 30,
+    is_enabled              BOOLEAN DEFAULT true,
+    created_at              TIMESTAMP DEFAULT NOW(),
+    updated_at              TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_creators_platform ON creators(platform_id);
+CREATE INDEX IF NOT EXISTS idx_creators_status ON creators(status);
+CREATE INDEX IF NOT EXISTS idx_creator_sync_jobs_creator ON creator_sync_jobs(creator_id);
+CREATE INDEX IF NOT EXISTS idx_creator_sync_jobs_status ON creator_sync_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_creator_sync_logs_creator ON creator_sync_logs(creator_id);
+
