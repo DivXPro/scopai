@@ -1,0 +1,231 @@
+import {
+  getCreatorById,
+  getPlatformById,
+  listCreatorFieldMappings,
+  updateCreatorSyncJobStatus,
+  updateCreatorLastSynced,
+  createCreatorSyncLog,
+  createPost,
+  getPostByPlatformPostId,
+  updatePost,
+  fetchViaOpencli,
+} from '@scopai/core';
+import type { CreatorSyncJob } from '@scopai/core';
+import { getLogger } from '@scopai/core';
+
+const FIELD_NAME_MAP: Record<string, string> = {
+  likes: 'like_count',
+  collects: 'collect_count',
+  comments: 'comment_count',
+  shares: 'share_count',
+  plays: 'play_count',
+  note_id: 'platform_post_id',
+  author: 'author_name',
+};
+
+// Default opencli templates per platform (can be overridden via config in future)
+const DEFAULT_CREATOR_TEMPLATES: Record<string, string> = {
+  xhs: 'opencli xhs creator-posts --author-id {author_id}',
+};
+
+function getCreatorTemplate(platformId: string): string | null {
+  return DEFAULT_CREATOR_TEMPLATES[platformId] ?? null;
+}
+
+interface RawPostItem {
+  platform_post_id?: string;
+  noteId?: string;
+  id?: string;
+  title?: string;
+  content?: string;
+  text?: string;
+  desc?: string;
+  author_id?: string;
+  author_name?: string;
+  author?: string;
+  author_url?: string;
+  url?: string;
+  cover_url?: string;
+  post_type?: string;
+  type?: string;
+  like_count?: number;
+  collect_count?: number;
+  comment_count?: number;
+  share_count?: number;
+  play_count?: number;
+  score?: number;
+  tags?: unknown;
+  media_files?: unknown;
+  published_at?: string;
+  metadata?: unknown;
+}
+
+function normalizeRawPost(
+  raw: Record<string, unknown>,
+  mappings: Array<{ platform_field: string; system_field: string }>,
+): RawPostItem {
+  const result: Record<string, unknown> = {};
+  for (const mapping of mappings) {
+    const rawValue = raw[mapping.platform_field];
+    if (rawValue !== undefined) {
+      const systemField = FIELD_NAME_MAP[mapping.system_field] ?? mapping.system_field;
+      result[systemField] = rawValue;
+    }
+  }
+  // Also directly copy known fields if present and not already mapped
+  for (const key of Object.keys(raw)) {
+    const mapped = FIELD_NAME_MAP[key] ?? key;
+    if (result[mapped] === undefined) {
+      result[mapped] = raw[key];
+    }
+  }
+  return result as RawPostItem;
+}
+
+export async function processCreatorSyncJob(job: CreatorSyncJob, workerId: number): Promise<void> {
+  const logger = getLogger();
+  logger.info(`[Worker-${workerId}] Processing creator sync job ${job.id} (type: ${job.sync_type})`);
+
+  await updateCreatorSyncJobStatus(job.id, 'processing');
+  const startedAt = Date.now();
+
+  let imported = 0;
+  let updated = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  try {
+    const creator = await getCreatorById(job.creator_id);
+    if (!creator) throw new Error(`Creator ${job.creator_id} not found`);
+    if (creator.status === 'unsubscribed') throw new Error('Creator is unsubscribed');
+
+    const platform = await getPlatformById(creator.platform_id);
+    if (!platform) throw new Error(`Platform ${creator.platform_id} not found`);
+
+    const template = getCreatorTemplate(creator.platform_id);
+    if (!template) {
+      throw new Error(`No creator sync template configured for platform: ${creator.platform_id}`);
+    }
+
+    const mappings = await listCreatorFieldMappings(creator.platform_id);
+
+    const vars: Record<string, string> = {
+      author_id: creator.platform_author_id,
+    };
+
+    if (job.sync_type === 'periodic' && creator.last_synced_at) {
+      vars.since = creator.last_synced_at.toISOString();
+    }
+
+    const fetchResult = await fetchViaOpencli(template, vars, 120000);
+    if (!fetchResult.success || !fetchResult.data) {
+      throw new Error(fetchResult.error ?? 'Failed to fetch creator posts');
+    }
+
+    const rawPosts = fetchResult.data;
+    logger.info(`[Worker-${workerId}] Fetched ${rawPosts.length} raw posts for creator ${creator.id}`);
+
+    for (const rawItem of rawPosts) {
+      if (typeof rawItem !== 'object' || rawItem === null) {
+        failed++;
+        continue;
+      }
+
+      try {
+        const item = normalizeRawPost(rawItem as Record<string, unknown>, mappings);
+        const platformPostId = item.platform_post_id ?? item.noteId ?? item.id;
+        if (!platformPostId) {
+          failed++;
+          continue;
+        }
+
+        const existing = await getPostByPlatformPostId(platformPostId, creator.platform_id);
+
+        if (existing) {
+          await updatePost(existing.id, {
+            title: item.title ?? null,
+            content: item.content ?? item.text ?? item.desc ?? existing.content,
+            author_id: item.author_id ?? creator.platform_author_id,
+            author_name: item.author_name ?? item.author ?? creator.author_name,
+            author_url: item.author_url ?? null,
+            url: item.url ?? null,
+            cover_url: item.cover_url ?? null,
+            post_type: (item.post_type ?? item.type ?? existing.post_type) as any,
+            like_count: Number(item.like_count ?? 0),
+            collect_count: Number(item.collect_count ?? 0),
+            comment_count: Number(item.comment_count ?? 0),
+            share_count: Number(item.share_count ?? 0),
+            play_count: Number(item.play_count ?? 0),
+            score: item.score ? Number(item.score) : null,
+            tags: (item.tags as { name: string; url?: string }[] | null) ?? null,
+            media_files: (item.media_files as { type: 'image' | 'video' | 'audio'; url: string; local_path?: string }[] | null) ?? null,
+            published_at: item.published_at ? new Date(item.published_at) : null,
+            metadata: (item.metadata as Record<string, unknown> | null) ?? null,
+          });
+          updated++;
+        } else {
+          await createPost({
+            platform_id: creator.platform_id,
+            platform_post_id: platformPostId,
+            title: item.title ?? null,
+            content: item.content ?? item.text ?? item.desc ?? '',
+            author_id: item.author_id ?? creator.platform_author_id,
+            author_name: item.author_name ?? item.author ?? creator.author_name,
+            author_url: item.author_url ?? null,
+            url: item.url ?? null,
+            cover_url: item.cover_url ?? null,
+            post_type: (item.post_type ?? item.type ?? null) as any,
+            like_count: Number(item.like_count ?? 0),
+            collect_count: Number(item.collect_count ?? 0),
+            comment_count: Number(item.comment_count ?? 0),
+            share_count: Number(item.share_count ?? 0),
+            play_count: Number(item.play_count ?? 0),
+            score: item.score ? Number(item.score) : null,
+            tags: (item.tags as { name: string; url?: string }[] | null) ?? null,
+            media_files: (item.media_files as { type: 'image' | 'video' | 'audio'; url: string; local_path?: string }[] | null) ?? null,
+            published_at: item.published_at ? new Date(item.published_at) : null,
+            metadata: (item.metadata as Record<string, unknown> | null) ?? null,
+          });
+          imported++;
+        }
+      } catch (itemErr: unknown) {
+        logger.error(`[Worker-${workerId}] Failed to process post: ${(itemErr as Error).message}`);
+        failed++;
+      }
+    }
+
+    await updateCreatorLastSynced(creator.id);
+
+    const status = failed > 0 ? 'completed_with_errors' : 'completed';
+    await updateCreatorSyncJobStatus(job.id, status, {
+      posts_imported: imported,
+      posts_updated: updated,
+      posts_skipped: skipped,
+      posts_failed: failed,
+    });
+
+    await createCreatorSyncLog({
+      creator_id: creator.id,
+      job_id: job.id,
+      sync_type: job.sync_type,
+      status: failed > 0 ? 'partial' : 'success',
+      result_summary: { imported, updated, skipped, failed, duration_ms: Date.now() - startedAt },
+      completed_at: new Date(),
+    });
+
+    logger.info(`[Worker-${workerId}] Creator sync completed: imported=${imported}, updated=${updated}, failed=${failed}`);
+  } catch (err: unknown) {
+    const errMsg = (err as Error).message;
+    logger.error(`[Worker-${workerId}] Creator sync failed: ${errMsg}`);
+
+    await updateCreatorSyncJobStatus(job.id, 'failed', { error: errMsg });
+    await createCreatorSyncLog({
+      creator_id: job.creator_id,
+      job_id: job.id,
+      sync_type: job.sync_type,
+      status: 'failed',
+      result_summary: { imported, updated, skipped, failed, error: errMsg, duration_ms: Date.now() - startedAt },
+      completed_at: new Date(),
+    });
+  }
+}

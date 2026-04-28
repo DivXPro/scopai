@@ -73,3 +73,36 @@ export async function countPosts(platformId?: string): Promise<number> {
   const rows = await query<{ cnt: bigint }>(sql, params);
   return Number(rows[0]?.cnt ?? 0);
 }
+
+export async function updatePost(id: string, updates: Partial<Omit<Post, 'id' | 'fetched_at'>>): Promise<void> {
+  const fields: string[] = [];
+  const params: unknown[] = [];
+
+  if (updates.platform_id !== undefined) { fields.push('platform_id = ?'); params.push(updates.platform_id); }
+  if (updates.platform_post_id !== undefined) { fields.push('platform_post_id = ?'); params.push(updates.platform_post_id); }
+  if (updates.title !== undefined) { fields.push('title = ?'); params.push(updates.title); }
+  if (updates.content !== undefined) { fields.push('content = ?'); params.push(updates.content); }
+  if (updates.author_id !== undefined) { fields.push('author_id = ?'); params.push(updates.author_id); }
+  if (updates.author_name !== undefined) { fields.push('author_name = ?'); params.push(updates.author_name); }
+  if (updates.author_url !== undefined) { fields.push('author_url = ?'); params.push(updates.author_url); }
+  if (updates.url !== undefined) { fields.push('url = ?'); params.push(updates.url); }
+  if (updates.cover_url !== undefined) { fields.push('cover_url = ?'); params.push(updates.cover_url); }
+  if (updates.post_type !== undefined) { fields.push('post_type = ?'); params.push(updates.post_type); }
+  if (updates.like_count !== undefined) { fields.push('like_count = ?'); params.push(updates.like_count); }
+  if (updates.collect_count !== undefined) { fields.push('collect_count = ?'); params.push(updates.collect_count); }
+  if (updates.comment_count !== undefined) { fields.push('comment_count = ?'); params.push(updates.comment_count); }
+  if (updates.share_count !== undefined) { fields.push('share_count = ?'); params.push(updates.share_count); }
+  if (updates.play_count !== undefined) { fields.push('play_count = ?'); params.push(updates.play_count); }
+  if (updates.score !== undefined) { fields.push('score = ?'); params.push(updates.score); }
+  if (updates.tags !== undefined) { fields.push('tags = ?'); params.push(updates.tags ? JSON.stringify(updates.tags) : null); }
+  if (updates.media_files !== undefined) { fields.push('media_files = ?'); params.push(updates.media_files ? JSON.stringify(updates.media_files) : null); }
+  if (updates.published_at !== undefined) { fields.push('published_at = ?'); params.push(updates.published_at); }
+  if (updates.metadata !== undefined) { fields.push('metadata = ?'); params.push(updates.metadata ? JSON.stringify(updates.metadata) : null); }
+
+  if (fields.length === 0) return;
+  fields.push('fetched_at = ?');
+  params.push(now());
+  params.push(id);
+
+  await run(`UPDATE posts SET ${fields.join(', ')} WHERE id = ?`, params);
+}

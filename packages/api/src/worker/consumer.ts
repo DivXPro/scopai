@@ -10,6 +10,7 @@ import { getStrategyById } from '@scopai/core';
 import { insertStrategyResult } from '@scopai/core';
 import { updateTaskStepStatus, listTaskSteps } from '@scopai/core';
 import { analyzeComment, analyzeMedia, analyzeWithStrategy, analyzeBatchWithStrategy } from './anthropic';
+import { processCreatorSyncJob } from './creator-sync';
 import { parseCommentResult, parseMediaResult, parseStrategyResult, parseBatchStrategyResult } from './parser';
 import type { QueueJob, Comment } from '@scopai/core';
 import { sleep } from '@scopai/core';
@@ -22,6 +23,7 @@ import {
 } from '@scopai/core';
 import { config } from '@scopai/core';
 import { getLogger } from '@scopai/core';
+import { getPendingCreatorSyncJobs } from '@scopai/core';
 
 const POLL_INTERVAL_MS = 2000;
 const MAX_WAIT_MS = 30000;
@@ -68,6 +70,18 @@ export async function runConsumer(workerId: number): Promise<void> {
             active.delete(promise);
           });
           active.add(promise);
+        }
+
+        // Poll creator sync jobs (independent pipeline)
+        if (active.size < concurrency) {
+          const need = concurrency - active.size;
+          const creatorJobs = await getPendingCreatorSyncJobs(need);
+          for (const cJob of creatorJobs) {
+            const promise = processCreatorSyncJob(cJob, workerId).finally(() => {
+              active.delete(promise);
+            });
+            active.add(promise);
+          }
         }
 
         if (active.size > 0) {
