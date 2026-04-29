@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import * as pc from 'picocolors';
 import * as fs from 'fs';
 import { apiGet, apiPost } from './api-client';
+import type { ListPostsResponse, ImportPostsResponse } from '@scopai/api';
 
 interface RawPostItem {
   platform_post_id?: string;
@@ -59,7 +60,7 @@ export function postCommands(program: Command): void {
         process.exit(1);
       }
       try {
-        const result = await apiPost<{ imported: number; skipped: number; postIds?: string[] }>('/posts/import', {
+        const result = await apiPost<ImportPostsResponse>('/posts/import', {
           posts: postsData.map((p: Record<string, unknown>) => ({ ...p, platform_id: opts.platform })),
           task_id: opts.taskId,
         });
@@ -85,7 +86,7 @@ export function postCommands(program: Command): void {
       if (opts.platform) params.set('platform', opts.platform);
       params.set('limit', opts.limit);
       params.set('offset', opts.offset);
-      const result = await apiGet<{ posts: any[]; total: number }>('/posts?' + params.toString());
+      const result = await apiGet<ListPostsResponse>('/posts?' + params.toString());
       const posts = result.posts ?? (result as any);
       const total = (result as any).total ?? posts.length;
       if (posts.length === 0) {

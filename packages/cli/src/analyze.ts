@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
 import { apiPost } from './api-client';
+import type { AnalyzeRunResponse } from '@scopai/api';
 
 export function analyzeCommands(program: Command): void {
   const analyze = program.command('analyze').description('Run strategy-based analysis');
@@ -12,7 +13,7 @@ export function analyzeCommands(program: Command): void {
     .requiredOption('--strategy <id>', 'Strategy ID')
     .action(async (opts: { taskId: string; strategy: string }) => {
       try {
-        const result = await apiPost<{ enqueued: number }>('/analyze/run', { task_id: opts.taskId, strategy_id: opts.strategy });
+        const result = await apiPost<AnalyzeRunResponse>('/analyze/run', { task_id: opts.taskId, strategy_id: opts.strategy });
         console.log(pc.green(`Enqueued ${result.enqueued} jobs for analysis`));
       } catch (err: unknown) {
         console.log(pc.red(`Error: ${(err as Error).message}`));

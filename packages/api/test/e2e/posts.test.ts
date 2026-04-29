@@ -19,7 +19,8 @@ describe('Posts routes', () => {
       const res = await fetchApi(ctx.baseUrl, '/api/posts');
       assert.equal(res.status, 200);
       const body = await res.json();
-      assert.ok(Array.isArray(body));
+      assert.ok(Array.isArray(body.posts));
+      assert.equal(body.total, 0);
     });
 
     it('supports limit parameter', async () => {

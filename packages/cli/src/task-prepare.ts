@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
 import { apiGet, apiPost } from './api-client';
+import type { TaskDetailResponse, TaskPrepareDataResponse } from '@scopai/api';
 
 export function taskPrepareCommands(program: Command): void {
   const task = program.commands.find(c => c.name() === 'task') ?? program.command('task');
@@ -10,7 +11,7 @@ export function taskPrepareCommands(program: Command): void {
     .description('Download comments and media for task posts via opencli (resumable)')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      const t = await apiGet<Record<string, any>>('/tasks/' + opts.taskId);
+      const t = await apiGet<TaskDetailResponse>('/tasks/' + opts.taskId);
       if (!t.id) {
         console.log(pc.red(`Task not found: ${opts.taskId}`));
         process.exit(1);
@@ -21,7 +22,7 @@ export function taskPrepareCommands(program: Command): void {
         process.exit(1);
       }
 
-      const result = await apiPost<{ jobId: string; taskId: string; status: string }>('/tasks/' + opts.taskId + '/prepare-data');
+      const result = await apiPost<TaskPrepareDataResponse>('/tasks/' + opts.taskId + '/prepare-data');
       if (result.status !== 'queued') {
         console.log(pc.red('Failed to start data preparation'));
         process.exit(1);

@@ -71,7 +71,7 @@ export default async function postsRoutes(app: FastifyInstance) {
       ? await searchPosts(platform || '', searchQuery, parsedLimit, parsedOffset)
       : await listPosts(platform || undefined, parsedLimit, parsedOffset);
     const total = await countPosts(platform || undefined);
-    return { items, total };
+    return { posts: items, total };
   });
 
   app.post('/posts/import', async (request, reply) => {

@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
 import { apiGet, apiPost, apiDelete } from './api-client';
+import type { ListCreatorsResponse } from '@scopai/api';
 
 export function creatorCommands(program: Command): void {
   const creator = program.command('creator').description('Creator subscription management');
@@ -40,7 +41,7 @@ export function creatorCommands(program: Command): void {
       const params = new URLSearchParams();
       if (opts.platform) params.set('platform', opts.platform);
       if (opts.status) params.set('status', opts.status);
-      const result = await apiGet<{ items: any[]; total: number }>('/creators?' + params.toString());
+      const result = await apiGet<ListCreatorsResponse>('/creators?' + params.toString());
       const creators = result.items ?? [];
       if (creators.length === 0) {
         console.log(pc.yellow('No creators found'));

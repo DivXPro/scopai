@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import * as pc from 'picocolors';
 import * as fs from 'fs';
 import { apiGet, apiPost } from './api-client';
+import type { ListCommentsResponse } from '@scopai/api';
 
 interface RawCommentItem {
   platform_comment_id?: string;
@@ -65,7 +66,7 @@ export function commentCommands(program: Command): void {
     .requiredOption('--post-id <id>', 'Post ID')
     .option('--limit <n>', 'Max results', '100')
     .action(async (opts: { postId: string; limit: string }) => {
-      const result = await apiGet<{ comments: any[]; total: number }>('/posts/' + opts.postId + '/comments?limit=' + opts.limit);
+      const result = await apiGet<ListCommentsResponse>('/posts/' + opts.postId + '/comments?limit=' + opts.limit);
       const comments = result.comments ?? result;
       const total = (result as any).total ?? comments.length;
       if (comments.length === 0) {

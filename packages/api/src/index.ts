@@ -179,3 +179,5 @@ main().catch((err) => {
   removeLockFile();
   process.exit(1);
 });
+
+export * from './types';

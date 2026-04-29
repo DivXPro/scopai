@@ -2,6 +2,15 @@ import { Command } from 'commander';
 import * as pc from 'picocolors';
 import { generateId, formatTimestamp, waitForTaskStep, waitForTaskSteps } from '@scopai/core';
 import { apiGet, apiPost } from './api-client';
+import type {
+  ListTasksResponse,
+  TaskDetailResponse,
+  TaskStartResponse,
+  CreateTaskStepResponse,
+  RunTaskStepResponse,
+  ResetTaskStepResponse,
+  RunAllTaskStepsResponse,
+} from '@scopai/api';
 
 export function taskCommands(program: Command): void {
   const task = program.command('task').description('Task management');
@@ -84,7 +93,7 @@ export function taskCommands(program: Command): void {
     .description('Start a task (enqueue jobs for analysis)')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      const full = await apiGet<Record<string, any>>('/tasks/' + opts.taskId);
+      const full = await apiGet<TaskDetailResponse>('/tasks/' + opts.taskId);
       if (!full.id) {
         console.log(pc.red(`Task not found: ${opts.taskId}`));
         process.exit(1);
@@ -95,7 +104,7 @@ export function taskCommands(program: Command): void {
         return;
       }
 
-      const result = await apiPost<{ enqueued: number; skipped: number; mediaJobs: number }>('/tasks/' + opts.taskId + '/start');
+      const result = await apiPost<TaskStartResponse>('/tasks/' + opts.taskId + '/start');
 
       if (result.skipped > 0) {
         console.log(pc.dim(`  Skipped ${result.skipped} already-analyzed targets`));
@@ -143,7 +152,7 @@ export function taskCommands(program: Command): void {
       const params = new URLSearchParams();
       if (opts.status) params.set('status', opts.status);
       if (opts.query) params.set('query', opts.query);
-      const response = await apiGet<{ items: any[]; total: number }>('/tasks?' + params.toString());
+      const response = await apiGet<ListTasksResponse>('/tasks?' + params.toString());
       const tasks = response.items ?? [];
       if (tasks.length === 0) {
         console.log(pc.yellow('No tasks found'));
@@ -177,7 +186,7 @@ export function taskCommands(program: Command): void {
     .description('Show task status and progress')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      const full = await apiGet<Record<string, any>>('/tasks/' + opts.taskId);
+      const full = await apiGet<TaskDetailResponse>('/tasks/' + opts.taskId);
       if (!full.id) {
         console.log(pc.red(`Task not found: ${opts.taskId}`));
         process.exit(1);
@@ -242,7 +251,7 @@ export function taskCommands(program: Command): void {
     .option('--name <name>', 'Step name')
     .option('--order <n>', 'Step order (auto-increment if omitted)')
     .action(async (opts: { taskId: string; strategyId: string; dependsOnStepId?: string; name?: string; order?: string }) => {
-      const result = await apiPost<{ stepId: string; stepOrder: number }>('/tasks/' + opts.taskId + '/steps', {
+      const result = await apiPost<CreateTaskStepResponse>('/tasks/' + opts.taskId + '/steps', {
         strategy_id: opts.strategyId,
         depends_on_step_id: opts.dependsOnStepId,
         name: opts.name,
@@ -280,7 +289,7 @@ export function taskCommands(program: Command): void {
     .option('--wait', 'Block until step completes (default: true)')
     .option('--no-wait', 'Return immediately after enqueueing')
     .action(async (opts: { taskId: string; stepId: string; wait: boolean }) => {
-      const result = await apiPost<{ enqueued: number; status: string }>('/tasks/' + opts.taskId + '/steps/' + opts.stepId + '/run');
+      const result = await apiPost<RunTaskStepResponse>('/tasks/' + opts.taskId + '/steps/' + opts.stepId + '/run');
 
       if (opts.wait === false) {
         console.log(pc.green(`Step status: ${result.status}`));
@@ -332,7 +341,7 @@ export function taskCommands(program: Command): void {
     .requiredOption('--step-id <id>', 'Step ID')
     .action(async (opts: { taskId: string; stepId: string }) => {
       try {
-        const result = await apiPost<{ reset: boolean }>('/tasks/' + opts.taskId + '/steps/' + opts.stepId + '/reset');
+        const result = await apiPost<ResetTaskStepResponse>('/tasks/' + opts.taskId + '/steps/' + opts.stepId + '/reset');
         console.log(pc.green(`Step reset: ${result.reset}`));
       } catch (err: unknown) {
         console.log(pc.red(`Error: ${(err as Error).message}`));
@@ -347,7 +356,7 @@ export function taskCommands(program: Command): void {
     .option('--wait', 'Block until all steps complete (default: true)')
     .option('--no-wait', 'Return immediately after enqueueing')
     .action(async (opts: { taskId: string; wait: boolean }) => {
-      const result = await apiPost<{ completed: number; failed: number; skipped: number }>('/tasks/' + opts.taskId + '/run-all-steps');
+      const result = await apiPost<RunAllTaskStepsResponse>('/tasks/' + opts.taskId + '/run-all-steps');
 
       if (opts.wait === false) {
         console.log(pc.green('All steps processed'));
@@ -392,7 +401,7 @@ export function taskCommands(program: Command): void {
     .description('Show analysis results for a completed task')
     .requiredOption('--task-id <id>', 'Task ID')
     .action(async (opts: { taskId: string }) => {
-      const full = await apiGet<Record<string, any>>('/tasks/' + opts.taskId);
+      const full = await apiGet<TaskDetailResponse>('/tasks/' + opts.taskId);
       if (!full.id) {
         console.log(pc.red(`Task not found: ${opts.taskId}`));
         process.exit(1);

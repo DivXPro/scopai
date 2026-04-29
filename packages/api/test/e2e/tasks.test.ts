@@ -19,7 +19,11 @@ describe('Tasks routes', () => {
     it('creates a task', async () => {
       const res = await fetchApi(ctx.baseUrl, '/api/tasks', {
         method: 'POST',
-        body: JSON.stringify({ name: 'E2E Test Task', description: 'Created by e2e test' }),
+        body: JSON.stringify({
+          name: 'E2E Test Task',
+          description: 'Created by e2e test',
+          cli_templates: JSON.stringify({ fetch_note: 'echo {note_id}' }),
+        }),
       });
       assert.equal(res.status, 200);
       const body = await res.json();
@@ -33,8 +37,9 @@ describe('Tasks routes', () => {
       const res = await fetchApi(ctx.baseUrl, '/api/tasks');
       assert.equal(res.status, 200);
       const body = await res.json();
-      assert.ok(Array.isArray(body));
-      assert.ok(body.length >= 1);
+      assert.ok(Array.isArray(body.items));
+      assert.ok(body.items.length >= 1);
+      assert.equal(typeof body.total, 'number');
     });
   });
 
@@ -84,8 +89,7 @@ describe('Tasks routes', () => {
       });
       assert.equal(res.status, 200);
       const body = await res.json();
-      assert.ok(body.jobId);
-      assert.equal(body.taskId, taskId);
+      assert.equal(body.started, true);
       assert.equal(body.status, 'queued');
     });
   });
@@ -98,7 +102,7 @@ describe('Tasks routes', () => {
       });
       assert.equal(res.status, 200);
       const body = await res.json();
-      assert.ok(body.jobId);
+      assert.equal(typeof body.added, 'number');
     });
 
     it('rejects empty post_ids', async () => {

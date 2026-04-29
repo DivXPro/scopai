@@ -274,8 +274,8 @@ export default function PostLibrary() {
     if (searchQuery.trim()) params.set('query', searchQuery.trim());
     if (selectedPlatform) params.set('platform', selectedPlatform);
     try {
-      const data = await apiGet<{ items: Post[]; total: number }>(`/api/posts?${params}`);
-      setPosts(data.items);
+      const data = await apiGet<{ posts: Post[]; total: number }>(`/api/posts?${params}`);
+      setPosts(data.posts);
       setTotal(data.total);
     } catch (e) {
       setError(e instanceof Error ? e.message : '加载失败');

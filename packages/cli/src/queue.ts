@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
 import { apiGet, apiPost } from './api-client';
+import type { ListQueueResponse, QueueRetryResponse, QueueResetResponse } from '@scopai/api';
 
 export function queueCommands(program: Command): void {
   const queue = program.command('queue').description('Queue management');
@@ -18,7 +19,7 @@ export function queueCommands(program: Command): void {
         params.set('task_id', opts.taskId);
         if (opts.failedOnly) params.set('status', 'failed');
         params.set('limit', opts.limit);
-        const jobs = await apiGet<{ id: string; target_id: string; status: string; attempts: number; error: string | null }[]>('/queue?' + params.toString());
+        const { jobs } = await apiGet<ListQueueResponse>('/queue?' + params.toString());
 
         if (jobs.length === 0) {
           console.log(pc.yellow('No jobs found'));
@@ -48,7 +49,7 @@ export function queueCommands(program: Command): void {
     .option('--task-id <id>', 'Limit retries to a specific task')
     .action(async (opts: { taskId?: string }) => {
       try {
-        const result = await apiPost<{ retried: number }>('/queue/retry', { task_id: opts.taskId ?? null });
+        const result = await apiPost<QueueRetryResponse>('/queue/retry', { task_id: opts.taskId ?? null });
         console.log(pc.green(`Retried ${result.retried} failed jobs`));
       } catch (err: unknown) {
         console.log(pc.red(`Error: ${(err as Error).message}`));
@@ -62,7 +63,7 @@ export function queueCommands(program: Command): void {
     .option('--task-id <id>', 'Limit reset to a specific task')
     .action(async (opts: { taskId?: string }) => {
       try {
-        const result = await apiPost<{ reset: number }>('/queue/reset', { task_id: opts.taskId ?? null });
+        const result = await apiPost<QueueResetResponse>('/queue/reset', { task_id: opts.taskId ?? null });
         console.log(pc.green(`Reset ${result.reset} jobs`));
       } catch (err: unknown) {
         console.log(pc.red(`Error: ${(err as Error).message}`));
