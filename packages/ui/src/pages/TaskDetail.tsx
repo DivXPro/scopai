@@ -4,7 +4,7 @@ import * as icons from '@gravity-ui/icons';
 import { apiGet } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -60,7 +60,7 @@ interface ResultStats {
   [key: string]: unknown;
 }
 
-const statusVariantMap: Record<string, string> = {
+const statusVariantMap: Record<string, BadgeVariant> = {
   pending: 'outline',
   running: 'default',
   paused: 'secondary',

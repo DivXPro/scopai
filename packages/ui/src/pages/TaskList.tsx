@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as icons from '@gravity-ui/icons';
 import { apiGet } from '@/api/client';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,7 +22,7 @@ interface Task {
   updated_at: string;
 }
 
-const statusVariantMap: Record<string, string> = {
+const statusVariantMap: Record<string, BadgeVariant> = {
   pending: 'outline',
   running: 'default',
   paused: 'secondary',

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Avatar } from '@heroui/react';
 
 // Inline Creator type to avoid cross-package import dependency
@@ -27,7 +27,7 @@ interface CreatorCardProps {
   creator: Creator;
 }
 
-const statusColorMap: Record<Creator['status'], string> = {
+const statusColorMap: Record<Creator['status'], BadgeVariant> = {
   active: 'success',
   paused: 'warning',
   unsubscribed: 'default',
@@ -67,7 +67,7 @@ export function CreatorCard({ creator }: CreatorCardProps) {
               </p>
             </div>
             <Badge
-              variant={statusColorMap[creator.status] as any}
+              variant={statusColorMap[creator.status]}
               size="sm"
             >
               {creator.status}

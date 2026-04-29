@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
-import * as icons from '@gravity-ui/icons';
 import { apiGet, apiPost } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const Clock = icons.Clock;
 
 interface CreatorSyncSchedule {
   id: string;

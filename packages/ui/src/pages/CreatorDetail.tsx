@@ -4,7 +4,7 @@ import * as icons from '@gravity-ui/icons';
 import { apiGet, apiPost } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SyncSchedule } from '@/components/SyncSchedule';
 import Pagination from '@/components/Pagination';
@@ -14,7 +14,6 @@ import {
 
 const ArrowChevronLeft = icons.ArrowChevronLeft;
 const CirclePlay = icons.CirclePlay;
-const CirclePause = icons.CirclePause;
 const CirclePlayFill = icons.CirclePlayFill;
 const CirclePauseFill = icons.CirclePauseFill;
 
@@ -65,7 +64,7 @@ interface CreatorSyncLog {
 
 type Tab = 'posts' | 'logs' | 'schedule' | 'actions';
 
-const statusVariantMap: Record<string, string> = {
+const statusVariantMap: Record<string, BadgeVariant> = {
   active: 'default',
   paused: 'secondary',
   unsubscribed: 'destructive',
@@ -108,7 +107,6 @@ export default function CreatorDetail() {
 
   // Logs state
   const [logs, setLogs] = useState<CreatorSyncLog[]>([]);
-  const [logsPage, setLogsPage] = useState(1);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [actionLoading, setActionLoading] = useState('');

@@ -6,7 +6,7 @@ const ListCheck = icons.ListCheck;
 const FileText = icons.FileText;
 const TargetDart = icons.TargetDart;
 const Thunderbolt = icons.Thunderbolt;
-const Users = icons.Users;
+const Persons = icons.Persons;
 
 const navItems = [
   { path: '/', label: '概览', icon: Tachometer },
@@ -14,7 +14,7 @@ const navItems = [
   { path: '/posts', label: '帖子库', icon: FileText },
   { path: '/strategies', label: '策略', icon: TargetDart },
   { path: '/queue', label: '队列', icon: Thunderbolt },
-  { path: '/creators', label: '博主管理', icon: Users },
+  { path: '/creators', label: '博主管理', icon: Persons },
 ];
 
 export default function Sidebar() {

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import * as icons from '@gravity-ui/icons';
 import { apiGet, apiPost } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import Pagination from '@/components/Pagination';
@@ -46,7 +46,7 @@ interface QueueData {
   total: number;
 }
 
-const statusVariantMap: Record<string, string> = {
+const statusVariantMap: Record<string, BadgeVariant> = {
   pending: 'outline',
   processing: 'default',
   completed: 'secondary',
