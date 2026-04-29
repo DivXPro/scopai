@@ -1,6 +1,8 @@
 import fastify from 'fastify';
 import staticPlugin from '@fastify/static';
 import * as path from 'path';
+import { existsSync } from 'fs';
+import { spawnSync } from 'child_process';
 import {
   config,
   migrate,
@@ -63,6 +65,25 @@ async function main() {
 
   // Register static file serving for UI
   const uiDir = path.join(path.dirname(require.resolve('@scopai/ui/package.json')), 'dist');
+
+  if (!existsSync(path.join(uiDir, 'index.html'))) {
+    console.log('UI dist not found, building...');
+    const uiRoot = path.dirname(require.resolve('@scopai/ui/package.json'));
+    const result = spawnSync('pnpm', ['build'], {
+      cwd: uiRoot,
+      stdio: 'inherit',
+      shell: true,
+    });
+    if (result.error || result.status !== 0) {
+      console.error('UI build failed:', result.error?.message || `exit code ${result.status}`);
+      process.exit(1);
+    }
+    if (!existsSync(path.join(uiDir, 'index.html'))) {
+      console.error('UI build did not produce index.html');
+      process.exit(1);
+    }
+  }
+
   await app.register(staticPlugin, {
     root: uiDir,
     prefix: '/',

@@ -1,11 +1,14 @@
 {
   "name": "@scopai/cli",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "CLI entry for scopai",
   "main": "dist/index.js",
   "bin": {
     "scopai": "./dist/index.js"
   },
+  "files": [
+    "dist/"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch"

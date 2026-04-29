@@ -63,6 +63,7 @@ export function daemonCommands(program: Command): void {
             const alive = await isApiAlive(newLock.port);
             if (alive) {
               console.log(pc.green(`Daemon started on port ${newLock.port} (PID ${newLock.pid})`));
+              console.log(pc.cyan(`Dashboard: http://localhost:${newLock.port}`));
               return;
             }
           }
