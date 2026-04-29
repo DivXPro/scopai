@@ -330,7 +330,7 @@ export default function CreatorDetail() {
           ) : (
             <Card>
               <CardContent className="p-0">
-                <Table>
+                <Table aria-label="同步日志">
                   <TableHeader>
                     <TableHead>类型</TableHead>
                     <TableHead>状态</TableHead>

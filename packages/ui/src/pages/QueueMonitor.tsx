@@ -213,7 +213,7 @@ export default function QueueMonitor() {
         <>
           <Card>
             <CardContent className="p-0">
-              <Table>
+              <Table aria-label="队列任务">
                 <TableHeader>
                   <TableHead>状态</TableHead>
                   <TableHead>目标类型</TableHead>

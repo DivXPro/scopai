@@ -184,7 +184,7 @@ export default function Overview() {
         ) : (
           <Card>
             <CardContent className="p-0">
-              <Table>
+              <Table aria-label="最近任务">
                 <TableHeader>
                   <TableHead>名称</TableHead>
                   <TableHead>状态</TableHead>

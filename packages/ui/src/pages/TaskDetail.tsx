@@ -147,7 +147,7 @@ function StepRow({ step, taskId }: { step: TaskStep; taskId: string }) {
                     共 {resultStats.total} 条结果
                   </div>
                 )}
-                <Table>
+                <Table aria-label="分析结果">
                   <TableHeader>
                     <TableHead>目标</TableHead>
                     <TableHead>摘要</TableHead>

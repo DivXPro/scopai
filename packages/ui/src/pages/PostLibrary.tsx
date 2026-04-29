@@ -119,7 +119,7 @@ function AnalysisSection({ postId }: { postId: string }) {
       {Object.entries(grouped).map(([strategyName, items]) => (
         <div key={strategyName}>
           <p className="text-xs font-medium text-muted-foreground mb-1">{strategyName}</p>
-          <Table>
+          <Table aria-label="分析结果">
             <TableHeader>
               <TableHead className="h-7 text-xs">目标</TableHead>
               <TableHead className="h-7 text-xs">摘要</TableHead>

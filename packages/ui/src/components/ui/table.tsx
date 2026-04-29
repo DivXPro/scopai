@@ -14,7 +14,7 @@ export interface TableProps extends React.HTMLAttributes<HTMLDivElement> {
 export function Table({ className = "", children, ...props }: TableProps) {
   return (
     <HeroTable className={className} {...(props as any)}>
-      {children}
+      <HeroTable.Content>{children}</HeroTable.Content>
     </HeroTable>
   );
 }

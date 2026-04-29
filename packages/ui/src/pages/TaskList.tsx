@@ -134,7 +134,7 @@ export default function TaskList() {
         <>
           <Card>
             <CardContent className="p-0">
-              <Table>
+              <Table aria-label="任务列表">
                 <TableHeader>
                   <TableHead>名称</TableHead>
                   <TableHead>状态</TableHead>
