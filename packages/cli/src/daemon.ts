@@ -76,7 +76,8 @@ export function daemonCommands(program: Command): void {
   daemon
     .command('stop')
     .description('Stop the daemon')
-    .action(async () => {
+    .option('--force', 'Force kill immediately (may interrupt running workers)')
+    .action(async (opts: { force?: boolean }) => {
       const lock = readLockFile();
       if (!lock) {
         console.log(pc.yellow('Daemon is not running'));
@@ -88,6 +89,16 @@ export function daemonCommands(program: Command): void {
         console.log(pc.green('Daemon was not running (cleaned stale lock)'));
         return;
       }
+
+      if (opts.force) {
+        try {
+          process.kill(lock.pid, 'SIGKILL');
+        } catch {}
+        removeLockFile();
+        console.log(pc.yellow('Daemon force-stopped (SIGKILL)'));
+        return;
+      }
+
       try {
         process.kill(lock.pid, 'SIGTERM');
       } catch {
@@ -97,16 +108,20 @@ export function daemonCommands(program: Command): void {
       }
       console.log(pc.yellow('Daemon stopping...'));
 
-      // Wait for lock file to be removed
+      // API graceful shutdown waits up to 30s for workers to drain.
+      // Wait 35s to give it enough time plus a small buffer.
       const start = Date.now();
-      while (Date.now() - start < 10_000) {
+      const timeout = 35_000;
+      while (Date.now() - start < timeout) {
         await new Promise((r) => setTimeout(r, 500));
         if (!readLockFile()) {
           console.log(pc.green('Daemon stopped'));
           return;
         }
       }
+
       console.log(pc.red('Daemon did not stop within timeout'));
+      console.log(pc.dim('Hint: use --force to kill immediately (may interrupt running workers)'));
       process.exit(1);
     });
 
@@ -151,19 +166,32 @@ export function daemonCommands(program: Command): void {
     .description('Restart the daemon')
     .option('--fg', 'Run in foreground (debug mode)')
     .option('--verbose', 'Enable debug-level logging')
-    .action(async (opts: { fg?: boolean; verbose?: boolean }) => {
+    .option('--force', 'Force kill immediately (may interrupt running workers)')
+    .action(async (opts: { fg?: boolean; verbose?: boolean; force?: boolean }) => {
       // Stop
       const lock = readLockFile();
       if (lock) {
         const alive = await isApiAlive(lock.port);
         if (alive) {
-          try { process.kill(lock.pid, 'SIGTERM'); } catch {}
-          const start = Date.now();
-          while (Date.now() - start < 10_000) {
-            await new Promise((r) => setTimeout(r, 500));
-            if (!readLockFile()) break;
+          if (opts.force) {
+            try { process.kill(lock.pid, 'SIGKILL'); } catch {}
+            removeLockFile();
+            console.log(pc.yellow('Daemon force-stopped (SIGKILL)'));
+          } else {
+            try { process.kill(lock.pid, 'SIGTERM'); } catch {}
+            const start = Date.now();
+            let stopped = false;
+            while (Date.now() - start < 35_000) {
+              await new Promise((r) => setTimeout(r, 500));
+              if (!readLockFile()) { stopped = true; break; }
+            }
+            if (!stopped) {
+              console.log(pc.red('Daemon did not stop within timeout'));
+              console.log(pc.dim('Hint: use --force to kill immediately (may interrupt running workers)'));
+              process.exit(1);
+            }
+            console.log(pc.green('Daemon stopped'));
           }
-          console.log(pc.green('Daemon stopped'));
         } else {
           removeLockFile();
         }
@@ -172,7 +200,10 @@ export function daemonCommands(program: Command): void {
       // Start — invoke the start action
       const startCmd = daemon.commands.find((c) => c.name() === 'start');
       if (startCmd) {
-        await startCmd.parseAsync(['--fg', ...(opts.fg ? [] : []), ...(opts.verbose ? ['--verbose'] : [])], { from: 'user' });
+        const args: string[] = [];
+        if (opts.fg) args.push('--fg');
+        if (opts.verbose) args.push('--verbose');
+        await startCmd.parseAsync(args, { from: 'user' });
       }
     });
 }
