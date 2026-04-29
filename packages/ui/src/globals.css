@@ -1,85 +1,19 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "@heroui/styles";
 
-@layer base {
-  :root {
-    --background: 36 17% 94%;
-    --foreground: 0 0% 0%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 0%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 0%;
-    --primary: 156 100% 23%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 36 13% 91%;
-    --secondary-foreground: 156 50% 17%;
-    --muted: 36 13% 91%;
-    --muted-foreground: 0 0% 0%;
-    --accent: 160 18% 86%;
-    --accent-foreground: 156 100% 19%;
-    --destructive: 4 82% 43%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 30 6% 85%;
-    --input: 200 10% 86%;
-    --ring: 156 100% 23%;
-    --radius: 0.75rem;
-
-    --starbucks-green: 156 100% 19%;
-    --green-accent: 156 100% 23%;
-    --house-green: 156 50% 17%;
-    --green-uplift: 156 32% 24%;
-    --green-light: 160 18% 86%;
-    --gold: 38 48% 57%;
-    --gold-light: 38 52% 80%;
-    --neutral-warm: 36 17% 94%;
-    --ceramic: 36 13% 91%;
-  }
-
-  .dark {
-    --background: 156 50% 17%;
-    --foreground: 0 0% 100%;
-    --card: 156 40% 13%;
-    --card-foreground: 0 0% 100%;
-    --popover: 156 40% 13%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 156 100% 23%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 156 30% 22%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 156 30% 22%;
-    --muted-foreground: 0 0% 100% / 0.7;
-    --accent: 156 30% 22%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 4 82% 43%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 156 30% 22%;
-    --input: 156 30% 22%;
-    --ring: 156 100% 23%;
-
-    --starbucks-green: 156 100% 29%;
-    --green-accent: 156 100% 33%;
-    --house-green: 156 50% 17%;
-    --green-uplift: 156 32% 30%;
-    --green-light: 160 18% 30%;
-    --gold: 38 48% 57%;
-    --gold-light: 38 52% 80%;
-    --neutral-warm: 156 50% 17%;
-    --ceramic: 156 40% 13%;
-  }
+@theme {
+  --color-starbucks-green: oklch(0.42 0.15 156);
+  --color-green-accent: oklch(0.45 0.14 156);
+  --color-house-green: oklch(0.35 0.08 156);
+  --color-green-uplift: oklch(0.45 0.06 156);
+  --color-green-light: oklch(0.85 0.05 156);
+  --color-gold: oklch(0.70 0.12 80);
+  --color-gold-light: oklch(0.85 0.10 80);
+  --color-neutral-warm: oklch(0.92 0.01 80);
+  --color-ceramic: oklch(0.90 0.01 80);
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-    font-family: 'Inter', "Helvetica Neue", Helvetica, Arial, sans-serif;
-    letter-spacing: -0.01em;
-    color: rgba(0, 0, 0, 0.87);
-  }
-  .dark body {
-    color: rgba(255, 255, 255, 1);
-  }
+body {
+  font-family: 'Inter', "Helvetica Neue", Helvetica, Arial, sans-serif;
+  letter-spacing: -0.01em;
 }

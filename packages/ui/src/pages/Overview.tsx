@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Loader2, CheckCircle2, XCircle, ArrowRight, FileText, Target, Zap } from 'lucide-react';
+import * as icons from '@gravity-ui/icons';
 import { apiGet } from '@/api/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,15 @@ import { Button } from '@/components/ui/button';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+
+const Clock = icons.Clock;
+const CirclePlay = icons.CirclePlay;
+const CircleCheck = icons.CircleCheck;
+const CircleXmark = icons.CircleXmark;
+const ArrowChevronRight = icons.ArrowChevronRight;
+const FileText = icons.FileText;
+const TargetDart = icons.TargetDart;
+const Thunderbolt = icons.Thunderbolt;
 
 interface QueueStats {
   pending: number;
@@ -29,7 +38,7 @@ interface Task {
   created_at: string;
 }
 
-const statusVariantMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const statusVariantMap: Record<string, string> = {
   pending: 'outline',
   running: 'default',
   paused: 'secondary',
@@ -45,15 +54,15 @@ const statusLabelMap: Record<string, string> = {
   failed: '失败',
 };
 
-function StatCard({ title, value, icon, color }: { title: string; value: number; icon: React.ReactNode; color: string }) {
+function StatCard({ title, value, icon, colorClass }: { title: string; value: number; icon: React.ReactNode; colorClass: string }) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <span className={color}>{icon}</span>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-foreground">{title}</CardTitle>
+        <span className={colorClass}>{icon}</span>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className="text-2xl font-bold text-foreground">{value}</div>
       </CardContent>
     </Card>
   );
@@ -87,7 +96,7 @@ export default function Overview() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+      <div className="rounded-lg border border-danger/50 bg-danger/10 p-4 text-danger">
         <p className="font-medium">加载失败</p>
         <p className="text-sm mt-1">{error}</p>
         <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.reload()}>
@@ -102,7 +111,7 @@ export default function Overview() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">概览</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-foreground">概览</h2>
         {status && (
           <span className="text-xs text-muted-foreground">
             运行时间: {formatUptime(status.uptime)}
@@ -112,42 +121,42 @@ export default function Overview() {
 
       {/* 队列统计 */}
       <div className="grid grid-cols-4 gap-4">
-        <StatCard title="待处理" value={stats.pending} icon={<Clock className="h-4 w-4" />} color="text-yellow-600" />
-        <StatCard title="处理中" value={stats.processing} icon={<Loader2 className="h-4 w-4 animate-spin" />} color="text-blue-600" />
-        <StatCard title="已完成" value={stats.completed} icon={<CheckCircle2 className="h-4 w-4" />} color="text-green-accent" />
-        <StatCard title="失败" value={stats.failed} icon={<XCircle className="h-4 w-4" />} color="text-red-600" />
+        <StatCard title="待处理" value={stats.pending} icon={<Clock className="h-4 w-4" />} colorClass="text-warning" />
+        <StatCard title="处理中" value={stats.processing} icon={<CirclePlay className="h-4 w-4 animate-spin" />} colorClass="text-secondary" />
+        <StatCard title="已完成" value={stats.completed} icon={<CircleCheck className="h-4 w-4" />} colorClass="text-success" />
+        <StatCard title="失败" value={stats.failed} icon={<CircleXmark className="h-4 w-4" />} colorClass="text-danger" />
       </div>
 
       {/* 快捷入口 */}
       <div className="grid grid-cols-3 gap-4">
-        <Link to="/posts">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+        <Link to="/posts" className="block">
+          <Card className="cursor-pointer transition-shadow hover:shadow-md">
             <CardContent className="p-4 flex items-center gap-3">
               <FileText className="h-8 w-8 text-muted-foreground" />
               <div>
-                <p className="font-semibold">帖子库</p>
+                <p className="font-semibold text-foreground">帖子库</p>
                 <p className="text-xs text-muted-foreground">浏览和分析帖子</p>
               </div>
             </CardContent>
           </Card>
         </Link>
-        <Link to="/strategies">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+        <Link to="/strategies" className="block">
+          <Card className="cursor-pointer transition-shadow hover:shadow-md">
             <CardContent className="p-4 flex items-center gap-3">
-              <Target className="h-8 w-8 text-muted-foreground" />
+              <TargetDart className="h-8 w-8 text-muted-foreground" />
               <div>
-                <p className="font-semibold">策略管理</p>
+                <p className="font-semibold text-foreground">策略管理</p>
                 <p className="text-xs text-muted-foreground">查看和配置策略</p>
               </div>
             </CardContent>
           </Card>
         </Link>
-        <Link to="/queue">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+        <Link to="/queue" className="block">
+          <Card className="cursor-pointer transition-shadow hover:shadow-md">
             <CardContent className="p-4 flex items-center gap-3">
-              <Zap className="h-8 w-8 text-muted-foreground" />
+              <Thunderbolt className="h-8 w-8 text-muted-foreground" />
               <div>
-                <p className="font-semibold">队列监控</p>
+                <p className="font-semibold text-foreground">队列监控</p>
                 <p className="text-xs text-muted-foreground">查看队列状态</p>
               </div>
             </CardContent>
@@ -158,13 +167,10 @@ export default function Overview() {
       {/* 最近任务 */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">最近任务</h3>
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/tasks">
-              查看全部
-              <ArrowRight className="h-3 w-3 ml-1" />
-            </Link>
-          </Button>
+          <h3 className="text-lg font-semibold text-foreground">最近任务</h3>
+          <Link to="/tasks" className="text-sm text-primary hover:underline flex items-center gap-1">
+            查看全部 <ArrowChevronRight className="h-3 w-3" />
+          </Link>
         </div>
         {loading ? (
           <div className="space-y-2">
@@ -176,38 +182,40 @@ export default function Overview() {
             <p className="text-muted-foreground">暂无任务</p>
           </div>
         ) : (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>名称</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>创建时间</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentTasks.map((task) => (
-                  <TableRow key={task.id}>
-                    <TableCell className="font-medium">{task.name}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusVariantMap[task.status] ?? 'outline'}>
-                        {statusLabelMap[task.status] ?? task.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(task.created_at).toLocaleDateString('zh-CN')}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link to={`/tasks/${task.id}`}>查看</Link>
-                      </Button>
-                    </TableCell>
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>名称</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead>创建时间</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {recentTasks.map((task) => (
+                    <TableRow key={task.id}>
+                      <TableCell className="font-medium text-foreground">{task.name}</TableCell>
+                      <TableCell>
+                        <Badge variant={statusVariantMap[task.status] ?? 'outline'}>
+                          {statusLabelMap[task.status] ?? task.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(task.created_at).toLocaleDateString('zh-CN')}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Link to={`/tasks/${task.id}`} className="text-primary hover:underline text-sm">
+                          查看
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

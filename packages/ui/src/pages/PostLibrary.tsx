@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Heart, MessageCircle, Share2, Bookmark, Eye, Search, SlidersHorizontal, BarChart3, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import * as icons from '@gravity-ui/icons';
 import { apiGet } from '@/api/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,18 @@ import Pagination from '@/components/Pagination';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+
+const Heart = icons.Heart;
+const Bookmark = icons.Bookmark;
+const Comment = icons.Comment;
+const Eye = icons.Eye;
+const Magnifier = icons.Magnifier;
+const Sliders = icons.Sliders;
+const ChartBar = icons.ChartBar;
+const ArrowChevronDown = icons.ArrowChevronDown;
+const ArrowChevronUp = icons.ArrowChevronUp;
+const CirclePlay = icons.CirclePlay;
+const CircleArrowRight = icons.CircleArrowRight;
 
 interface Post {
   id: string;
@@ -62,9 +74,9 @@ function getPlatformMeta(platformId: string) {
 function PlatformBadge({ platformId }: { platformId: string }) {
   const meta = getPlatformMeta(platformId);
   return (
-    <Badge variant="outline" className={meta.color}>
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium shrink-0 ${meta.color}`}>
       {meta.name}
-    </Badge>
+    </span>
   );
 }
 
@@ -85,7 +97,7 @@ function AnalysisSection({ postId }: { postId: string }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-4">
-        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        <CirclePlay className="h-4 w-4 animate-spin text-muted-foreground" />
         <span className="ml-2 text-xs text-muted-foreground">加载分析结果...</span>
       </div>
     );
@@ -123,7 +135,7 @@ function AnalysisSection({ postId }: { postId: string }) {
                       {r.target_type}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-xs py-1 max-w-[200px] truncate">
+                  <TableCell className="text-xs py-1 max-w-[200px] truncate text-foreground">
                     {r.raw_response
                       ? String(r.raw_response.sentiment ?? r.raw_response.summary ?? JSON.stringify(r.raw_response).slice(0, 60))
                       : '-'}
@@ -149,7 +161,7 @@ function PostCard({ post }: { post: Post }) {
     <Card className="hover:shadow-md transition-shadow cursor-pointer">
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-semibold text-sm leading-tight line-clamp-2 flex-1">
+          <h3 className="font-semibold text-sm leading-tight line-clamp-2 flex-1 text-foreground">
             {post.title || contentPreview}
           </h3>
           <PlatformBadge platformId={post.platform_id} />
@@ -175,7 +187,7 @@ function PostCard({ post }: { post: Post }) {
             {post.collect_count?.toLocaleString() ?? 0}
           </span>
           <span className="flex items-center gap-1">
-            <MessageCircle className="h-3 w-3" />
+            <Comment className="h-3 w-3" />
             {post.comment_count?.toLocaleString() ?? 0}
           </span>
           {post.play_count > 0 && (
@@ -199,16 +211,16 @@ function PostCard({ post }: { post: Post }) {
               className="h-7 text-xs"
               onClick={() => setExpanded(!expanded)}
             >
-              <BarChart3 className="h-3 w-3 mr-1" />
+              <ChartBar className="h-3 w-3 mr-1" />
               分析
-              {expanded ? <ChevronUp className="h-3 w-3 ml-0.5" /> : <ChevronDown className="h-3 w-3 ml-0.5" />}
+              {expanded ? <ArrowChevronUp className="h-3 w-3 ml-0.5" /> : <ArrowChevronDown className="h-3 w-3 ml-0.5" />}
             </Button>
-            <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-              <a href={post.url ?? '#'} target="_blank" rel="noopener noreferrer">
-                <Share2 className="h-3 w-3 mr-1" />
+            <a href={post.url ?? '#'} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground">
+              <Button variant="ghost" size="sm" className="h-7 text-xs">
+                <CircleArrowRight className="h-3 w-3 mr-1" />
                 查看
-              </a>
-            </Button>
+              </Button>
+            </a>
           </div>
         </div>
 
@@ -305,8 +317,8 @@ export default function PostLibrary() {
   if (error && posts.length === 0) {
     return (
       <div className="space-y-6">
-        <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">帖子库</h2>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+        <h2 className="text-3xl font-bold tracking-tight text-foreground">帖子库</h2>
+        <div className="rounded-lg border border-danger/50 bg-danger/10 p-4 text-danger">
           <p className="font-medium">加载失败</p>
           <p className="text-sm mt-1">{error}</p>
           <Button variant="outline" size="sm" className="mt-2" onClick={fetchPosts}>
@@ -320,7 +332,7 @@ export default function PostLibrary() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">帖子库</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-foreground">帖子库</h2>
         <p className="text-sm text-muted-foreground mt-1">
           {loading ? '加载中...' : `共 ${total} 条帖子`}
         </p>
@@ -328,7 +340,7 @@ export default function PostLibrary() {
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
         <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Magnifier className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
             placeholder="搜索帖子标题或内容..."
@@ -339,7 +351,7 @@ export default function PostLibrary() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+          <Sliders className="h-4 w-4 text-muted-foreground" />
           <Button
             variant={selectedPlatform === null ? 'default' : 'outline'}
             size="sm"

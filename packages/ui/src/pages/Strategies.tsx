@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Target, Trash2, FileJson, AlertTriangle } from 'lucide-react';
+import * as icons from '@gravity-ui/icons';
 import { apiGet, apiDelete } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+
+const TargetDart = icons.TargetDart;
+const TrashBin = icons.TrashBin;
+const CircleExclamation = icons.CircleExclamation;
+const FileText = icons.FileText;
 
 interface Strategy {
   id: string;
@@ -85,19 +90,19 @@ export default function Strategies() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">策略管理</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-foreground">策略管理</h2>
         <p className="text-sm text-muted-foreground">{strategies.length} 个策略</p>
       </div>
 
       {error && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-destructive text-sm">
+        <div className="rounded-lg border border-danger/50 bg-danger/10 p-3 text-danger text-sm">
           {error}
         </div>
       )}
 
       {strategies.length === 0 ? (
         <div className="text-center py-12">
-          <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <TargetDart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground">暂无策略</p>
           <p className="text-xs text-muted-foreground mt-1">通过 CLI 导入策略后在此查看</p>
         </div>
@@ -108,7 +113,7 @@ export default function Strategies() {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-1 flex-1">
-                    <CardTitle className="text-base">{s.name}</CardTitle>
+                    <CardTitle className="text-base text-foreground">{s.name}</CardTitle>
                     <div className="flex items-center gap-2">
                       <Badge variant={s.target === 'post' ? 'default' : 'secondary'}>
                         {s.target === 'post' ? '帖子' : '评论'}
@@ -128,15 +133,15 @@ export default function Strategies() {
                   </div>
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="sm"
                     className="h-8 w-8 shrink-0"
                     onClick={() => handleDelete(s.id)}
                     disabled={deleting === s.id}
                   >
                     {confirmDelete === s.id ? (
-                      <AlertTriangle className="h-4 w-4 text-destructive" />
+                      <CircleExclamation className="h-4 w-4 text-danger" />
                     ) : (
-                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      <TrashBin className="h-4 w-4 text-muted-foreground" />
                     )}
                   </Button>
                 </div>
@@ -149,7 +154,7 @@ export default function Strategies() {
                 {/* 输出 schema */}
                 <div className="space-y-1">
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <FileJson className="h-3 w-3" />
+                    <FileText className="h-3 w-3" />
                     输出字段
                   </div>
                   <SchemaPreview schema={s.output_schema} />
@@ -158,7 +163,7 @@ export default function Strategies() {
                 {/* Prompt 预览 */}
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground">Prompt</p>
-                  <p className="text-xs bg-ceramic rounded p-2 line-clamp-3 font-mono">
+                  <p className="text-xs bg-default rounded p-2 line-clamp-3 font-mono text-foreground">
                     {s.prompt}
                   </p>
                 </div>

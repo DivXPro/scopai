@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ClipboardList, Filter } from 'lucide-react';
+import * as icons from '@gravity-ui/icons';
 import { apiGet } from '@/api/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import Pagination from '@/components/Pagination';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+
+const ListCheck = icons.ListCheck;
+const Funnel = icons.Funnel;
 
 interface Task {
   id: string;
@@ -18,7 +22,7 @@ interface Task {
   updated_at: string;
 }
 
-const statusVariantMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const statusVariantMap: Record<string, string> = {
   pending: 'outline',
   running: 'default',
   paused: 'secondary',
@@ -66,7 +70,7 @@ export default function TaskList() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+      <div className="rounded-lg border border-danger/50 bg-danger/10 p-4 text-danger">
         <p className="font-medium">加载失败</p>
         <p className="text-sm mt-1">{error}</p>
         <Button variant="outline" size="sm" className="mt-2" onClick={() => setPage(1)}>
@@ -79,7 +83,7 @@ export default function TaskList() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">任务列表</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-foreground">任务列表</h2>
         <p className="text-sm text-muted-foreground">
           {loading ? '加载中...' : `共 ${total} 个任务`}
         </p>
@@ -87,7 +91,7 @@ export default function TaskList() {
 
       {/* 状态筛选 */}
       <div className="flex items-center gap-2">
-        <Filter className="h-4 w-4 text-muted-foreground" />
+        <Funnel className="h-4 w-4 text-muted-foreground" />
         <Button
           variant={statusFilter === '' ? 'default' : 'outline'}
           size="sm"
@@ -116,7 +120,7 @@ export default function TaskList() {
         </div>
       ) : tasks.length === 0 ? (
         <div className="text-center py-12">
-          <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <ListCheck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground">
             {statusFilter ? '无匹配任务' : '暂无任务'}
           </p>
@@ -128,42 +132,44 @@ export default function TaskList() {
         </div>
       ) : (
         <>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>名称</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>创建时间</TableHead>
-                  <TableHead>更新时间</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tasks.map((task) => (
-                  <TableRow key={task.id}>
-                    <TableCell className="font-medium">{task.name}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusVariantMap[task.status] ?? 'outline'}>
-                        {statusLabelMap[task.status] ?? task.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(task.created_at).toLocaleDateString('zh-CN')}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(task.updated_at).toLocaleDateString('zh-CN')}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link to={`/tasks/${task.id}`}>查看详情</Link>
-                      </Button>
-                    </TableCell>
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>名称</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead>创建时间</TableHead>
+                    <TableHead>更新时间</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {tasks.map((task) => (
+                    <TableRow key={task.id}>
+                      <TableCell className="font-medium text-foreground">{task.name}</TableCell>
+                      <TableCell>
+                        <Badge variant={statusVariantMap[task.status] ?? 'outline'}>
+                          {statusLabelMap[task.status] ?? task.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(task.created_at).toLocaleDateString('zh-CN')}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(task.updated_at).toLocaleDateString('zh-CN')}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Link to={`/tasks/${task.id}`} className="text-sm text-primary hover:underline">
+                          查看详情
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
           <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={setPage} />
         </>
       )}

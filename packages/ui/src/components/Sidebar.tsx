@@ -1,25 +1,28 @@
 import { NavLink } from 'react-router-dom';
-import {
-  LayoutDashboard, ClipboardList, FileText, Target, Zap,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import * as icons from '@gravity-ui/icons';
+
+const Tachometer = icons.Tachometer;
+const ListCheck = icons.ListCheck;
+const FileText = icons.FileText;
+const TargetDart = icons.TargetDart;
+const Thunderbolt = icons.Thunderbolt;
 
 const navItems = [
-  { path: '/', label: '概览', icon: LayoutDashboard },
-  { path: '/tasks', label: '任务', icon: ClipboardList },
+  { path: '/', label: '概览', icon: Tachometer },
+  { path: '/tasks', label: '任务', icon: ListCheck },
   { path: '/posts', label: '帖子库', icon: FileText },
-  { path: '/strategies', label: '策略', icon: Target },
-  { path: '/queue', label: '队列', icon: Zap },
+  { path: '/strategies', label: '策略', icon: TargetDart },
+  { path: '/queue', label: '队列', icon: Thunderbolt },
 ];
 
 export default function Sidebar() {
   return (
-    <aside className="w-64 bg-house-green flex flex-col">
-      <div className="p-4 border-b border-white/10">
-        <h1 className="text-lg font-bold text-white">Analyze CLI</h1>
-        <p className="text-xs text-white/70">Dashboard</p>
+    <aside className="flex w-64 flex-col border-r border-divider bg-background">
+      <div className="p-4 border-b border-divider">
+        <h1 className="text-lg font-bold text-foreground">ScopeAI</h1>
+        <p className="text-xs text-muted-foreground">Analyze Platform</p>
       </div>
-      <nav className="flex-1 p-2 space-y-1">
+      <nav className="flex-1 p-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -27,12 +30,11 @@ export default function Sidebar() {
               key={item.path}
               to={item.path}
               className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-pill text-sm transition-all duration-200',
+                `flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors mb-1 ${
                   isActive
-                    ? 'bg-green-accent text-white font-medium'
-                    : 'text-white/70 hover:bg-white/10 hover:text-white'
-                )
+                    ? 'bg-primary text-primary-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-default hover:text-foreground'
+                }`
               }
             >
               <Icon className="h-4 w-4" />

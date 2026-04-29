@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Clock, Loader2, CheckCircle2, XCircle, RefreshCw, RotateCcw, Zap } from 'lucide-react';
+import * as icons from '@gravity-ui/icons';
 import { apiGet, apiPost } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,14 @@ import Pagination from '@/components/Pagination';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+
+const Clock = icons.Clock;
+const CirclePlay = icons.CirclePlay;
+const CircleCheck = icons.CircleCheck;
+const CircleXmark = icons.CircleXmark;
+const ArrowRotateRight = icons.ArrowRotateRight;
+const ArrowRotateLeft = icons.ArrowRotateLeft;
+const Thunderbolt = icons.Thunderbolt;
 
 interface QueueStats {
   pending: number;
@@ -38,7 +46,7 @@ interface QueueData {
   total: number;
 }
 
-const statusVariantMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const statusVariantMap: Record<string, string> = {
   pending: 'outline',
   processing: 'default',
   completed: 'secondary',
@@ -49,12 +57,12 @@ const statusVariantMap: Record<string, 'default' | 'secondary' | 'destructive' |
 function StatCard({ title, value, icon, color }: { title: string; value: number; icon: React.ReactNode; color: string }) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-foreground">{title}</CardTitle>
         <span className={color}>{icon}</span>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className="text-2xl font-bold text-foreground">{value}</div>
       </CardContent>
     </Card>
   );
@@ -110,8 +118,8 @@ export default function QueueMonitor() {
   if (error && !data) {
     return (
       <div className="space-y-6">
-        <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">队列监控</h2>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+        <h2 className="text-3xl font-bold tracking-tight text-foreground">队列监控</h2>
+        <div className="rounded-lg border border-danger/50 bg-danger/10 p-4 text-danger">
           <p className="font-medium">加载失败</p>
           <p className="text-sm mt-1">{error}</p>
           <Button variant="outline" size="sm" className="mt-2" onClick={fetchData}>
@@ -125,15 +133,15 @@ export default function QueueMonitor() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">队列监控</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-foreground">队列监控</h2>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={fetchData}>
-            <RefreshCw className="h-3 w-3 mr-1" />
+            <ArrowRotateRight className="h-3 w-3 mr-1" />
             刷新
           </Button>
           {stats.failed > 0 && (
             <Button variant="outline" size="sm" onClick={handleRetry} disabled={retrying}>
-              <RotateCcw className={`h-3 w-3 mr-1 ${retrying ? 'animate-spin' : ''}`} />
+              <ArrowRotateLeft className={`h-3 w-3 mr-1 ${retrying ? 'animate-spin' : ''}`} />
               重试失败 ({stats.failed})
             </Button>
           )}
@@ -146,31 +154,31 @@ export default function QueueMonitor() {
           title="待处理"
           value={stats.pending}
           icon={<Clock className="h-4 w-4" />}
-          color="text-yellow-600"
+          color="text-warning"
         />
         <StatCard
           title="处理中"
           value={stats.processing}
-          icon={<Loader2 className="h-4 w-4 animate-spin" />}
-          color="text-blue-600"
+          icon={<CirclePlay className="h-4 w-4 animate-spin" />}
+          color="text-secondary"
         />
         <StatCard
           title="已完成"
           value={stats.completed}
-          icon={<CheckCircle2 className="h-4 w-4" />}
-          color="text-green-accent"
+          icon={<CircleCheck className="h-4 w-4" />}
+          color="text-success"
         />
         <StatCard
           title="失败"
           value={stats.failed}
-          icon={<XCircle className="h-4 w-4" />}
-          color="text-red-600"
+          icon={<CircleXmark className="h-4 w-4" />}
+          color="text-danger"
         />
       </div>
 
       {/* 状态筛选 */}
       <div className="flex items-center gap-2">
-        <Zap className="h-4 w-4 text-muted-foreground" />
+        <Thunderbolt className="h-4 w-4 text-muted-foreground" />
         <Button
           variant={statusFilter === '' ? 'default' : 'outline'}
           size="sm"
@@ -203,42 +211,44 @@ export default function QueueMonitor() {
         </div>
       ) : (
         <>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>状态</TableHead>
-                  <TableHead>目标类型</TableHead>
-                  <TableHead>策略</TableHead>
-                  <TableHead>重试次数</TableHead>
-                  <TableHead>错误</TableHead>
-                  <TableHead>创建时间</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {jobs.map((job) => (
-                  <TableRow key={job.id}>
-                    <TableCell>
-                      <Badge variant={statusVariantMap[job.status] ?? 'outline'}>
-                        {job.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm">{job.target_type ?? '-'}</TableCell>
-                    <TableCell className="text-sm font-mono">{job.strategy_id ?? '-'}</TableCell>
-                    <TableCell className="text-sm">
-                      {job.attempts}/{job.max_attempts}
-                    </TableCell>
-                    <TableCell className="text-xs text-destructive max-w-xs truncate">
-                      {job.error ?? '-'}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                      {new Date(job.created_at).toLocaleString('zh-CN')}
-                    </TableCell>
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>状态</TableHead>
+                    <TableHead>目标类型</TableHead>
+                    <TableHead>策略</TableHead>
+                    <TableHead>重试次数</TableHead>
+                    <TableHead>错误</TableHead>
+                    <TableHead>创建时间</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {jobs.map((job) => (
+                    <TableRow key={job.id}>
+                      <TableCell>
+                        <Badge variant={statusVariantMap[job.status] ?? 'outline'}>
+                          {job.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground">{job.target_type ?? '-'}</TableCell>
+                      <TableCell className="text-sm font-mono text-foreground">{job.strategy_id ?? '-'}</TableCell>
+                      <TableCell className="text-sm text-foreground">
+                        {job.attempts}/{job.max_attempts}
+                      </TableCell>
+                      <TableCell className="text-xs text-danger max-w-xs truncate text-foreground">
+                        {job.error ?? '-'}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                        {new Date(job.created_at).toLocaleString('zh-CN')}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
           <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={setPage} />
         </>
       )}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react';
+import * as icons from '@gravity-ui/icons';
 import { apiGet } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,6 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+
+const ArrowChevronLeft = icons.ArrowChevronLeft;
+const ArrowChevronDown = icons.ArrowChevronDown;
+const ArrowChevronUp = icons.ArrowChevronUp;
+const ChartBar = icons.ChartBar;
 
 interface TaskStep {
   id: string;
@@ -55,7 +60,7 @@ interface ResultStats {
   [key: string]: unknown;
 }
 
-const statusVariantMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const statusVariantMap: Record<string, string> = {
   pending: 'outline',
   running: 'default',
   paused: 'secondary',
@@ -98,14 +103,14 @@ function StepRow({ step, taskId }: { step: TaskStep; taskId: string }) {
   const progress = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return (
-    <div className="border rounded-lg overflow-hidden">
+    <Card>
       <button
         onClick={toggleExpanded}
-        className="w-full flex items-center justify-between p-4 hover:bg-ceramic/50 transition-colors text-left"
+        className="w-full flex items-center justify-between p-4 hover:bg-default/50 transition-colors text-left"
       >
         <div className="flex items-center gap-4">
-          <span className="text-sm font-medium">步骤 {step.step_order}</span>
-          <span className="font-semibold">{step.name}</span>
+          <span className="text-sm font-medium text-foreground">步骤 {step.step_order}</span>
+          <span className="font-semibold text-foreground">{step.name}</span>
           <Badge variant={statusVariantMap[step.status] ?? 'outline'}>{step.status}</Badge>
           {total > 0 && (
             <span className="text-xs text-muted-foreground">
@@ -120,12 +125,12 @@ function StepRow({ step, taskId }: { step: TaskStep; taskId: string }) {
               {results.length > 0 ? `${results.length} 条结果` : '点击查看结果'}
             </span>
           )}
-          {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          {expanded ? <ArrowChevronUp className="h-4 w-4" /> : <ArrowChevronDown className="h-4 w-4" />}
         </div>
       </button>
 
       {expanded && (
-        <div className="border-t px-4 pb-4">
+        <CardContent className="border-t">
           {step.strategy_id ? (
             loadingResults ? (
               <div className="py-4 space-y-2">
@@ -138,42 +143,40 @@ function StepRow({ step, taskId }: { step: TaskStep; taskId: string }) {
               <div className="space-y-4 pt-4">
                 {resultStats && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <BarChart3 className="h-4 w-4" />
+                    <ChartBar className="h-4 w-4" />
                     共 {resultStats.total} 条结果
                   </div>
                 )}
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>目标</TableHead>
-                        <TableHead>摘要</TableHead>
-                        <TableHead>分析时间</TableHead>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>目标</TableHead>
+                      <TableHead>摘要</TableHead>
+                      <TableHead>分析时间</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {results.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="text-xs font-mono text-foreground">{r.target_id ?? '-'}</TableCell>
+                        <TableCell className="text-sm max-w-md truncate text-foreground">
+                          {r.summary || (r.raw_response ? JSON.stringify(r.raw_response).slice(0, 100) + '...' : '-')}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(r.analyzed_at).toLocaleString('zh-CN')}
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {results.map((r) => (
-                        <TableRow key={r.id}>
-                          <TableCell className="text-xs font-mono">{r.target_id ?? '-'}</TableCell>
-                          <TableCell className="text-sm max-w-md truncate">
-                            {r.summary || (r.raw_response ? JSON.stringify(r.raw_response).slice(0, 100) + '...' : '-')}
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                            {new Date(r.analyzed_at).toLocaleString('zh-CN')}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )
           ) : (
             <p className="text-sm text-muted-foreground py-4">此步骤无关联策略</p>
           )}
-        </div>
+        </CardContent>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -204,12 +207,12 @@ export default function TaskDetail() {
   if (error) {
     return (
       <div className="space-y-4">
-        <Button variant="outline" size="icon" asChild>
-          <Link to="/tasks">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+        <Link to="/tasks">
+          <Button variant="outline" size="sm">
+            <ArrowChevronLeft className="h-4 w-4" />
+          </Button>
+        </Link>
+        <div className="rounded-lg border border-danger/50 bg-danger/10 p-4 text-danger">
           <p className="font-medium">{error.includes('not found') ? '任务不存在' : '加载失败'}</p>
           <p className="text-sm mt-1">{error}</p>
           <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.reload()}>
@@ -232,12 +235,12 @@ export default function TaskDetail() {
     <div className="space-y-6">
       {/* 顶部导航 */}
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" asChild>
-          <Link to="/tasks">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <h2 className="text-3xl font-bold tracking-tight text-starbucks-green">{task.name}</h2>
+        <Link to="/tasks">
+          <Button variant="outline" size="sm">
+            <ArrowChevronLeft className="h-4 w-4" />
+          </Button>
+        </Link>
+        <h2 className="text-3xl font-bold tracking-tight text-foreground">{task.name}</h2>
         <Badge variant={statusVariantMap[task.status] ?? 'outline'}>{task.status}</Badge>
       </div>
 
@@ -246,25 +249,25 @@ export default function TaskDetail() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">总任务</p>
-            <p className="text-2xl font-bold">{task.stats?.total ?? 0}</p>
+            <p className="text-2xl font-bold text-foreground">{task.stats?.total ?? 0}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">已完成</p>
-            <p className="text-2xl font-bold">{task.stats?.done ?? 0}</p>
+            <p className="text-2xl font-bold text-foreground">{task.stats?.done ?? 0}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">失败</p>
-            <p className="text-2xl font-bold">{task.stats?.failed ?? 0}</p>
+            <p className="text-2xl font-bold text-foreground">{task.stats?.failed ?? 0}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">队列任务</p>
-            <p className="text-2xl font-bold">{totalJobs}</p>
+            <p className="text-2xl font-bold text-foreground">{totalJobs}</p>
             <p className="text-xs text-muted-foreground">
               {completedJobs} 完成 · {failedJobs} 失败
             </p>
@@ -274,7 +277,7 @@ export default function TaskDetail() {
 
       {/* 步骤列表 */}
       <div className="space-y-3">
-        <h3 className="text-lg font-semibold">分析步骤与结果</h3>
+        <h3 className="text-lg font-semibold text-foreground">分析步骤与结果</h3>
         {task.steps.length === 0 ? (
           <p className="text-sm text-muted-foreground">暂无分析步骤</p>
         ) : (
@@ -285,10 +288,10 @@ export default function TaskDetail() {
       {/* 原始数据（折叠） */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">原始数据</CardTitle>
+          <CardTitle className="text-sm text-foreground">原始数据</CardTitle>
         </CardHeader>
         <CardContent>
-          <pre className="rounded-lg bg-ceramic p-4 overflow-auto text-xs">
+          <pre className="rounded-lg bg-default p-4 overflow-auto text-xs text-foreground">
             {JSON.stringify(task, null, 2)}
           </pre>
         </CardContent>

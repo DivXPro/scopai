@@ -1,5 +1,8 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import * as icons from '@gravity-ui/icons';
 import { Button } from '@/components/ui/button';
+
+const ArrowChevronLeft = icons.ArrowChevronLeft;
+const ArrowChevronRight = icons.ArrowChevronRight;
 
 interface PaginationProps {
   page: number;
@@ -24,7 +27,7 @@ export default function Pagination({ page, pageSize, total, onChange }: Paginati
           onClick={() => onChange(page - 1)}
           disabled={page <= 1}
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ArrowChevronLeft className="h-4 w-4" />
         </Button>
         <Button
           variant="outline"
@@ -32,7 +35,7 @@ export default function Pagination({ page, pageSize, total, onChange }: Paginati
           onClick={() => onChange(page + 1)}
           disabled={page >= totalPages}
         >
-          <ChevronRight className="h-4 w-4" />
+          <ArrowChevronRight className="h-4 w-4" />
         </Button>
       </div>
     </div>
