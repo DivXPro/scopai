@@ -6,6 +6,8 @@ import TaskDetail from '@/pages/TaskDetail';
 import PostLibrary from '@/pages/PostLibrary';
 import Strategies from '@/pages/Strategies';
 import QueueMonitor from '@/pages/QueueMonitor';
+import CreatorList from '@/pages/CreatorList';
+import CreatorDetail from '@/pages/CreatorDetail';
 
 export default function App() {
   return (
@@ -18,6 +20,8 @@ export default function App() {
           <Route path="posts" element={<PostLibrary />} />
           <Route path="strategies" element={<Strategies />} />
           <Route path="queue" element={<QueueMonitor />} />
+          <Route path="/creators" element={<CreatorList />} />
+          <Route path="/creators/:id" element={<CreatorDetail />} />
         </Route>
       </Routes>
     </BrowserRouter>
