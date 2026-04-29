@@ -15,6 +15,7 @@ tmp/
 .qwen/
 .agent/
 .trae/
+.agents/
 
 # Test runtime data
 test-data/real/
