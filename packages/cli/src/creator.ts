@@ -99,6 +99,15 @@ export function creatorCommands(program: Command): void {
     });
 
   creator
+    .command('sync-profile')
+    .description('Sync creator profile info (bio, avatar, follower count)')
+    .requiredOption('--id <id>', 'Creator ID')
+    .action(async (opts: { id: string }) => {
+      const result = await apiPost(`/creators/${opts.id}/sync-profile`);
+      console.log(pc.green(`Profile sync job created: ${result.job_id}`));
+    });
+
+  creator
     .command('remove')
     .description('Unsubscribe from a creator')
     .requiredOption('--id <id>', 'Creator ID')

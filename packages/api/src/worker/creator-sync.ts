@@ -9,6 +9,7 @@ import {
   getPostByPlatformPostId,
   updatePost,
   fetchViaOpencli,
+  updateCreator,
 } from '@scopai/core';
 import type { CreatorSyncJob } from '@scopai/core';
 import { getLogger } from '@scopai/core';
@@ -23,15 +24,6 @@ const FIELD_NAME_MAP: Record<string, string> = {
   author: 'author_name',
   cover: 'cover_url',
 };
-
-// Default opencli templates per platform (can be overridden via config in future)
-const DEFAULT_CREATOR_TEMPLATES: Record<string, string> = {
-  xhs: 'opencli xiaohongshu user {author_id} --format json',
-};
-
-function getCreatorTemplate(platformId: string): string | null {
-  return DEFAULT_CREATOR_TEMPLATES[platformId] ?? null;
-}
 
 interface RawPostItem {
   platform_post_id?: string;
@@ -61,6 +53,17 @@ interface RawPostItem {
   metadata?: unknown;
 }
 
+interface RawProfileItem {
+  userId?: string;
+  name?: string;
+  avatar?: string;
+  followers?: string | number;
+  following?: string | number;
+  ip?: string;
+  redId?: string;
+  bio?: string;
+}
+
 function normalizeRawPost(
   raw: Record<string, unknown>,
   mappings: Array<{ platform_field: string; system_field: string }>,
@@ -73,7 +76,6 @@ function normalizeRawPost(
       result[systemField] = rawValue;
     }
   }
-  // Also directly copy known fields if present and not already mapped
   for (const key of Object.keys(raw)) {
     const mapped = FIELD_NAME_MAP[key] ?? key;
     if (result[mapped] === undefined) {
@@ -83,9 +85,142 @@ function normalizeRawPost(
   return result as RawPostItem;
 }
 
+async function fetchProfile(
+  platformId: string,
+  authorId: string,
+): Promise<{ template: string; vars: Record<string, string> } | null> {
+  const platform = await getPlatformById(platformId);
+  if (!platform) return null;
+  if (!platform.profile_fetch_template) return null;
+  return {
+    template: platform.profile_fetch_template,
+    vars: { author_id: authorId },
+  };
+}
+
+async function fetchPosts(
+  platformId: string,
+  authorId: string,
+  since?: Date,
+): Promise<{ template: string; vars: Record<string, string> } | null> {
+  const platform = await getPlatformById(platformId);
+  if (!platform) return null;
+  if (!platform.posts_fetch_template) return null;
+  const vars: Record<string, string> = { author_id: authorId };
+  if (since) vars.since = since.toISOString();
+  return {
+    template: platform.posts_fetch_template,
+    vars,
+  };
+}
+
+// Fallback templates for platforms not yet configured in DB
+const FALLBACK_POSTS_TEMPLATE = 'opencli xiaohongshu user {author_id} --format json';
+
+export async function processCreatorProfileSyncJob(job: CreatorSyncJob, workerId: number): Promise<void> {
+  const logger = getLogger();
+  logger.info(`[Worker-${workerId}] Processing creator profile sync job ${job.id}`);
+
+  await updateCreatorSyncJobStatus(job.id, 'processing');
+  const startedAt = Date.now();
+
+  let profileUpdated = false;
+  let profileError: string | null = null;
+
+  try {
+    const creator = await getCreatorById(job.creator_id);
+    if (!creator) throw new Error(`Creator ${job.creator_id} not found`);
+    if (creator.status === 'unsubscribed') throw new Error('Creator is unsubscribed');
+
+    const fetchConfig = await fetchProfile(creator.platform_id, creator.platform_author_id);
+    if (!fetchConfig) {
+      logger.warn(`[Worker-${workerId}] No profile_fetch_template for platform ${creator.platform_id}, skipping profile sync`);
+      await updateCreatorSyncJobStatus(job.id, 'completed', { posts_imported: 0, posts_updated: 0, posts_skipped: 0, posts_failed: 0 });
+      await createCreatorSyncLog({
+        creator_id: creator.id,
+        job_id: job.id,
+        sync_type: 'profile_sync',
+        status: 'success',
+        result_summary: { profile_updated: false, reason: 'no_template_configured', duration_ms: Date.now() - startedAt },
+        completed_at: new Date(),
+      });
+      return;
+    }
+
+    const result = await fetchViaOpencli(fetchConfig.template, fetchConfig.vars, 60000);
+    if (!result.success || !result.data) {
+      throw new Error(result.error ?? 'Failed to fetch creator profile');
+    }
+
+    const rawItems = result.data;
+    if (rawItems.length === 0) {
+      throw new Error('Empty profile response');
+    }
+
+    const raw = rawItems[0] as Record<string, unknown>;
+    const profile: Parameters<typeof updateCreator>[1] = {};
+
+    // Map user-info fields to creator fields
+    const rawProfile = raw as RawProfileItem;
+    if (rawProfile.name) profile.display_name = rawProfile.name;
+    if (rawProfile.avatar) profile.avatar_url = rawProfile.avatar;
+    if (rawProfile.followers !== undefined) {
+      profile.follower_count = typeof rawProfile.followers === 'string' ? parseInt(rawProfile.followers, 10) : rawProfile.followers;
+    }
+    if (rawProfile.following !== undefined) {
+      profile.following_count = typeof rawProfile.following === 'string' ? parseInt(rawProfile.following, 10) : rawProfile.following;
+    }
+    if (rawProfile.redId) profile.homepage_url = `https://www.xiaohongshu.com/user/profile/${rawProfile.redId}`;
+    if (rawProfile.bio) profile.bio = rawProfile.bio;
+
+    if (Object.keys(profile).length > 0) {
+      await updateCreator(creator.id, profile);
+      profileUpdated = true;
+      logger.info(`[Worker-${workerId}] Updated creator profile: ${Object.keys(profile).join(', ')}`);
+    }
+
+    await updateCreatorLastSynced(creator.id);
+    await updateCreatorSyncJobStatus(job.id, 'completed', {
+      posts_imported: 0,
+      posts_updated: 0,
+      posts_skipped: 0,
+      posts_failed: 0,
+    });
+    await createCreatorSyncLog({
+      creator_id: creator.id,
+      job_id: job.id,
+      sync_type: 'profile_sync',
+      status: 'success',
+      result_summary: { profile_updated: profileUpdated, duration_ms: Date.now() - startedAt },
+      completed_at: new Date(),
+    });
+
+    logger.info(`[Worker-${workerId}] Creator profile sync completed: profile_updated=${profileUpdated}`);
+  } catch (err: unknown) {
+    profileError = (err as Error).message;
+    logger.error(`[Worker-${workerId}] Creator profile sync failed: ${profileError}`);
+
+    await updateCreatorSyncJobStatus(job.id, 'failed', { error: profileError });
+    await createCreatorSyncLog({
+      creator_id: job.creator_id,
+      job_id: job.id,
+      sync_type: 'profile_sync',
+      status: 'failed',
+      result_summary: { profile_updated: false, error: profileError, duration_ms: Date.now() - startedAt },
+      completed_at: new Date(),
+    });
+  }
+}
+
 export async function processCreatorSyncJob(job: CreatorSyncJob, workerId: number): Promise<void> {
   const logger = getLogger();
   logger.info(`[Worker-${workerId}] Processing creator sync job ${job.id} (type: ${job.sync_type})`);
+
+  // If this is a profile_sync job, delegate to the dedicated handler
+  if (job.sync_type === 'profile_sync') {
+    await processCreatorProfileSyncJob(job, workerId);
+    return;
+  }
 
   await updateCreatorSyncJobStatus(job.id, 'processing');
   const startedAt = Date.now();
@@ -103,10 +238,8 @@ export async function processCreatorSyncJob(job: CreatorSyncJob, workerId: numbe
     const platform = await getPlatformById(creator.platform_id);
     if (!platform) throw new Error(`Platform ${creator.platform_id} not found`);
 
-    const template = getCreatorTemplate(creator.platform_id);
-    if (!template) {
-      throw new Error(`No creator sync template configured for platform: ${creator.platform_id}`);
-    }
+    // Try to get posts_fetch_template from platform, fallback to default
+    let postsTemplate = platform.posts_fetch_template ?? FALLBACK_POSTS_TEMPLATE;
 
     const mappings = await listCreatorFieldMappings(creator.platform_id);
 
@@ -118,7 +251,7 @@ export async function processCreatorSyncJob(job: CreatorSyncJob, workerId: numbe
       vars.since = creator.last_synced_at.toISOString();
     }
 
-    const fetchResult = await fetchViaOpencli(template, vars, 120000);
+    const fetchResult = await fetchViaOpencli(postsTemplate, vars, 120000);
     if (!fetchResult.success || !fetchResult.data) {
       throw new Error(fetchResult.error ?? 'Failed to fetch creator posts');
     }

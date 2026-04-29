@@ -105,6 +105,59 @@ describe('Creators routes', () => {
     });
   });
 
+  describe('POST /api/creators/:id/sync-profile', () => {
+    it('creates a profile sync job', async () => {
+      // Create a creator inline so this test is self-contained
+      const createRes = await fetchApi(ctx.baseUrl, '/api/creators', {
+        method: 'POST',
+        body: JSON.stringify({ platform_id: 'test-platform', platform_author_id: 'author-profile-sync' }),
+      });
+      assert.equal(createRes.status, 201);
+      const creator = await createRes.json();
+
+      const res = await fetchApi(ctx.baseUrl, `/api/creators/${creator.id}/sync-profile`, {
+        method: 'POST',
+      });
+      assert.equal(res.status, 202);
+      const body = await res.json();
+      assert.ok(body.job_id);
+      assert.equal(body.status, 'pending');
+      assert.equal(body.type, 'profile_sync');
+    });
+
+    it('rejects profile sync for unsubscribed creator', async () => {
+      const createRes = await fetchApi(ctx.baseUrl, '/api/creators', {
+        method: 'POST',
+        body: JSON.stringify({ platform_id: 'test-platform', platform_author_id: 'author-unsub-profile' }),
+      });
+      const creator = await createRes.json();
+
+      await fetchApi(ctx.baseUrl, `/api/creators/${creator.id}`, { method: 'DELETE' });
+
+      const res = await fetchApi(ctx.baseUrl, `/api/creators/${creator.id}/sync-profile`, {
+        method: 'POST',
+      });
+      assert.equal(res.status, 400);
+    });
+
+    it('rejects profile sync when sync is already in progress', async () => {
+      const createRes = await fetchApi(ctx.baseUrl, '/api/creators', {
+        method: 'POST',
+        body: JSON.stringify({ platform_id: 'test-platform', platform_author_id: 'author-blocked' }),
+      });
+      const creator = await createRes.json();
+
+      // Trigger first sync
+      await fetchApi(ctx.baseUrl, `/api/creators/${creator.id}/sync-profile`, { method: 'POST' });
+
+      // Try second sync — should get 409
+      const res = await fetchApi(ctx.baseUrl, `/api/creators/${creator.id}/sync-profile`, {
+        method: 'POST',
+      });
+      assert.equal(res.status, 409);
+    });
+  });
+
   describe('DELETE /api/creators/:id', () => {
     it('unsubscribes a creator', async () => {
       const createRes = await fetchApi(ctx.baseUrl, '/api/creators', {

@@ -1,8 +1,10 @@
 CREATE TABLE IF NOT EXISTS platforms (
-    id          TEXT PRIMARY KEY,
-    name        TEXT NOT NULL UNIQUE,
-    description TEXT,
-    created_at  TIMESTAMP DEFAULT NOW()
+    id                      TEXT PRIMARY KEY,
+    name                    TEXT NOT NULL UNIQUE,
+    description             TEXT,
+    profile_fetch_template  TEXT,
+    posts_fetch_template    TEXT,
+    created_at              TIMESTAMP DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS field_mappings (
@@ -264,7 +266,7 @@ CREATE TABLE IF NOT EXISTS creator_field_mappings (
 CREATE TABLE IF NOT EXISTS creator_sync_jobs (
     id              TEXT PRIMARY KEY,
     creator_id      TEXT NOT NULL REFERENCES creators(id),
-    sync_type       TEXT NOT NULL CHECK(sync_type IN ('initial','periodic')),
+    sync_type       TEXT NOT NULL CHECK(sync_type IN ('initial','periodic','profile_sync')),
     status          TEXT DEFAULT 'pending' CHECK(status IN ('pending','processing','completed','completed_with_errors','failed')),
     posts_imported  INTEGER DEFAULT 0,
     posts_updated   INTEGER DEFAULT 0,

@@ -4,6 +4,8 @@ export interface Platform {
   name: string;
   description: string | null;
   created_at: Date;
+  profile_fetch_template?: string | null;
+  posts_fetch_template?: string | null;
 }
 
 export interface FieldMapping {
@@ -392,7 +394,7 @@ export interface CreatorFieldMapping {
 export interface CreatorSyncJob {
   id: string;
   creator_id: string;
-  sync_type: 'initial' | 'periodic';
+  sync_type: 'initial' | 'periodic' | 'profile_sync';
   status: 'pending' | 'processing' | 'completed' | 'completed_with_errors' | 'failed';
   posts_imported: number;
   posts_updated: number;

@@ -1,4 +1,4 @@
-import { upsertPlatform } from './platforms';
+import { upsertPlatform, updatePlatform } from './platforms';
 import { createFieldMapping } from './field-mappings';
 import { createTemplate } from './templates';
 import { PLATFORMS } from '../shared/constants';
@@ -224,4 +224,23 @@ export async function seedTemplates(): Promise<void> {
 export async function seedAll(): Promise<void> {
   await seedPlatformsAndMappings();
   await seedTemplates();
+  await seedPlatformSyncTemplates();
+}
+
+async function seedPlatformSyncTemplates(): Promise<void> {
+  const templates: Record<string, { profile?: string; posts?: string }> = {
+    xhs: {
+      profile: 'opencli xiaohongshu user-info {author_id} --format json',
+      posts: 'opencli xiaohongshu user {author_id} --format json',
+    },
+  };
+
+  for (const [platformId, tpl] of Object.entries(templates)) {
+    if (tpl.profile || tpl.posts) {
+      await updatePlatform(platformId, {
+        profile_fetch_template: tpl.profile ?? null,
+        posts_fetch_template: tpl.posts ?? null,
+      });
+    }
+  }
 }

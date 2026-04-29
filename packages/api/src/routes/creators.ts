@@ -110,6 +110,30 @@ export default async function creatorsRoutes(app: FastifyInstance) {
     return { job_id: job.id, status: 'pending' };
   });
 
+  app.post('/creators/:id/sync-profile', async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    const creator = await getCreatorById(id);
+    if (!creator) {
+      reply.code(404);
+      return { error: 'Creator not found' };
+    }
+    if (creator.status === 'unsubscribed') {
+      reply.code(400);
+      return { error: 'Cannot sync unsubscribed creator' };
+    }
+
+    const hasPending = await hasPendingSyncJob(id);
+    if (hasPending) {
+      reply.code(409);
+      return { error: 'Sync already in progress for this creator' };
+    }
+
+    const job = await createCreatorSyncJob({ creator_id: id, sync_type: 'profile_sync' });
+    reply.code(202);
+    return { job_id: job.id, status: 'pending', type: 'profile_sync' };
+  });
+
   app.delete('/creators/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const creator = await getCreatorById(id);
