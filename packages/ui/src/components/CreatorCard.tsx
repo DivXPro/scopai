@@ -17,9 +17,9 @@ interface Creator {
   following_count: number;
   post_count: number;
   status: 'active' | 'paused' | 'unsubscribed';
-  created_at: Date;
-  updated_at: Date;
-  last_synced_at: Date | null;
+  created_at: string;
+  updated_at: string;
+  last_synced_at: string | null;
   metadata: Record<string, unknown> | null;
 }
 
@@ -33,7 +33,7 @@ const statusColorMap: Record<Creator['status'], string> = {
   unsubscribed: 'default',
 };
 
-function formatRelativeTime(date: Date | null): string {
+function formatRelativeTime(date: string | null): string {
   if (!date) return 'Never';
   const now = new Date();
   const diffMs = now.getTime() - new Date(date).getTime();
