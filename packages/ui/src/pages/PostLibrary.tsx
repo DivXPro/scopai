@@ -121,11 +121,9 @@ function AnalysisSection({ postId }: { postId: string }) {
           <p className="text-xs font-medium text-muted-foreground mb-1">{strategyName}</p>
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead className="h-7 text-xs">目标</TableHead>
-                <TableHead className="h-7 text-xs">摘要</TableHead>
-                <TableHead className="h-7 text-xs">时间</TableHead>
-              </TableRow>
+              <TableHead className="h-7 text-xs">目标</TableHead>
+              <TableHead className="h-7 text-xs">摘要</TableHead>
+              <TableHead className="h-7 text-xs">时间</TableHead>
             </TableHeader>
             <TableBody>
               {items.map((r, i) => (

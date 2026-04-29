@@ -215,14 +215,12 @@ export default function QueueMonitor() {
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>状态</TableHead>
-                    <TableHead>目标类型</TableHead>
-                    <TableHead>策略</TableHead>
-                    <TableHead>重试次数</TableHead>
-                    <TableHead>错误</TableHead>
-                    <TableHead>创建时间</TableHead>
-                  </TableRow>
+                  <TableHead>状态</TableHead>
+                  <TableHead>目标类型</TableHead>
+                  <TableHead>策略</TableHead>
+                  <TableHead>重试次数</TableHead>
+                  <TableHead>错误</TableHead>
+                  <TableHead>创建时间</TableHead>
                 </TableHeader>
                 <TableBody>
                   {jobs.map((job) => (

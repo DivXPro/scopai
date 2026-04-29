@@ -332,12 +332,10 @@ export default function CreatorDetail() {
               <CardContent className="p-0">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>类型</TableHead>
-                      <TableHead>状态</TableHead>
-                      <TableHead>开始时间</TableHead>
-                      <TableHead>完成时间</TableHead>
-                    </TableRow>
+                    <TableHead>类型</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead>开始时间</TableHead>
+                    <TableHead>完成时间</TableHead>
                   </TableHeader>
                   <TableBody>
                     {logs.map((log) => (

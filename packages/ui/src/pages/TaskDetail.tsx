@@ -149,11 +149,9 @@ function StepRow({ step, taskId }: { step: TaskStep; taskId: string }) {
                 )}
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>目标</TableHead>
-                      <TableHead>摘要</TableHead>
-                      <TableHead>分析时间</TableHead>
-                    </TableRow>
+                    <TableHead>目标</TableHead>
+                    <TableHead>摘要</TableHead>
+                    <TableHead>分析时间</TableHead>
                   </TableHeader>
                   <TableBody>
                     {results.map((r) => (
