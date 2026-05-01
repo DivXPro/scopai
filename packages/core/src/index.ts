@@ -31,6 +31,7 @@ export * from './db/creator-field-mappings';
 export * from './db/creator-sync-jobs';
 export * from './db/creator-sync-logs';
 export * from './db/creator-sync-schedules';
+export { updateTaskCliTemplates } from './db/tasks';
 
 // === Config ===
 export { loadConfig, config } from './config';

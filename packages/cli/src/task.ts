@@ -397,6 +397,25 @@ export function taskCommands(program: Command): void {
     });
 
   task
+    .command('update-templates')
+    .description('Update CLI templates for an existing task')
+    .requiredOption('--task-id <id>', 'Task ID')
+    .requiredOption('--templates <json>', 'JSON string of opencli command templates')
+    .action(async (opts: { taskId: string; templates: string }) => {
+      let cliTemplates: Record<string, unknown> | null = null;
+      try {
+        cliTemplates = JSON.parse(opts.templates);
+      } catch {
+        console.log(pc.red('Invalid JSON for --templates'));
+        process.exit(1);
+      }
+      await apiPost('/tasks/' + opts.taskId + '/update-cli-templates', {
+        cli_templates: cliTemplates,
+      });
+      console.log(pc.green(`Task ${opts.taskId} CLI templates updated`));
+    });
+
+  task
     .command('results')
     .description('Show analysis results for a completed task')
     .requiredOption('--task-id <id>', 'Task ID')

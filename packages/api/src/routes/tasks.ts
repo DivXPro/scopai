@@ -10,6 +10,7 @@ import {
   generateId, now,
   getTaskPostStatuses,
   insertStrategyResult,
+  updateTaskCliTemplates,
 } from '@scopai/core';
 import type { QueueJob } from '@scopai/core';
 import { getHandlers } from '../daemon/handlers';
@@ -558,5 +559,25 @@ export default async function tasksRoutes(app: FastifyInstance) {
     }
 
     return { inserted: results.length };
+  });
+
+  // --- Update CLI templates for an existing task ---
+  app.post('/tasks/:id/update-cli-templates', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = request.body as Record<string, unknown>;
+    const cliTemplates = body.cli_templates;
+
+    const task = await getTaskById(id);
+    if (!task) {
+      reply.code(404);
+      throw new Error(`Task not found: ${id}`);
+    }
+
+    const cliTemplatesStr = cliTemplates
+      ? (typeof cliTemplates === 'string' ? cliTemplates : JSON.stringify(cliTemplates))
+      : null;
+
+    await updateTaskCliTemplates(id, cliTemplatesStr);
+    return { updated: true };
   });
 }

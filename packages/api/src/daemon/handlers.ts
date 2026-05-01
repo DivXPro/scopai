@@ -1314,6 +1314,20 @@ function isDuplicateError(err: unknown): boolean {
   return /duplicate|unique|constraint/i.test(msg);
 }
 
+function getDefaultFetchMediaTemplate(platformId: string): string | null {
+  const pid = platformId.toLowerCase();
+  if (pid.includes('xhs') || pid.includes('xiaohongshu')) {
+    return 'opencli xiaohongshu download {url} --output {download_dir} -f json';
+  }
+  if (pid.includes('dy') || pid.includes('douyin')) {
+    return 'opencli douyin download {url} --output {download_dir} -f json';
+  }
+  if (pid.includes('bili')) {
+    return 'opencli bilibili download {url} --output {download_dir} -f json';
+  }
+  return null;
+}
+
 async function runPrepareDataAsync(
   taskId: string,
   cliTemplates: { fetch_note: string; fetch_comments?: string; fetch_media?: string },
@@ -1444,10 +1458,11 @@ async function runPrepareDataAsync(
       }
 
       // Step 3: fetch_media
-      if (cliTemplates.fetch_media) {
+      const fetchMediaTemplate = cliTemplates.fetch_media ?? getDefaultFetchMediaTemplate(platformId);
+      if (fetchMediaTemplate) {
         if (!item.media_fetched) {
-          logger.info(`[prepare-data] Task ${taskId} post ${postId}: Step 3 fetch_media`);
-          const result = await fetchViaOpencli(cliTemplates.fetch_media, fetchVars);
+          logger.info(`[prepare-data] Task ${taskId} post ${postId}: Step 3 fetch_media (template: ${fetchMediaTemplate})`);
+          const result = await fetchViaOpencli(fetchMediaTemplate, fetchVars);
           logger.info(`[prepare-data] Task ${taskId} post ${postId}: fetch_media result success=${result.success}`);
           if (!result.success) {
             logger.error(`[prepare-data] fetch_media failed for post ${postId}: ${result.error ?? 'unknown'}`);
@@ -1461,8 +1476,8 @@ async function runPrepareDataAsync(
           }
         }
       } else {
-        // No fetch_media template configured — mark as done for this step
-        logger.info(`[prepare-data] Task ${taskId} post ${postId}: Step 3 skip (no template)`);
+        // No fetch_media template configured and no default available — mark as done for this step
+        logger.info(`[prepare-data] Task ${taskId} post ${postId}: Step 3 skip (no template and no default for platform ${platformId})`);
         await upsertTaskPostStatus(taskId, postId, { media_fetched: true });
       }
 
