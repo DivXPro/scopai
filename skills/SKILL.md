@@ -36,7 +36,7 @@ Run these **in order** before any workflow:
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 5 | **create_task** | `scopai task create --name {name} [--cli-templates '{...}']` | Create task before adding steps. **Required template**: `fetch_note` (enriches post content). Optional: `fetch_comments`, `fetch_media`. |
+| 5 | **create_task** | `scopai task create --name {name} [--cli-templates '{...}']` | Create task before adding steps. **Required template**: `fetch_note` (enriches post content). Optional: `fetch_comments`, `fetch_media`. `fetch_media` has platform-aware defaults (xiaohongshu/douyin/bilibili) and can be omitted. |
 | 6 | **add_step_to_task** | `scopai task step add --task-id {tid} --strategy-id {sid} [--name {n}] [--order {n}]` | Add each strategy the user needs. |
 | 7 | **list_strategies** | `scopai strategy list` | Check available strategy IDs before adding steps. |
 
@@ -44,7 +44,7 @@ Run these **in order** before any workflow:
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 8 | **prepare_task_data** | `scopai task prepare-data --task-id {tid}` | Fetch full post details, comments, and media. **Resumable** — continues from unfinished posts on retry. Fails if `cli_templates` lacks `fetch_note`. |
+| 8 | **prepare_task_data** | `scopai task prepare-data --task-id {tid}` | Fetch full post details, comments, and media. Media downloads automatically use platform defaults if `fetch_media` is not configured. **Resumable** — continues from unfinished posts on retry. Fails if `cli_templates` lacks `fetch_note`. |
 
 ### Phase 4: Analysis Execution
 
@@ -69,34 +69,35 @@ Run these **in order** before any workflow:
 | 14 | **get_task_status** | `scopai task show --task-id {tid}` | Show full task details including phases, steps, jobs, and recent failures. **Not needed when using `--wait` mode.** |
 | 15 | **list_tasks** | `scopai task list [--status {s}] [--query {text}]` | View existing tasks. Filter by status or search by name. |
 | 16 | **list_task_steps** | `scopai task step list --task-id {tid}` | Inspect step states before running. |
-| 17 | **strategy_result_list** | `scopai strategy result list --task-id {tid} --strategy {sid}` | Inspect per-post results. |
-| 18 | **strategy_result_export** | `scopai strategy result export --task-id {tid} --strategy {sid} [--format csv|json] [--output {path}]` | Export results to file. |
-| 19 | **strategy_result_stats** | `scopai strategy result stats --task-id {tid} --strategy {sid}` | Show numeric and text field statistics. |
-| 20 | **strategy_result_aggregate** | `scopai strategy result aggregate --task-id {tid} --strategy {sid} --group-by {field} [--agg count|sum|avg|min|max] [--format table|csv|json]` | Aggregate a specific result field. |
+| 17 | **update_task_templates** | `scopai task update-templates --task-id {tid} --templates '{...}'` | Update `cli_templates` on an existing task (e.g., add `fetch_media` after creation). |
+| 18 | **strategy_result_list** | `scopai strategy result list --task-id {tid} --strategy {sid}` | Inspect per-post results. |
+| 19 | **strategy_result_export** | `scopai strategy result export --task-id {tid} --strategy {sid} [--format csv|json] [--output {path}]` | Export results to file. |
+| 20 | **strategy_result_stats** | `scopai strategy result stats --task-id {tid} --strategy {sid}` | Show numeric and text field statistics. |
+| 21 | **strategy_result_aggregate** | `scopai strategy result aggregate --task-id {tid} --strategy {sid} --group-by {field} [--agg count|sum|avg|min|max] [--format table|csv|json]` | Aggregate a specific result field. |
 
 ### Utility & Recovery
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 21 | **retry_failed_queue_jobs** | `scopai queue retry [--task-id {tid}]` | Re-run only failed jobs. |
-| 22 | **reset_queue_jobs** | `scopai queue reset [--task-id {tid}]` | **Blunt instrument**: force-reset all non-pending jobs. Prefer `queue retry`. |
-| 23 | **list_queue_jobs** | `scopai queue list --task-id {tid} [--failed-only] [--limit {n}]` | Inspect queue job status. |
-| 24 | **pause_task / resume_task / cancel_task** | `scopai task pause|resume|cancel --task-id {tid}` | Control running tasks. |
-| 25 | **list_posts / search_posts_db** | `scopai post list [--platform {id}]` / `scopai post search --platform {id} --query {text}` | Browse imported data. |
-| 26 | **daemon management** | `scopai daemon start [--fg] [--verbose]` / `stop` / `restart` / `status` | Manage API server lifecycle. CLI auto-restarts if version mismatch. |
-| 27 | **run_single_analysis** | `scopai analyze --task-id {tid} --strategy-id {sid}` | Run a one-shot strategy analysis without task steps. |
-| 28 | **view_logs** | `scopai logs show [--lines {n}] [--level {l}]` | View recent API server log entries. |
+| 22 | **retry_failed_queue_jobs** | `scopai queue retry [--task-id {tid}]` | Re-run only failed jobs. |
+| 23 | **reset_queue_jobs** | `scopai queue reset [--task-id {tid}]` | **Blunt instrument**: force-reset all non-pending jobs. Prefer `queue retry`. |
+| 24 | **list_queue_jobs** | `scopai queue list --task-id {tid} [--failed-only] [--limit {n}]` | Inspect queue job status. |
+| 25 | **pause_task / resume_task / cancel_task** | `scopai task pause|resume|cancel --task-id {tid}` | Control running tasks. |
+| 26 | **list_posts / search_posts_db** | `scopai post list [--platform {id}]` / `scopai post search --platform {id} --query {text}` | Browse imported data. |
+| 27 | **daemon management** | `scopai daemon start [--fg] [--verbose]` / `stop` / `restart` / `status` | Manage API server lifecycle. CLI auto-restarts if version mismatch. |
+| 28 | **run_single_analysis** | `scopai analyze --task-id {tid} --strategy-id {sid}` | Run a one-shot strategy analysis without task steps. |
+| 29 | **view_logs** | `scopai logs show [--lines {n}] [--level {l}]` | View recent API server log entries. |
 
 ### Creator Subscription & Sync
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 29 | **creator_add** | `scopai creator add --platform {id} --author-id {aid} [--name {name}]` | Subscribe to a creator/blogger. Auto-creates sync schedule. |
-| 30 | **creator_list** | `scopai creator list [--platform {id}] [--status {s}]` | List subscribed creators. |
-| 31 | **creator_show** | `scopai creator show --id {id}` | Show creator details and recent sync logs. |
-| 32 | **creator_sync** | `scopai creator sync --id {id} [--initial]` | Trigger manual sync. `--initial` imports all historical posts. |
-| 33 | **creator_pause/resume** | `scopai creator pause|resume --id {id}` | Pause/resume automatic sync. |
-| 34 | **creator_remove** | `scopai creator remove --id {id}` | Unsubscribe from a creator. |
+| 30 | **creator_add** | `scopai creator add --platform {id} --author-id {aid} [--name {name}]` | Subscribe to a creator/blogger. Auto-creates sync schedule. |
+| 31 | **creator_list** | `scopai creator list [--platform {id}] [--status {s}]` | List subscribed creators. |
+| 32 | **creator_show** | `scopai creator show --id {id}` | Show creator details and recent sync logs. |
+| 33 | **creator_sync** | `scopai creator sync --id {id} [--initial]` | Trigger manual sync. `--initial` imports all historical posts. |
+| 34 | **creator_pause/resume** | `scopai creator pause|resume --id {id}` | Pause/resume automatic sync. |
+| 35 | **creator_remove** | `scopai creator remove --id {id}` | Unsubscribe from a creator. |
 
 > **Creator sync pipeline**: Independent from task/queue pipeline. Worker polls `creator_sync_jobs` directly, fetches posts via `opencli` (e.g., `opencli xiaohongshu user {author_id} --format json`), normalizes via field mappings, and upserts into `posts` table.
 
@@ -104,7 +105,7 @@ Run these **in order** before any workflow:
 
 | # | Tool | Description |
 |---|------|-------------|
-| 29 | **create_strategy** | Generate a new analysis strategy via conversation. See JSON Rules below. |
+| 36 | **create_strategy** | Generate a new analysis strategy via conversation. See JSON Rules below. |
 
 ---
 
@@ -188,6 +189,7 @@ opencli xiaohongshu search "上海美食" --limit 10 -f json > posts.json
 scopai platform add --id xhs --name "小红书"
 scopai task create --name "上海美食分析" \
   --cli-templates '{"fetch_note":"opencli xiaohongshu note {url} -f json","fetch_comments":"opencli xiaohongshu comments {url} --limit 100 -f json"}'
+# fetch_media is optional — defaults to platform-aware download template
 
 # 4. Import
 scopai post import --platform xhs --file posts.json --task-id <task_id>
