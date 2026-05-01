@@ -22,9 +22,9 @@ const DEFAULT_CONFIG: Config = {
     retry_delay_ms: 2000,
   },
   paths: {
-    media_dir: path.resolve(process.cwd(), 'tmp/media'),
-    download_dir: path.resolve(process.cwd(), 'tmp/downloads'),
-    export_dir: path.resolve(process.cwd(), 'tmp/exports'),
+    media_dir: expandPath('~/.scopai/media'),
+    download_dir: expandPath('~/.scopai/downloads'),
+    export_dir: expandPath('~/.scopai/exports'),
   },
   logging: {
     level: 'info',
