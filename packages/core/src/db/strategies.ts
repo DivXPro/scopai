@@ -143,6 +143,9 @@ export function parseJsonSchemaToColumns(outputSchema: Record<string, unknown>):
     if (!/^[a-z_][a-z0-9_]*$/i.test(name)) {
       throw new Error(`Invalid property name for SQL column: ${name}`);
     }
+    if (typeof def.title !== 'string' || def.title.trim().length === 0) {
+      throw new Error(`Property "${name}" must have a non-empty "title" field (human-readable label)`);
+    }
     if (Object.keys(def).some(k => ['anyOf', 'oneOf', 'allOf', '$ref'].includes(k))) {
       throw new Error(`Unsupported JSON Schema feature in property ${name}`);
     }

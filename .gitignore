@@ -2,6 +2,7 @@ node_modules/
 dist/
 downloads/
 tmp/
+bin/
 
 *.duckdb
 *.log
@@ -19,6 +20,7 @@ skills-lock.json
 .agent/
 .trae/
 .agents/
+.playwright-mcp/
 
 # Test runtime data
 test-data/real/

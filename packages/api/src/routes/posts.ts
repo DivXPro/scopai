@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
-import { listPosts, searchPosts, listCommentsByPost, listMediaFilesByPost, getPostAnalysisResults, getPostById, countPosts, createComment } from '@scopai/core';
-import { createPost, generateId, now, query, run } from '@scopai/core';
+import { listPosts, searchPosts, listCommentsByPost, listMediaFilesByPost, getPostAnalysisResults, getPostById, countPosts, createComment, countPostAnalysisResults, countMediaFilesByPost } from '@scopai/core';
+import { createPost, generateId, now, query, run, getTaskById, addTaskTargets, upsertTaskPostStatus, parseChineseNumber } from '@scopai/core';
 
 const FIELD_NAME_MAP: Record<string, string> = {
   likes: 'like_count',
@@ -50,6 +50,7 @@ interface RawPostItem {
   cover_url?: string;
   post_type?: string;
   type?: string;
+  likes?: string;
   like_count?: number;
   collect_count?: number;
   comment_count?: number;
@@ -71,14 +72,29 @@ export default async function postsRoutes(app: FastifyInstance) {
       ? await searchPosts(platform || '', searchQuery, parsedLimit, parsedOffset)
       : await listPosts(platform || undefined, parsedLimit, parsedOffset);
     const total = await countPosts(platform || undefined);
-    return { posts: items, total };
+    const itemsWithCount = await Promise.all(
+      items.map(async (post) => ({
+        ...post,
+        analysis_count: await countPostAnalysisResults(post.id),
+        media_count: await countMediaFilesByPost(post.id),
+      })),
+    );
+    return { posts: itemsWithCount, total };
   });
 
   app.post('/posts/import', async (request, reply) => {
-    const body = request.body as { posts?: Record<string, unknown>[] };
+    const body = request.body as { posts?: Record<string, unknown>[]; task_id?: string };
     if (!body.posts || !Array.isArray(body.posts) || body.posts.length === 0) {
       reply.code(400);
       throw new Error('posts array is required and must not be empty');
+    }
+
+    if (body.task_id) {
+      const task = await getTaskById(body.task_id);
+      if (!task) {
+        reply.code(400);
+        throw new Error(`Task not found: ${body.task_id}`);
+      }
     }
 
     let imported = 0;
@@ -115,7 +131,7 @@ export default async function postsRoutes(app: FastifyInstance) {
               item.url ?? null,
               item.cover_url ?? null,
               (item.post_type ?? item.type ?? null) as any,
-              Number(item.like_count ?? 0),
+              parseChineseNumber(item.likes) ?? item.like_count ?? 0,
               Number(item.collect_count ?? 0),
               Number(item.comment_count ?? 0),
               Number(item.share_count ?? 0),
@@ -142,7 +158,7 @@ export default async function postsRoutes(app: FastifyInstance) {
             url: item.url ?? null,
             cover_url: item.cover_url ?? null,
             post_type: (item.post_type ?? item.type ?? null) as any,
-            like_count: Number(item.like_count ?? 0),
+            like_count: parseChineseNumber(item.likes) ?? item.like_count ?? 0,
             collect_count: Number(item.collect_count ?? 0),
             comment_count: Number(item.comment_count ?? 0),
             share_count: Number(item.share_count ?? 0),
@@ -159,6 +175,13 @@ export default async function postsRoutes(app: FastifyInstance) {
         postIds.push(postId);
       } catch (err: unknown) {
         throw new Error(`Failed to import post ${platformPostId}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    if (body.task_id && postIds.length > 0) {
+      await addTaskTargets(body.task_id, 'post', postIds);
+      for (const postId of postIds) {
+        await upsertTaskPostStatus(body.task_id, postId, { status: 'pending' });
       }
     }
 
@@ -202,7 +225,7 @@ export default async function postsRoutes(app: FastifyInstance) {
           author_id: (item.author_id ?? null) as string | null,
           author_name: (item.author_name ?? item.author ?? null) as string | null,
           content: (item.content ?? '') as string,
-          like_count: Number(item.like_count ?? 0),
+          like_count: parseChineseNumber(item.likes) ?? item.like_count ?? 0,
           reply_count: Number(item.reply_count ?? 0),
           published_at: item.published_at ? new Date(item.published_at as string) : null,
           metadata: (item.metadata ?? null) as Record<string, unknown> | null,

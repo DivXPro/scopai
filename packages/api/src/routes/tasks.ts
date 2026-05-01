@@ -185,7 +185,7 @@ export default async function tasksRoutes(app: FastifyInstance) {
 
     const handlers = getHandlers();
     const result = await handlers['task.prepareData']({ task_id: id });
-    return { ...result, status: 'queued' };
+    return { ...(result as Record<string, unknown>), status: 'queued' };
   });
 
   app.post('/tasks/:id/add-posts', async (request, reply) => {

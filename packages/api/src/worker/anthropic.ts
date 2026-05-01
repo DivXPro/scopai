@@ -245,10 +245,21 @@ function buildSchemaHint(outputSchema: Record<string, unknown>): string | null {
   const keys = Object.keys(properties);
   if (keys.length === 0) return null;
 
-  const lines = keys.map(key => `  "${key}": ${schemaDefToHint(properties[key])}`);
+  const lines = keys.map(key => {
+    const def = properties[key];
+    const title = (def?.title as string) || key;
+    return `  "${key}": ${schemaDefToHint(def)}  // ${title}`;
+  });
   const example = `{\n${lines.join(',\n')}\n}`;
 
-  return `=== 输出要求 ===\n请严格按以下 JSON 格式返回结果，只输出纯 JSON，不要添加 markdown 代码块标记或额外解释：\n${example}`;
+  const titleLines = keys.map(key => {
+    const def = properties[key];
+    const title = (def?.title as string) || key;
+    const desc = (def?.description as string) || '';
+    return `  - ${key}: ${title}${desc ? ' — ' + desc : ''}`;
+  });
+
+  return `=== 输出要求 ===\n请严格按以下 JSON 格式返回结果，只输出纯 JSON，不要添加 markdown 代码块标记或额外解释。字段含义如下：\n${titleLines.join('\n')}\n\n示例格式：\n${example}`;
 }
 
 function schemaDefToHint(def: Record<string, unknown>): string {

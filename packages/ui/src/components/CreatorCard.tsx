@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge, type BadgeVariant } from '@/components/ui/badge';
-import { Avatar } from '@heroui/react';
+import { Card } from '@heroui/react';
+import * as icons from '@gravity-ui/icons';
 
-// Inline Creator type to avoid cross-package import dependency
+const ArrowsRotateRight = icons.ArrowsRotateRight;
+const Ellipsis = icons.Ellipsis;
+
 interface Creator {
   id: string;
   platform_id: string;
@@ -27,11 +28,17 @@ interface CreatorCardProps {
   creator: Creator;
 }
 
-const statusColorMap: Record<Creator['status'], BadgeVariant> = {
-  active: 'success',
-  paused: 'warning',
-  unsubscribed: 'default',
+const statusConfig: Record<Creator['status'], { label: string; className: string }> = {
+  active: { label: 'Active', className: 'bg-green-100/50 text-emerald-700' },
+  paused: { label: 'Paused', className: 'bg-amber-100/50 text-amber-700' },
+  unsubscribed: { label: 'Unsubscribed', className: 'bg-blue-100/50 text-blue-700' },
 };
+
+function formatCount(n: number): string {
+  if (n >= 10000) return (n / 10000).toFixed(1).replace(/\.0$/, '') + 'w';
+  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  return String(n);
+}
 
 function formatRelativeTime(date: string | null): string {
   if (!date) return 'Never';
@@ -49,42 +56,58 @@ function formatRelativeTime(date: string | null): string {
 
 export function CreatorCard({ creator }: CreatorCardProps) {
   const displayName = creator.display_name || creator.author_name || 'Unknown';
+  const username = creator.author_name || 'No username';
+  const status = statusConfig[creator.status];
+  const initials = displayName.charAt(0).toUpperCase();
 
   return (
     <Link to={`/creators/${creator.id}`} className="block">
-      <Card className="hover:opacity-80 transition-opacity cursor-pointer">
-        <CardContent className="p-4 flex flex-col gap-3">
-          {/* Header: Avatar + Name + Status Badge */}
-          <div className="flex items-center gap-3">
-            <Avatar className="shrink-0" size="md">
-              <Avatar.Image src={creator.avatar_url ?? undefined} />
-              <Avatar.Fallback>{displayName.charAt(0).toUpperCase()}</Avatar.Fallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-foreground truncate">{displayName}</p>
-              <p className="text-xs text-muted-foreground truncate">
-                {creator.author_name || 'No username'}
-              </p>
+      <Card className="bg-white border border-outline-variant shadow-sm hover:shadow-lg transition-all group">
+        <Card.Content className="p-6">
+          {/* Header: Avatar + Name + Status */}
+          <div className="flex justify-between items-start mb-6">
+            <div className="flex gap-4">
+              <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center text-secondary font-bold text-xl border-2 border-white ring-1 ring-slate-100 shrink-0 overflow-hidden">
+                {creator.avatar_url
+                  ? <img src={creator.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                  : initials
+                }
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg text-slate-900 group-hover:text-secondary transition-colors">
+                  {displayName}
+                </h3>
+                <p className="text-sm text-slate-400">@{username}</p>
+              </div>
             </div>
-            <Badge
-              variant={statusColorMap[creator.status]}
-              size="sm"
-            >
-              {creator.status}
-            </Badge>
+            <div className={`px-3 py-1 rounded-full text-[11px] font-bold tracking-tight uppercase shrink-0 ${status.className}`}>
+              {status.label}
+            </div>
           </div>
 
-          {/* Stats: Followers + Posts */}
-          <div className="flex gap-4 text-sm text-muted-foreground">
-            <span>{creator.follower_count.toLocaleString()} 粉丝</span>
-            <span>{creator.post_count.toLocaleString()} 帖子</span>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-50 mb-4">
+            <div>
+              <div className="font-bold text-lg text-primary">{formatCount(creator.follower_count)}</div>
+              <div className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">粉丝</div>
+            </div>
+            <div>
+              <div className="font-bold text-lg text-primary">{formatCount(creator.post_count)}</div>
+              <div className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">帖子</div>
+            </div>
           </div>
 
-          {/* Last synced */}
-          <div className="text-xs text-muted-foreground">
-            上次同步: {formatRelativeTime(creator.last_synced_at)}
+          {/* Footer: Sync time + More */}
+          <div className="flex justify-between items-center text-sm text-slate-400">
+            <div className="flex items-center gap-1">
+              <ArrowsRotateRight className="h-4 w-4" />
+              <span>上次同步: {formatRelativeTime(creator.last_synced_at)}</span>
+            </div>
+            <button className="text-slate-400 hover:text-primary transition-colors">
+              <Ellipsis className="h-5 w-5" />
+            </button>
           </div>
-        </CardContent>
+        </Card.Content>
       </Card>
     </Link>
   );

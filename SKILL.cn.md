@@ -226,7 +226,7 @@ scopai task step run --task-id <tid> --step-id <sid> --wait
 - `target`：仅 `"post"`
 - `needs_media`：如果启用，需包含 `{ enabled: true, media_types, max_media, mode }`
 - `prompt`：必须包含 `{{content}}`；如果 `needs_media.enabled` 还需包含 `{{media_urls}}`
-- `output_schema`：标准 JSON Schema，`type: "object"`，每个属性需有 `type`
+- `output_schema`：标准 JSON Schema，`type: "object"`，每个属性需有 `type` 和 `title`（人类可读的中文标签）
 
 **提示变量（仅白名单）：**
 
@@ -249,8 +249,8 @@ scopai task step run --task-id <tid> --step-id <sid> --wait
   "output_schema": {
     "type": "object",
     "properties": {
-      "score": { "type": "number" },
-      "category": { "type": "string" }
+      "score": { "type": "number", "title": "变现潜力评分" },
+      "category": { "type": "string", "title": "变现类别" }
     }
   }
 }

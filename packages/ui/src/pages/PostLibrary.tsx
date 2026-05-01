@@ -1,26 +1,25 @@
 import { useEffect, useState, useCallback } from 'react';
 import * as icons from '@gravity-ui/icons';
 import { apiGet } from '@/api/client';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
+import { Card, Skeleton, Button, Select, ListBox, Modal } from '@heroui/react';
 import Pagination from '@/components/Pagination';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table as DataTable, TableHeader, TableHead, TableBody, TableRow, TableCell,
 } from '@/components/ui/table';
 
 const Heart = icons.Heart;
 const Bookmark = icons.Bookmark;
 const Comment = icons.Comment;
 const Eye = icons.Eye;
-const Magnifier = icons.Magnifier;
 const Sliders = icons.Sliders;
+const ArrowUpArrowDown = icons.ArrowUpArrowDown;
 const ChartBar = icons.ChartBar;
-const ArrowChevronDown = icons.ArrowChevronDown;
-const ArrowChevronUp = icons.ArrowChevronUp;
 const CirclePlay = icons.CirclePlay;
 const CircleArrowRight = icons.CircleArrowRight;
+const LayoutCellsLarge = icons.LayoutCellsLarge;
+const ListUl = icons.ListUl;
+const Picture = icons.Picture;
+const Play = icons.Play;
 
 interface Post {
   id: string;
@@ -38,6 +37,18 @@ interface Post {
   cover_url: string | null;
   published_at: string | null;
   fetched_at: string;
+  analysis_count?: number;
+  media_count?: number;
+}
+
+interface MediaFile {
+  id: string;
+  media_type: 'image' | 'video' | 'audio';
+  url: string;
+  local_path: string | null;
+  width: number | null;
+  height: number | null;
+  downloaded_at: string | null;
 }
 
 interface Platform {
@@ -55,48 +66,517 @@ interface AnalysisResult {
   analyzed_at: string;
 }
 
+interface Strategy {
+  id: string;
+  name: string;
+  output_schema: Record<string, unknown>;
+}
+
 function getPlatformMeta(platformId: string) {
   if (platformId.includes('xhs')) {
-    return { name: '小红书', color: 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' };
+    return { name: '小红书', color: 'bg-red-50 text-red-600 border-red-100' };
   }
   if (platformId.includes('twitter')) {
-    return { name: 'Twitter', color: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' };
+    return { name: 'Twitter', color: 'bg-slate-900 text-white border-slate-900' };
   }
   if (platformId.includes('bilibili')) {
-    return { name: 'B站', color: 'bg-pink-50 text-pink-700 border-pink-200 hover:bg-pink-100' };
+    return { name: 'B站', color: 'bg-blue-50 text-blue-600 border-blue-100' };
   }
   if (platformId.includes('weibo')) {
-    return { name: '微博', color: 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100' };
+    return { name: '微博', color: 'bg-yellow-50 text-orange-600 border-orange-100' };
   }
-  return { name: platformId, color: 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100' };
+  return { name: platformId, color: 'bg-gray-50 text-gray-700 border-gray-200' };
 }
 
 function PlatformBadge({ platformId }: { platformId: string }) {
   const meta = getPlatformMeta(platformId);
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium shrink-0 ${meta.color}`}>
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase shrink-0 ${meta.color}`}>
       {meta.name}
     </span>
   );
 }
 
-function AnalysisSection({ postId }: { postId: string }) {
-  const [results, setResults] = useState<AnalysisResult[]>([]);
+function formatCount(n: number): string {
+  if (n >= 10000) return (n / 10000).toFixed(1).replace(/\.0$/, '') + 'w';
+  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  return String(n);
+}
+
+function timeAgo(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 60) return `${diffMin} 分钟前`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} 小时前`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay} 天前`;
+  return date.toLocaleDateString('zh-CN');
+}
+
+function PostCard({ post, onAnalyze, onViewMedia }: { post: Post; onAnalyze: (postId: string) => void; onViewMedia: (postId: string) => void }) {
+  const contentPreview = post.content?.slice(0, 120) + (post.content?.length > 120 ? '...' : '') || '无内容';
+  const isVideo = post.post_type === 'video' || post.platform_id.includes('bilibili');
+  const initials = (post.author_name || '匿名').slice(0, 2).toUpperCase();
+
+  return (
+    <Card className="hover:shadow-[0_12px_24px_rgba(0,0,0,0.06)] transition-all duration-300 flex flex-col group relative">
+      <Card.Content className="p-5 flex flex-col flex-1">
+        {/* Author + Platform */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0">
+              {initials}
+            </div>
+            <div>
+              <p className="font-semibold text-sm text-slate-900 leading-tight">
+                {post.author_name || '匿名用户'}
+              </p>
+              <p className="text-xs text-slate-400">
+                @{post.author_name || 'anonymous'}
+              </p>
+            </div>
+          </div>
+          <PlatformBadge platformId={post.platform_id} />
+        </div>
+
+        {/* Cover Image */}
+        {post.cover_url && (
+          <div className="relative rounded-lg overflow-hidden mb-4 aspect-[4/3]">
+            <img
+              src={post.cover_url}
+              alt=""
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+            {isVideo && (
+              <>
+                <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
+                  <Play className="h-12 w-12 text-white" style={{ fill: 'white' }} />
+                </div>
+                {post.play_count > 0 && (
+                  <div className="absolute bottom-2 right-2 bg-black/60 text-white px-2 py-0.5 rounded text-[10px] font-medium">
+                    {formatCount(post.play_count)} 播放
+                  </div>
+                )}
+              </>
+            )}
+            {!isVideo && (
+              <div className="absolute top-2 right-2 bg-black/40 backdrop-blur-sm text-white px-2 py-1 rounded text-[10px] font-medium flex items-center gap-1">
+                <Picture className="h-3 w-3" />
+                封面
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Title */}
+        <h3 className="font-semibold text-sm text-slate-900 line-clamp-2 mb-3 leading-snug">
+          {post.title || contentPreview}
+        </h3>
+
+        {/* Content preview (only if different from title) */}
+        {post.title && post.content && post.content !== post.title && (
+          <p className="text-sm text-on-surface-variant line-clamp-2 mb-3">
+            {contentPreview}
+          </p>
+        )}
+
+        {/* Engagement Stats */}
+        <div className="flex items-center gap-4 text-xs text-on-surface-variant font-medium mt-auto border-t border-slate-50 pt-4">
+          <span className="flex items-center gap-1.5">
+            <Heart className="h-3.5 w-3.5" />
+            {formatCount(post.like_count ?? 0)}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Comment className="h-3.5 w-3.5" />
+            {formatCount(post.comment_count ?? 0)}
+          </span>
+          {post.collect_count > 0 && (
+            <span className="flex items-center gap-1.5">
+              <Bookmark className="h-3.5 w-3.5" />
+              {formatCount(post.collect_count)}
+            </span>
+          )}
+          {post.play_count > 0 && !isVideo && (
+            <span className="flex items-center gap-1.5">
+              <Eye className="h-3.5 w-3.5" />
+              {formatCount(post.play_count)}
+            </span>
+          )}
+          <span className="ml-auto text-[10px] text-slate-400 uppercase tracking-wider">
+            {timeAgo(post.published_at || post.fetched_at)}
+          </span>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-50">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onPress={() => onAnalyze(post.id)}
+            isDisabled={!post.analysis_count}
+          >
+            <ChartBar className="h-3.5 w-3.5 mr-1" />
+            分析{post.analysis_count ? ` (${post.analysis_count})` : ''}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onPress={() => onViewMedia(post.id)}
+            isDisabled={!post.media_count}
+          >
+            <Picture className="h-3.5 w-3.5 mr-1" />
+            媒体{post.media_count ? ` (${post.media_count})` : ''}
+          </Button>
+          <a href={post.url ?? '#'} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground ml-auto">
+            <Button variant="ghost" size="sm" className="h-7 text-xs">
+              <CircleArrowRight className="h-3.5 w-3.5 mr-1" />
+              查看
+            </Button>
+          </a>
+        </div>
+      </Card.Content>
+    </Card>
+  );
+}
+
+function SchemaRenderer({
+  data,
+  schema,
+}: {
+  data: Record<string, unknown>;
+  schema: Record<string, unknown>;
+}) {
+  const properties = (schema.properties ?? schema) as Record<
+    string,
+    Record<string, unknown>
+  >;
+
+  function renderValue(
+    value: unknown,
+    propSchema: Record<string, unknown>,
+  ): React.ReactNode {
+    const type = (propSchema.type ?? 'string') as string;
+
+    if (value === null || value === undefined) {
+      return <span className="text-muted-foreground">-</span>;
+    }
+
+    if (type === 'array' && Array.isArray(value)) {
+      const itemSchema = (propSchema.items ?? {}) as Record<string, unknown>;
+      const itemType = itemSchema.type as string;
+      if (itemType === 'object' && itemSchema.properties) {
+        return (
+          <div className="space-y-2">
+            {value.map((item, idx) => (
+              <div key={idx} className="pl-3 border-l-2 border-slate-200">
+                <SchemaRenderer
+                  data={item as Record<string, unknown>}
+                  schema={itemSchema}
+                />
+              </div>
+            ))}
+          </div>
+        );
+      }
+      return (
+        <ul className="list-disc list-inside text-sm text-foreground space-y-0.5">
+          {value.map((item, idx) => (
+            <li key={idx}>{String(item)}</li>
+          ))}
+        </ul>
+      );
+    }
+
+    if (type === 'object' && typeof value === 'object' && value !== null) {
+      const nestedSchema = propSchema.properties
+        ? propSchema
+        : { properties: {} as Record<string, unknown> };
+      return (
+        <div className="pl-3 border-l-2 border-slate-200">
+          <SchemaRenderer
+            data={value as Record<string, unknown>}
+            schema={nestedSchema}
+          />
+        </div>
+      );
+    }
+
+    if (type === 'boolean') {
+      return (
+        <span
+          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
+            value ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+          }`}
+        >
+          {value ? '是' : '否'}
+        </span>
+      );
+    }
+
+    if (type === 'number') {
+      return <span className="font-mono text-sm text-foreground">{String(value)}</span>;
+    }
+
+    // string or fallback
+    return <span className="text-sm text-foreground">{String(value)}</span>;
+  }
+
+  const entries = Object.entries(properties).filter(([key]) => key in data);
+
+  if (entries.length === 0) {
+    return (
+      <pre className="text-xs bg-white rounded p-3 overflow-x-auto border">
+        {JSON.stringify(data, null, 2)}
+      </pre>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {entries.map(([key, propSchema]) => {
+        const value = data[key];
+        const description = propSchema.description as string | undefined;
+        const label = propSchema.title as string | undefined;
+
+        return (
+          <div key={key}>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-sm font-semibold text-foreground">
+                {label || key}
+              </span>
+              {description && (
+                <span className="text-[10px] text-muted-foreground">
+                  {description}
+                </span>
+              )}
+            </div>
+            <div className="mt-1">{renderValue(value, propSchema)}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MediaFilesModal({ postId, onClose }: { postId: string; onClose: () => void }) {
+  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    apiGet<AnalysisResult[]>(`/api/posts/${postId}/analysis`)
-      .then((data) => { if (!cancelled) setResults(data); })
-      .catch(() => { if (!cancelled) setResults([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    setCurrentIndex(0);
+    apiGet<MediaFile[]>(`/api/posts/${postId}/media`)
+      .then((data) => {
+        if (cancelled) return;
+        setMediaFiles(data);
+      })
+      .catch(() => {
+        if (!cancelled) setMediaFiles([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [postId]);
+
+  const goPrev = () => setCurrentIndex((i) => (i > 0 ? i - 1 : mediaFiles.length - 1));
+  const goNext = () => setCurrentIndex((i) => (i < mediaFiles.length - 1 ? i + 1 : 0));
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'ArrowLeft') goPrev();
+      if (e.key === 'ArrowRight') goNext();
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [mediaFiles.length, onClose]);
+
+  const current = mediaFiles[currentIndex];
+
+  return (
+    <Modal isOpen={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Modal.Backdrop>
+        <Modal.Container>
+          <Modal.Dialog className="max-w-3xl max-h-[85vh]">
+            <Modal.CloseTrigger />
+            <Modal.Header>
+              <Modal.Heading>媒体文件</Modal.Heading>
+            </Modal.Header>
+            <Modal.Body>
+              {loading ? (
+                <div className="flex items-center justify-center py-16">
+                  <CirclePlay className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-xs text-muted-foreground">加载中...</span>
+                </div>
+              ) : mediaFiles.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-16 text-center">暂无媒体文件</p>
+              ) : (
+                <div className="flex flex-col items-center">
+                  {/* Viewer */}
+                  <div className="relative w-full flex items-center justify-center min-h-[320px] max-h-[480px]">
+                    {/* Prev */}
+                    <button
+                      onClick={goPrev}
+                      className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 shadow-md flex items-center justify-center hover:bg-white transition-colors border border-slate-200"
+                      aria-label="上一张"
+                    >
+                      <icons.ArrowChevronLeft className="h-5 w-5 text-slate-600" />
+                    </button>
+
+                    {/* Media */}
+                    <div className="flex-1 flex items-center justify-center px-14">
+                      {current.media_type === 'image' && current.url ? (
+                        <a href={current.url} target="_blank" rel="noopener noreferrer" className="block">
+                          <img
+                            src={current.url}
+                            alt={`媒体 ${currentIndex + 1}`}
+                            className="max-w-full max-h-[440px] object-contain rounded-lg border shadow-sm hover:opacity-95 transition-opacity"
+                          />
+                        </a>
+                      ) : current.media_type === 'video' ? (
+                        <a
+                          href={current.url || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex flex-col items-center justify-center w-full min-h-[320px] rounded-lg border bg-slate-50 hover:bg-slate-100 transition-colors"
+                        >
+                          <CirclePlay className="h-16 w-16 text-slate-400 mb-3" />
+                          <span className="text-sm text-muted-foreground">视频</span>
+                          {current.url && (
+                            <span className="text-xs text-primary mt-2 hover:underline">点击打开原视频</span>
+                          )}
+                        </a>
+                      ) : (
+                        <a
+                          href={current.url || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex flex-col items-center justify-center w-full min-h-[320px] rounded-lg border bg-slate-50 hover:bg-slate-100 transition-colors"
+                        >
+                          <span className="text-3xl mb-3">{current.media_type === 'audio' ? '🎧' : '📏'}</span>
+                          <span className="text-sm text-muted-foreground capitalize">{current.media_type}</span>
+                          {current.url && (
+                            <span className="text-xs text-primary mt-2 hover:underline">点击打开原文件</span>
+                          )}
+                        </a>
+                      )}
+                    </div>
+
+                    {/* Next */}
+                    <button
+                      onClick={goNext}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 shadow-md flex items-center justify-center hover:bg-white transition-colors border border-slate-200"
+                      aria-label="下一张"
+                    >
+                      <icons.ArrowChevronRight className="h-5 w-5 text-slate-600" />
+                    </button>
+                  </div>
+
+                  {/* Info bar */}
+                  <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">
+                      {currentIndex + 1} / {mediaFiles.length}
+                    </span>
+                    <span className="capitalize">{current.media_type}</span>
+                    {current.width && current.height && (
+                      <span>{current.width} × {current.height}</span>
+                    )}
+                    {current.local_path && (
+                      <span className="text-green-600 text-xs">已下载</span>
+                    )}
+                  </div>
+
+                  {/* Thumbnail strip */}
+                  {mediaFiles.length > 1 && (
+                    <div className="mt-4 flex gap-2 overflow-x-auto max-w-full pb-1">
+                      {mediaFiles.map((m, i) => (
+                        <button
+                          key={m.id}
+                          onClick={() => setCurrentIndex(i)}
+                          className={`shrink-0 w-14 h-14 rounded-lg border overflow-hidden transition-all ${
+                            i === currentIndex ? 'ring-2 ring-secondary ring-offset-1' : 'opacity-60 hover:opacity-100'
+                          }`}
+                        >
+                          {m.media_type === 'image' && m.url ? (
+                            <img src={m.url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                              <span className="text-lg">
+                                {m.media_type === 'video' ? '▶' : m.media_type === 'audio' ? '🎧' : '📏'}
+                              </span>
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </Modal.Body>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal>
+  );
+}
+
+function PostAnalysisDetail({ postId }: { postId: string }) {
+  const [results, setResults] = useState<AnalysisResult[]>([]);
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedStrategy, setSelectedStrategy] = useState<string>('');
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+
+    Promise.all([
+      apiGet<AnalysisResult[]>(`/api/posts/${postId}/analysis`),
+      apiGet<Strategy[]>('/api/strategies'),
+    ])
+      .then(([analysisData, strategyData]) => {
+        if (cancelled) return;
+        setResults(analysisData);
+        setStrategies(strategyData);
+
+        const grouped = analysisData.reduce<
+          Record<string, AnalysisResult[]>
+        >((acc, r) => {
+          const key = r.strategy_name || r.strategy_id;
+          if (!acc[key]) acc[key] = [];
+          acc[key].push(r);
+          return acc;
+        }, {});
+        const strategyNames = Object.keys(grouped);
+        if (strategyNames.length > 0) {
+          setSelectedStrategy(strategyNames[0]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setResults([]);
+          setStrategies([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
     return () => { cancelled = true; };
   }, [postId]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-4">
+      <div className="flex items-center justify-center py-8">
         <CirclePlay className="h-4 w-4 animate-spin text-muted-foreground" />
         <span className="ml-2 text-xs text-muted-foreground">加载分析结果...</span>
       </div>
@@ -104,7 +584,7 @@ function AnalysisSection({ postId }: { postId: string }) {
   }
 
   if (results.length === 0) {
-    return <p className="text-xs text-muted-foreground py-2">暂无分析结果</p>;
+    return <p className="text-xs text-muted-foreground py-4">暂无分析结果</p>;
   }
 
   const grouped = results.reduce<Record<string, AnalysisResult[]>>((acc, r) => {
@@ -114,140 +594,90 @@ function AnalysisSection({ postId }: { postId: string }) {
     return acc;
   }, {});
 
-  return (
-    <div className="space-y-3 pt-2 border-t">
-      {Object.entries(grouped).map(([strategyName, items]) => (
-        <div key={strategyName}>
-          <p className="text-xs font-medium text-muted-foreground mb-1">{strategyName}</p>
-          <Table aria-label="分析结果">
-            <TableHeader>
-              <TableHead className="h-7 text-xs">目标</TableHead>
-              <TableHead className="h-7 text-xs">摘要</TableHead>
-              <TableHead className="h-7 text-xs">时间</TableHead>
-            </TableHeader>
-            <TableBody>
-              {items.map((r, i) => (
-                <TableRow key={i}>
-                  <TableCell className="text-xs py-1">
-                    <Badge variant="outline" className="text-[10px] h-4">
-                      {r.target_type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-xs py-1 max-w-[200px] truncate text-foreground">
-                    {r.raw_response
-                      ? String(r.raw_response.sentiment ?? r.raw_response.summary ?? JSON.stringify(r.raw_response).slice(0, 60))
-                      : '-'}
-                  </TableCell>
-                  <TableCell className="text-xs py-1 text-muted-foreground whitespace-nowrap">
-                    {new Date(r.analyzed_at).toLocaleDateString('zh-CN')}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      ))}
-    </div>
+  const strategyNames = Object.keys(grouped);
+  const selectedResults = grouped[selectedStrategy] ?? [];
+  const selectedStrategyObj = strategies.find(
+    (s) =>
+      s.name === selectedStrategy || s.id === selectedStrategy,
   );
-}
-
-function PostCard({ post }: { post: Post }) {
-  const [expanded, setExpanded] = useState(false);
-  const contentPreview = post.content?.slice(0, 120) + (post.content?.length > 120 ? '...' : '') || '无内容';
+  const outputSchema = selectedStrategyObj?.output_schema;
 
   return (
-    <Card className="hover:shadow-md transition-shadow cursor-pointer">
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="font-semibold text-sm leading-tight line-clamp-2 flex-1 text-foreground">
-            {post.title || contentPreview}
-          </h3>
-          <PlatformBadge platformId={post.platform_id} />
-        </div>
+    <div className="space-y-4">
+      <Select
+        selectedKey={selectedStrategy}
+        onSelectionChange={(key) => setSelectedStrategy(key as string)}
+        className="w-full max-w-xs"
+      >
+        <Select.Trigger className="h-9 text-sm">
+          <Select.Value />
+          <Select.Indicator />
+        </Select.Trigger>
+        <Select.Popover>
+          <ListBox>
+            {strategyNames.map((s) => (
+              <ListBox.Item key={s} id={s}>
+                {s}
+              </ListBox.Item>
+            ))}
+          </ListBox>
+        </Select.Popover>
+      </Select>
 
-        <p className="text-xs text-muted-foreground">
-          {post.author_name ? `@${post.author_name}` : '匿名用户'}
-        </p>
-
-        {post.title && post.content && post.content !== post.title && (
-          <p className="text-sm text-muted-foreground line-clamp-2">
-            {contentPreview}
-          </p>
-        )}
-
-        <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
-          <span className="flex items-center gap-1">
-            <Heart className="h-3 w-3" />
-            {post.like_count?.toLocaleString() ?? 0}
-          </span>
-          <span className="flex items-center gap-1">
-            <Bookmark className="h-3 w-3" />
-            {post.collect_count?.toLocaleString() ?? 0}
-          </span>
-          <span className="flex items-center gap-1">
-            <Comment className="h-3 w-3" />
-            {post.comment_count?.toLocaleString() ?? 0}
-          </span>
-          {post.play_count > 0 && (
-            <span className="flex items-center gap-1">
-              <Eye className="h-3 w-3" />
-              {post.play_count?.toLocaleString() ?? 0}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-xs text-muted-foreground">
-            {post.published_at
-              ? new Date(post.published_at).toLocaleDateString('zh-CN')
-              : new Date(post.fetched_at).toLocaleDateString('zh-CN')}
-          </span>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() => setExpanded(!expanded)}
-            >
-              <ChartBar className="h-3 w-3 mr-1" />
-              分析
-              {expanded ? <ArrowChevronUp className="h-3 w-3 ml-0.5" /> : <ArrowChevronDown className="h-3 w-3 ml-0.5" />}
-            </Button>
-            <a href={post.url ?? '#'} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground">
-              <Button variant="ghost" size="sm" className="h-7 text-xs">
-                <CircleArrowRight className="h-3 w-3 mr-1" />
-                查看
-              </Button>
-            </a>
+      <div className="space-y-3">
+        {selectedResults.map((r, i) => (
+          <div
+            key={i}
+            className="rounded-lg border bg-slate-50 p-4 space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] h-5 bg-white">
+                {r.target_type}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {new Date(r.analyzed_at).toLocaleString('zh-CN')}
+              </span>
+            </div>
+            {r.raw_response && outputSchema ? (
+              <SchemaRenderer
+                data={r.raw_response}
+                schema={outputSchema}
+              />
+            ) : r.raw_response ? (
+              <pre className="text-xs bg-white rounded p-3 overflow-x-auto border">
+                {JSON.stringify(r.raw_response, null, 2)}
+              </pre>
+            ) : (
+              <p className="text-xs text-muted-foreground">无数据</p>
+            )}
           </div>
-        </div>
-
-        {expanded && <AnalysisSection postId={post.id} />}
-      </CardContent>
-    </Card>
+        ))}
+      </div>
+    </div>
   );
 }
 
 function PostSkeleton() {
   return (
     <Card>
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-5 w-12 shrink-0" />
+      <Card.Content className="p-5 space-y-3">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <div className="flex-1">
+            <Skeleton className="h-4 w-24 mb-1" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+          <Skeleton className="h-5 w-14 rounded-full" />
         </div>
-        <Skeleton className="h-3 w-24" />
-        <Skeleton className="h-8 w-full" />
-        <div className="flex items-center gap-4">
-          <Skeleton className="h-3 w-12" />
-          <Skeleton className="h-3 w-12" />
-          <Skeleton className="h-3 w-12" />
+        <Skeleton className="h-40 w-full rounded-lg" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-3/4" />
+        <div className="flex items-center gap-4 pt-2 border-t border-slate-50">
+          <Skeleton className="h-3 w-10" />
+          <Skeleton className="h-3 w-10" />
+          <Skeleton className="h-3 w-10" />
         </div>
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-3 w-20" />
-          <Skeleton className="h-6 w-16" />
-        </div>
-      </CardContent>
+      </Card.Content>
     </Card>
   );
 }
@@ -263,6 +693,11 @@ export default function PostLibrary() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [analyzingPostId, setAnalyzingPostId] = useState<string | null>(null);
+  const [viewingMediaPostId, setViewingMediaPostId] = useState<string | null>(null);
+  const analyzingPost = posts.find((p) => p.id === analyzingPostId) ?? null;
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
@@ -300,17 +735,19 @@ export default function PostLibrary() {
         setPlatforms(unique);
       })
       .catch(() => setPlatforms([]));
-    fetchPosts();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [refreshKey]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setPage(1);
-      fetchPosts();
+      setRefreshKey((k) => k + 1);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, selectedPlatform, fetchPosts]);
+  }, [searchQuery, selectedPlatform]);
 
   if (error && posts.length === 0) {
     return (
@@ -319,7 +756,7 @@ export default function PostLibrary() {
         <div className="rounded-lg border border-danger/50 bg-danger/10 p-4 text-danger">
           <p className="font-medium">加载失败</p>
           <p className="text-sm mt-1">{error}</p>
-          <Button variant="outline" size="sm" className="mt-2" onClick={fetchPosts}>
+          <Button variant="outline" size="sm" className="mt-2" onPress={() => setRefreshKey((k) => k + 1)}>
             重试
           </Button>
         </div>
@@ -328,75 +765,225 @@ export default function PostLibrary() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight text-foreground">帖子库</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          {loading ? '加载中...' : `共 ${total} 条帖子`}
-        </p>
-      </div>
-
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        <div className="relative w-full sm:w-80">
-          <Magnifier className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="搜索帖子标题或内容..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-9 pl-9 pr-4 rounded-md border border-input bg-background text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <Sliders className="h-4 w-4 text-muted-foreground" />
-          <Button
-            variant={selectedPlatform === null ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setSelectedPlatform(null)}
-          >
-            全部
-          </Button>
-          {platforms.map((p) => {
-            const isActive = selectedPlatform === p.id;
-            return (
-              <Button
-                key={p.id}
-                variant={isActive ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedPlatform(isActive ? null : p.id)}
-              >
-                {getPlatformMeta(p.id).name}
-              </Button>
-            );
-          })}
+    <div className="space-y-6 max-w-[1440px]">
+      {/* Page Header */}
+      <div className="flex items-end justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900">帖子库</h2>
+          <p className="text-sm text-on-surface-variant mt-1">
+            {loading ? '加载中...' : `共 ${total} 条帖子`}
+          </p>
         </div>
       </div>
 
+      {/* Filters & Sorting Row */}
+      <div className="flex gap-4 items-center">
+        <Select
+          selectedKey={selectedPlatform || '_all'}
+          onSelectionChange={(key) => {
+            setSelectedPlatform(key === '_all' ? null : (key as string));
+            setPage(1);
+          }}
+          className="w-40"
+        >
+          <Select.Trigger className="h-9 text-sm">
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              <ListBox.Item id="_all">全部平台</ListBox.Item>
+              {platforms.map((p) => (
+                <ListBox.Item key={p.id} id={p.id}>
+                  {getPlatformMeta(p.id).name}
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Select.Popover>
+        </Select>
+        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-outline-variant rounded-lg text-sm font-medium text-on-surface-variant hover:bg-slate-50 transition-colors">
+          <Sliders className="h-4 w-4" />
+          更多筛选
+        </button>
+        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-outline-variant rounded-lg text-sm font-medium text-on-surface-variant hover:bg-slate-50 transition-colors">
+          <ArrowUpArrowDown className="h-4 w-4" />
+          排序: 互动量
+        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-on-surface-variant uppercase tracking-wider font-semibold">视图:</span>
+          <div className="flex bg-surface-container rounded-lg p-1">
+            <button
+              className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-secondary' : 'text-on-surface-variant hover:text-on-surface'}`}
+              onClick={() => setViewMode('grid')}
+            >
+              <LayoutCellsLarge className="h-5 w-5" />
+            </button>
+            <button
+              className={`p-1.5 rounded-md transition-colors ${viewMode === 'table' ? 'bg-white shadow-sm text-secondary' : 'text-on-surface-variant hover:text-on-surface'}`}
+              onClick={() => setViewMode('table')}
+            >
+              <ListUl className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <PostSkeleton key={i} />
-          ))}
-        </div>
+        viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <PostSkeleton key={i} />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        )
       ) : posts.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-2">暂无匹配的帖子</p>
           {(searchQuery || selectedPlatform) && (
-            <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(''); setSelectedPlatform(null); }}>
+            <Button variant="ghost" size="sm" onPress={() => { setSearchQuery(''); setSelectedPlatform(null); }}>
               清除筛选条件
             </Button>
           )}
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {posts.map((post) => (
-              <PostCard key={post.id} post={post} />
+              <PostCard key={post.id} post={post} onAnalyze={setAnalyzingPostId} onViewMedia={setViewingMediaPostId} />
             ))}
           </div>
-          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={setPage} />
+          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={(p) => { setPage(p); setRefreshKey((k) => k + 1); }} />
         </>
+      ) : (
+        <>
+          <DataTable aria-label="帖子列表">
+            <TableHeader>
+              <TableHead isRowHeader>平台</TableHead>
+              <TableHead>作者</TableHead>
+              <TableHead>标题</TableHead>
+              <TableHead>互动</TableHead>
+              <TableHead>发布时间</TableHead>
+              <TableHead className="text-right">操作</TableHead>
+            </TableHeader>
+            <TableBody>
+              {posts.map((post) => (
+                <TableRow key={post.id}>
+                  <TableCell>
+                    <PlatformBadge platformId={post.platform_id} />
+                  </TableCell>
+                  <TableCell className="text-sm font-medium text-foreground">
+                    {post.author_name || '匿名'}
+                  </TableCell>
+                  <TableCell className="text-sm text-foreground max-w-xs truncate">
+                    {post.title || post.content?.slice(0, 60)}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                    <span className="flex items-center gap-3">
+                      <span className="flex items-center gap-1">
+                        <Heart className="h-3 w-3" />
+                        {formatCount(post.like_count ?? 0)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Comment className="h-3 w-3" />
+                        {formatCount(post.comment_count ?? 0)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Bookmark className="h-3 w-3" />
+                        {formatCount(post.collect_count ?? 0)}
+                      </span>
+                      {post.media_count ? (
+                        <span className="flex items-center gap-1">
+                          <Picture className="h-3 w-3" />
+                          {formatCount(post.media_count)}
+                        </span>
+                      ) : null}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                    {timeAgo(post.published_at || post.fetched_at)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onPress={() => setAnalyzingPostId(post.id)}
+                        isDisabled={!post.analysis_count}
+                      >
+                        <ChartBar className="h-3.5 w-3.5 mr-1" />
+                        分析{post.analysis_count ? ` (${post.analysis_count})` : ''}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onPress={() => setViewingMediaPostId(post.id)}
+                        isDisabled={!post.media_count}
+                      >
+                        <Picture className="h-3.5 w-3.5 mr-1" />
+                        媒体{post.media_count ? ` (${post.media_count})` : ''}
+                      </Button>
+                      <a
+                        href={post.url ?? '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline"
+                      >
+                        查看
+                      </a>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </DataTable>
+          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={(p) => { setPage(p); setRefreshKey((k) => k + 1); }} />
+        </>
+      )}
+
+      {/* Analysis Modal */}
+      {analyzingPost && (
+        <Modal isOpen={true} onOpenChange={(open) => { if (!open) setAnalyzingPostId(null); }}>
+          <Modal.Backdrop>
+            <Modal.Container>
+              <Modal.Dialog className="max-w-3xl max-h-[80vh]">
+                <Modal.CloseTrigger />
+                <Modal.Header>
+                  <Modal.Heading>
+                    <span className="flex items-center gap-2">
+                      <PlatformBadge platformId={analyzingPost.platform_id} />
+                      <span className="text-base font-semibold">{analyzingPost.author_name || '匿名用户'}</span>
+                    </span>
+                  </Modal.Heading>
+                </Modal.Header>
+                <Modal.Body className="overflow-y-auto">
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                    {analyzingPost.title || analyzingPost.content?.slice(0, 120)}
+                  </p>
+                  <PostAnalysisDetail postId={analyzingPost.id} />
+                </Modal.Body>
+              </Modal.Dialog>
+            </Modal.Container>
+          </Modal.Backdrop>
+        </Modal>
+      )}
+
+      {/* Media Files Modal */}
+      {viewingMediaPostId && (
+        <MediaFilesModal
+          postId={viewingMediaPostId}
+          onClose={() => setViewingMediaPostId(null)}
+        />
       )}
     </div>
   );

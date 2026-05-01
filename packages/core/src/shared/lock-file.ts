@@ -9,9 +9,12 @@ export interface LockFileData {
   startedAt: string;
 }
 
+const isDevEnv = process.env.NODE_ENV === 'development' || process.env.SCOPAI_ENV === 'dev';
+
 function getLockFilePath(): string {
   const dataDir = expandPath(config.database.path);
-  return path.join(path.dirname(dataDir), 'api.lock');
+  const lockFileName = isDevEnv ? 'api-dev.lock' : 'api.lock';
+  return path.join(path.dirname(dataDir), lockFileName);
 }
 
 export function readLockFile(): LockFileData | null {

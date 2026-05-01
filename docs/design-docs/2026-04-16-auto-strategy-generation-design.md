@@ -113,11 +113,11 @@ The generated JSON must satisfy `validateStrategyJson` and match the database sc
   "output_schema": {
     "type": "object",
     "properties": {
-      "score": { "type": "number" },
-      "label": { "type": "string", "enum": ["high", "medium", "low"] },
-      "tags": { "type": "array", "items": { "type": "string" } },
-      "verified": { "type": "boolean" },
-      "meta": { "type": "object" }
+      "score": { "type": "number", "title": "评分" },
+      "label": { "type": "string", "enum": ["high", "medium", "low"], "title": "标签" },
+      "tags": { "type": "array", "items": { "type": "string" }, "title": "标签列表" },
+      "verified": { "type": "boolean", "title": "已验证" },
+      "meta": { "type": "object", "title": "元数据" }
     }
   }
 }
@@ -131,7 +131,7 @@ The generated JSON must satisfy `validateStrategyJson` and match the database sc
 **Output schema requirements:**
 - `type` must be `"object"`
 - Must have a `properties` object
-- Each property must have a `type` (`number`, `string`, `boolean`, `array`, `object`)
+- Each property must have a `type` (`number`, `string`, `boolean`, `array`, `object`) and a `title` (human-readable Chinese label)
 - Arrays should specify `items.type` when possible
 
 ### Error Recovery Loop

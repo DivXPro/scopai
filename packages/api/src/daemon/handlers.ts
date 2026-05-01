@@ -13,7 +13,7 @@ import { enqueueJobs, getQueueStats, syncWaitingMediaJobs } from '@scopai/core';
 import { getDbPath, query, run } from '@scopai/core';
 import { getLogger } from '@scopai/core';
 import { generateId, now, parseImportFile } from '@scopai/core';
-import { fetchViaOpencli } from '@scopai/core';
+import { fetchViaOpencli, parseChineseNumber } from '@scopai/core';
 import { createStrategy, getStrategyById, listStrategies, validateStrategyJson, updateStrategy, deleteStrategy, parseJsonSchemaToColumns, createStrategyResultTable, syncStrategyResultTable } from '@scopai/core';
 import { getExistingResultIds } from '@scopai/core';
 import { getTaskPostStatus } from '@scopai/core';
@@ -71,6 +71,7 @@ interface RawPostItem {
   cover_url?: string;
   post_type?: string;
   type?: string;
+  likes?: string;
   like_count?: number;
   collect_count?: number;
   comment_count?: number;
@@ -153,7 +154,7 @@ export function getHandlers(): Record<string, Handler> {
                 item.url ?? null,
                 item.cover_url ?? null,
                 (item.post_type ?? item.type ?? null) as any,
-                Number(item.like_count ?? 0),
+                parseChineseNumber(item.likes) ?? item.like_count ?? 0,
                 Number(item.collect_count ?? 0),
                 Number(item.comment_count ?? 0),
                 Number(item.share_count ?? 0),
@@ -180,7 +181,7 @@ export function getHandlers(): Record<string, Handler> {
               url: item.url ?? null,
               cover_url: item.cover_url ?? null,
               post_type: (item.post_type ?? item.type ?? null) as any,
-              like_count: Number(item.like_count ?? 0),
+              like_count: parseChineseNumber(item.likes) ?? item.like_count ?? 0,
               collect_count: Number(item.collect_count ?? 0),
               comment_count: Number(item.comment_count ?? 0),
               share_count: Number(item.share_count ?? 0),
@@ -245,7 +246,7 @@ export function getHandlers(): Record<string, Handler> {
             author_id: item.author_id ?? null,
             author_name: item.author_name ?? item.author ?? null,
             content: item.content ?? '',
-            like_count: Number(item.like_count ?? 0),
+            like_count: parseChineseNumber(item.likes) ?? item.like_count ?? 0,
             reply_count: Number(item.reply_count ?? 0),
             published_at: item.published_at ? new Date(item.published_at) : null,
             metadata: item.metadata as Record<string, unknown> | null ?? null,
@@ -1470,7 +1471,7 @@ async function runPrepareDataAsync(
 
       // Trigger streaming analysis for this post
       try {
-        const { buildJobsForPost } = await import('./stream-scheduler');
+        const { buildJobsForPost } = await import('./scheduler');
         const { enqueueJobs } = await import('@scopai/core');
         const { listTaskSteps } = await import('@scopai/core');
         const { getStrategyById } = await import('@scopai/core');

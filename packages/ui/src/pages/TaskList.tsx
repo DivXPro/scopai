@@ -4,15 +4,14 @@ import * as icons from '@gravity-ui/icons';
 import { apiGet } from '@/api/client';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs } from '@heroui/react';
 import Pagination from '@/components/Pagination';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 
 const ListCheck = icons.ListCheck;
-const Funnel = icons.Funnel;
 
 interface Task {
   id: string;
@@ -37,6 +36,14 @@ const statusLabelMap: Record<string, string> = {
   completed: '已完成',
   failed: '失败',
 };
+
+const statusOptions = [
+  { value: 'pending', label: '待处理' },
+  { value: 'running', label: '运行中' },
+  { value: 'paused', label: '已暂停' },
+  { value: 'completed', label: '已完成' },
+  { value: 'failed', label: '失败' },
+];
 
 const PAGE_SIZE = 20;
 
@@ -63,11 +70,6 @@ export default function TaskList() {
       .finally(() => setLoading(false));
   }, [page, statusFilter]);
 
-  const statusCounts = tasks.reduce<Record<string, number>>((acc, t) => {
-    acc[t.status] = (acc[t.status] ?? 0) + 1;
-    return acc;
-  }, {});
-
   if (error) {
     return (
       <div className="rounded-lg border border-danger/50 bg-danger/10 p-4 text-danger">
@@ -90,26 +92,29 @@ export default function TaskList() {
       </div>
 
       {/* 状态筛选 */}
-      <div className="flex items-center gap-2">
-        <Funnel className="h-4 w-4 text-muted-foreground" />
-        <Button
-          variant={statusFilter === '' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => { setStatusFilter(''); setPage(1); }}
-        >
-          全部 ({total})
-        </Button>
-        {Object.entries(statusCounts).map(([status, count]) => (
-          <Button
-            key={status}
-            variant={statusFilter === status ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => { setStatusFilter(statusFilter === status ? '' : status); setPage(1); }}
+      <Tabs
+        className="w-full max-w-lg"
+        selectedKey={statusFilter || 'all'}
+        onSelectionChange={(key) => { setStatusFilter(key === 'all' ? '' : key as string); setPage(1); }}
+      >
+        <Tabs.ListContainer>
+          <Tabs.List
+            aria-label="Options"
+            className="w-fit *:h-6 *:w-fit *:px-3 *:text-sm *:font-normal"
           >
-            {statusLabelMap[status] ?? status} ({count})
-          </Button>
-        ))}
-      </div>
+            <Tabs.Tab id="all">
+              全部
+              <Tabs.Indicator />
+            </Tabs.Tab>
+            {statusOptions.map((opt) => (
+              <Tabs.Tab key={opt.value} id={opt.value}>
+                {opt.label}
+                <Tabs.Indicator />
+              </Tabs.Tab>
+            ))}
+          </Tabs.List>
+        </Tabs.ListContainer>
+      </Tabs>
 
       {/* 任务表格 */}
       {loading ? (
@@ -132,42 +137,38 @@ export default function TaskList() {
         </div>
       ) : (
         <>
-          <Card>
-            <CardContent className="p-0">
-              <Table aria-label="任务列表">
-                <TableHeader>
-                  <TableHead>名称</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>创建时间</TableHead>
-                  <TableHead>更新时间</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableHeader>
-                <TableBody>
-                  {tasks.map((task) => (
-                    <TableRow key={task.id}>
-                      <TableCell className="font-medium text-foreground">{task.name}</TableCell>
-                      <TableCell>
-                        <Badge variant={statusVariantMap[task.status] ?? 'outline'}>
-                          {statusLabelMap[task.status] ?? task.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(task.created_at).toLocaleDateString('zh-CN')}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(task.updated_at).toLocaleDateString('zh-CN')}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Link to={`/tasks/${task.id}`} className="text-sm text-primary hover:underline">
-                          查看详情
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <Table aria-label="任务列表">
+            <TableHeader>
+              <TableHead isRowHeader>名称</TableHead>
+              <TableHead>状态</TableHead>
+              <TableHead>创建时间</TableHead>
+              <TableHead>更新时间</TableHead>
+              <TableHead className="text-right">操作</TableHead>
+            </TableHeader>
+            <TableBody>
+              {tasks.map((task) => (
+                <TableRow key={task.id}>
+                  <TableCell className="font-medium text-foreground">{task.name}</TableCell>
+                  <TableCell>
+                    <Badge variant={statusVariantMap[task.status] ?? 'outline'}>
+                      {statusLabelMap[task.status] ?? task.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {new Date(task.created_at).toLocaleDateString('zh-CN')}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {new Date(task.updated_at).toLocaleDateString('zh-CN')}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Link to={`/tasks/${task.id}`} className="text-sm text-primary hover:underline">
+                      查看详情
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
           <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={setPage} />
         </>
       )}

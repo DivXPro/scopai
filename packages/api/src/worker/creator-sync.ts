@@ -10,6 +10,7 @@ import {
   updatePost,
   fetchViaOpencli,
   updateCreator,
+  parseChineseNumber,
 } from '@scopai/core';
 import type { CreatorSyncJob } from '@scopai/core';
 import { getLogger } from '@scopai/core';
@@ -41,6 +42,7 @@ interface RawPostItem {
   cover_url?: string;
   post_type?: string;
   type?: string;
+  likes?: string;
   like_count?: number;
   collect_count?: number;
   comment_count?: number;
@@ -285,7 +287,7 @@ export async function processCreatorSyncJob(job: CreatorSyncJob, workerId: numbe
             url: item.url ?? null,
             cover_url: item.cover_url ?? null,
             post_type: (item.post_type ?? item.type ?? existing.post_type) as any,
-            like_count: Number(item.like_count ?? 0),
+            like_count: parseChineseNumber(item.likes) ?? item.like_count ?? 0,
             collect_count: Number(item.collect_count ?? 0),
             comment_count: Number(item.comment_count ?? 0),
             share_count: Number(item.share_count ?? 0),
@@ -309,7 +311,7 @@ export async function processCreatorSyncJob(job: CreatorSyncJob, workerId: numbe
             url: item.url ?? null,
             cover_url: item.cover_url ?? null,
             post_type: (item.post_type ?? item.type ?? null) as any,
-            like_count: Number(item.like_count ?? 0),
+            like_count: parseChineseNumber(item.likes) ?? item.like_count ?? 0,
             collect_count: Number(item.collect_count ?? 0),
             comment_count: Number(item.comment_count ?? 0),
             share_count: Number(item.share_count ?? 0),

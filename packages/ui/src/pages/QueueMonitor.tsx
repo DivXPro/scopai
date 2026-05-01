@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs } from '@heroui/react';
 import Pagination from '@/components/Pagination';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -16,7 +17,6 @@ const CircleCheck = icons.CircleCheck;
 const CircleXmark = icons.CircleXmark;
 const ArrowRotateRight = icons.ArrowRotateRight;
 const ArrowRotateLeft = icons.ArrowRotateLeft;
-const Thunderbolt = icons.Thunderbolt;
 
 interface QueueStats {
   pending: number;
@@ -53,6 +53,13 @@ const statusVariantMap: Record<string, BadgeVariant> = {
   failed: 'destructive',
   waiting_media: 'outline',
 };
+
+const statusOptions = [
+  { value: 'pending', label: '待处理' },
+  { value: 'processing', label: '处理中' },
+  { value: 'completed', label: '已完成' },
+  { value: 'failed', label: '失败' },
+];
 
 function StatCard({ title, value, icon, color }: { title: string; value: number; icon: React.ReactNode; color: string }) {
   return (
@@ -177,26 +184,29 @@ export default function QueueMonitor() {
       </div>
 
       {/* 状态筛选 */}
-      <div className="flex items-center gap-2">
-        <Thunderbolt className="h-4 w-4 text-muted-foreground" />
-        <Button
-          variant={statusFilter === '' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => { setStatusFilter(''); setPage(1); }}
-        >
-          全部
-        </Button>
-        {['pending', 'processing', 'completed', 'failed'].map((s) => (
-          <Button
-            key={s}
-            variant={statusFilter === s ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => { setStatusFilter(statusFilter === s ? '' : s); setPage(1); }}
+      <Tabs
+        className="w-full max-w-lg"
+        selectedKey={statusFilter || 'all'}
+        onSelectionChange={(key) => { setStatusFilter(key === 'all' ? '' : key as string); setPage(1); }}
+      >
+        <Tabs.ListContainer>
+          <Tabs.List
+            aria-label="Options"
+            className="w-fit *:h-6 *:w-fit *:px-3 *:text-sm *:font-normal"
           >
-            {s === 'pending' ? '待处理' : s === 'processing' ? '处理中' : s === 'completed' ? '已完成' : '失败'}
-          </Button>
-        ))}
-      </div>
+            <Tabs.Tab id="all">
+              全部
+              <Tabs.Indicator />
+            </Tabs.Tab>
+            {statusOptions.map((opt) => (
+              <Tabs.Tab key={opt.value} id={opt.value}>
+                {opt.label}
+                <Tabs.Indicator />
+              </Tabs.Tab>
+            ))}
+          </Tabs.List>
+        </Tabs.ListContainer>
+      </Tabs>
 
       {/* 任务列表 */}
       {loading && !data ? (
@@ -211,42 +221,38 @@ export default function QueueMonitor() {
         </div>
       ) : (
         <>
-          <Card>
-            <CardContent className="p-0">
-              <Table aria-label="队列任务">
-                <TableHeader>
-                  <TableHead>状态</TableHead>
-                  <TableHead>目标类型</TableHead>
-                  <TableHead>策略</TableHead>
-                  <TableHead>重试次数</TableHead>
-                  <TableHead>错误</TableHead>
-                  <TableHead>创建时间</TableHead>
-                </TableHeader>
-                <TableBody>
-                  {jobs.map((job) => (
-                    <TableRow key={job.id}>
-                      <TableCell>
-                        <Badge variant={statusVariantMap[job.status] ?? 'outline'}>
-                          {job.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-foreground">{job.target_type ?? '-'}</TableCell>
-                      <TableCell className="text-sm font-mono text-foreground">{job.strategy_id ?? '-'}</TableCell>
-                      <TableCell className="text-sm text-foreground">
-                        {job.attempts}/{job.max_attempts}
-                      </TableCell>
-                      <TableCell className="text-xs text-danger max-w-xs truncate text-foreground">
-                        {job.error ?? '-'}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                        {new Date(job.created_at).toLocaleString('zh-CN')}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <Table aria-label="队列任务">
+            <TableHeader>
+              <TableHead isRowHeader>状态</TableHead>
+              <TableHead>目标类型</TableHead>
+              <TableHead>策略</TableHead>
+              <TableHead>重试次数</TableHead>
+              <TableHead>错误</TableHead>
+              <TableHead>创建时间</TableHead>
+            </TableHeader>
+            <TableBody>
+              {jobs.map((job) => (
+                <TableRow key={job.id}>
+                  <TableCell>
+                    <Badge variant={statusVariantMap[job.status] ?? 'outline'}>
+                      {job.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-foreground">{job.target_type ?? '-'}</TableCell>
+                  <TableCell className="text-sm font-mono text-foreground">{job.strategy_id ?? '-'}</TableCell>
+                  <TableCell className="text-sm text-foreground">
+                    {job.attempts}/{job.max_attempts}
+                  </TableCell>
+                  <TableCell className="text-xs text-danger max-w-xs truncate text-foreground">
+                    {job.error ?? '-'}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                    {new Date(job.created_at).toLocaleString('zh-CN')}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
           <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={setPage} />
         </>
       )}

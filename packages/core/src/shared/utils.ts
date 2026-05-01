@@ -129,6 +129,23 @@ export async function waitForTaskSteps(
   }
 }
 
+export function parseChineseNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value !== 'string') return null;
+
+  const cleaned = value.replace(/[,+\s]/g, '');
+
+  const matchWan = cleaned.match(/^([\d.]+)万$/);
+  if (matchWan) {
+    const num = parseFloat(matchWan[1]);
+    return Number.isFinite(num) ? Math.round(num * 10000) : null;
+  }
+
+  const num = parseFloat(cleaned);
+  return Number.isFinite(num) ? num : null;
+}
+
 export function parseImportFile(filePath: string): unknown[] {
   const content = fs.readFileSync(filePath, 'utf-8');
   const ext = filePath.toLowerCase();

@@ -32,11 +32,14 @@ function SchemaPreview({ schema }: { schema: Record<string, unknown> }) {
   if (!props || Object.keys(props).length === 0) return null;
   return (
     <div className="flex flex-wrap gap-1">
-      {Object.entries(props).map(([name, def]) => (
-        <Badge key={name} variant="secondary" className="text-[10px] h-5 font-mono">
-          {name}:{def.type ?? '?'}
-        </Badge>
-      ))}
+      {Object.entries(props).map(([name, def]) => {
+        const title = def.title || name;
+        return (
+          <Badge key={name} variant="secondary" className="text-[10px] h-5 font-mono">
+            {title}:{def.type ?? '?'}
+          </Badge>
+        );
+      })}
     </div>
   );
 }

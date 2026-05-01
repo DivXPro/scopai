@@ -87,8 +87,6 @@ export default async function strategiesRoutes(app: FastifyInstance) {
       depends_on: (obj.depends_on ?? null) as 'post' | 'comment' | null,
       include_original: (obj.include_original ?? false) as boolean,
       file_path: null,
-      created_at: new Date(),
-      updated_at: new Date(),
     });
     return { imported: true, id: obj.id };
   });

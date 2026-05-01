@@ -11,10 +11,12 @@ export interface TableProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: React.ReactNode;
 }
 
-export function Table({ className = "", children, ...props }: TableProps) {
+export function Table({ className = "", children, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy, ...props }: TableProps) {
   return (
     <HeroTable className={className} {...(props as any)}>
-      <HeroTable.Content>{children}</HeroTable.Content>
+      <HeroTable.Content aria-label={ariaLabel} aria-labelledby={ariaLabelledBy}>
+        {children}
+      </HeroTable.Content>
     </HeroTable>
   );
 }
@@ -43,9 +45,9 @@ export function TableRow({ className = "", children, ...props }: React.HTMLAttri
   );
 }
 
-export function TableHead({ className = "", children, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) {
+export function TableHead({ className = "", isRowHeader, children, ...props }: React.ThHTMLAttributes<HTMLTableCellElement> & { isRowHeader?: boolean }) {
   return (
-    <HeroTableColumn className={className} {...(props as any)}>
+    <HeroTableColumn isRowHeader={isRowHeader} className={className} {...(props as any)}>
       {children}
     </HeroTableColumn>
   );

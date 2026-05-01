@@ -167,6 +167,48 @@ export interface PostAnalysisResult {
   analyzed_at: Date;
 }
 
+export async function countPostAnalysisResults(postId: string): Promise<number> {
+  const commentIds = await query<{ id: string }>(
+    `SELECT id FROM comments WHERE post_id = ?`,
+    [postId],
+  );
+  const commentIdList = commentIds.map(c => c.id);
+
+  let total = 0;
+
+  if (commentIdList.length > 0) {
+    const builtinCount = await query<{ cnt: bigint }>(
+      `SELECT COUNT(*) as cnt FROM analysis_results_comments WHERE comment_id IN (${commentIdList.map(() => '?').join(',')})`,
+      [...commentIdList],
+    );
+    total += Number(builtinCount[0]?.cnt ?? 0);
+  }
+
+  const strategies = await query<{ id: string }>('SELECT id FROM strategies');
+  for (const strategy of strategies) {
+    try {
+      const tableName = getStrategyResultTableName(strategy.id);
+      const placeholders = commentIdList.map(() => '?').join(',');
+      const whereClause = commentIdList.length > 0
+        ? `target_id = ? OR target_id IN (${placeholders})`
+        : 'target_id = ?';
+      const params = commentIdList.length > 0
+        ? [postId, ...commentIdList]
+        : [postId];
+
+      const rows = await query<{ cnt: bigint }>(
+        `SELECT COUNT(*) as cnt FROM "${tableName}" WHERE ${whereClause}`,
+        params,
+      );
+      total += Number(rows[0]?.cnt ?? 0);
+    } catch {
+      // Table may not exist, skip
+    }
+  }
+
+  return total;
+}
+
 export async function getPostAnalysisResults(postId: string): Promise<PostAnalysisResult[]> {
   // Get all comment IDs for this post
   const commentIds = await query<{ id: string }>(
@@ -183,7 +225,7 @@ export async function getPostAnalysisResults(postId: string): Promise<PostAnalys
   const results: PostAnalysisResult[] = [];
 
   // Query built-in analysis_results_comments table
-  const builtinCommentRows = await query<{
+  let builtinCommentRows: Array<{
     task_id: string;
     comment_id: string;
     sentiment_label: string | null;
@@ -194,12 +236,15 @@ export async function getPostAnalysisResults(postId: string): Promise<PostAnalys
     topics: string | null;
     keywords: string | null;
     analyzed_at: Date;
-  }>(
-    `SELECT task_id, comment_id, sentiment_label, sentiment_score, intent,
-            risk_flagged, risk_level, topics, keywords, analyzed_at
-     FROM analysis_results_comments WHERE comment_id IN (${commentIdList.map(() => '?').join(',')})`,
-    [...commentIdList],
-  );
+  }> = [];
+  if (commentIdList.length > 0) {
+    builtinCommentRows = await query(
+      `SELECT task_id, comment_id, sentiment_label, sentiment_score, intent,
+              risk_flagged, risk_level, topics, keywords, analyzed_at
+       FROM analysis_results_comments WHERE comment_id IN (${commentIdList.map(() => '?').join(',')})`,
+      [...commentIdList],
+    );
+  }
 
   for (const row of builtinCommentRows) {
     results.push({

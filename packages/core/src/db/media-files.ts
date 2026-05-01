@@ -18,6 +18,11 @@ export async function listMediaFilesByPost(postId: string): Promise<MediaFile[]>
   return query<MediaFile>('SELECT * FROM media_files WHERE post_id = ? ORDER BY created_at', [postId]);
 }
 
+export async function countMediaFilesByPost(postId: string): Promise<number> {
+  const rows = await query<{ cnt: bigint }>('SELECT COUNT(*) as cnt FROM media_files WHERE post_id = ?', [postId]);
+  return Number(rows[0]?.cnt ?? 0);
+}
+
 export async function getMediaFileById(id: string): Promise<MediaFile | null> {
   const rows = await query<MediaFile>('SELECT * FROM media_files WHERE id = ?', [id]);
   return rows[0] ?? null;

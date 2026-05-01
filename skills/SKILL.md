@@ -244,7 +244,7 @@ scopai task step run --task-id <tid> --step-id <sid> --wait
 - `target`: `"post"` only
 - `needs_media`: `{ enabled: true/false, media_types, max_media, mode }` if enabled
 - `prompt`: must include `{{content}}`; include `{{media_urls}}` if `needs_media.enabled`
-- `output_schema`: standard JSON Schema, `type: "object"`, each property needs `type`
+- `output_schema`: standard JSON Schema, `type: "object"`, each property needs `type` and `title` (human-readable Chinese label)
 
 **Prompt variables (whitelist only):**
 
@@ -267,8 +267,8 @@ scopai task step run --task-id <tid> --step-id <sid> --wait
   "output_schema": {
     "type": "object",
     "properties": {
-      "score": { "type": "number" },
-      "category": { "type": "string" }
+      "score": { "type": "number", "title": "变现潜力评分" },
+      "category": { "type": "string", "title": "变现类别" }
     }
   }
 }

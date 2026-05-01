@@ -22,7 +22,9 @@ import { setupAuth } from './auth';
 import { registerRoutes } from './routes';
 import { runConsumer } from './worker/consumer';
 
-const PORT = parseInt(process.env.PORT ?? '3000', 10);
+const isDevEnv = process.env.NODE_ENV === 'development' || process.env.SCOPAI_ENV === 'dev';
+const DEFAULT_PORT = isDevEnv ? 3001 : 3000;
+const PORT = parseInt(process.env.PORT ?? String(DEFAULT_PORT), 10);
 const HOST = process.env.HOST ?? '127.0.0.1';
 const WORKER_CONCURRENCY = config.worker.concurrency ?? 2;
 const SHUTDOWN_DRAIN_TIMEOUT_MS = 30_000;
