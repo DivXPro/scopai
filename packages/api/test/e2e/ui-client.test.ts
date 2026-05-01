@@ -62,7 +62,7 @@ describe('UI API Client', () => {
         target: 'post',
         needs_media: { enabled: false },
         prompt: 'Test',
-        output_schema: { type: 'object', properties: { r: { type: 'string' } } },
+        output_schema: { type: 'object', properties: { r: { type: 'string', title: '结果' } } },
       });
       assert.equal(result.id, 'ct-test-strategy');
     });
@@ -126,7 +126,7 @@ describe('UI API Client', () => {
         target: 'post',
         needs_media: { enabled: false },
         prompt: 'Test',
-        output_schema: { type: 'object', properties: { x: { type: 'string' } } },
+        output_schema: { type: 'object', properties: { x: { type: 'string', title: '结果' } } },
       });
       assert.equal(result.id, 'stringify-test-strategy');
     });

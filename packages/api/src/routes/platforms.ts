@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { listPlatforms, createPlatform } from '@scopai/core';
+import { listPlatforms, createPlatform, listFieldMappings, getMappingsForPlatform } from '@scopai/core';
 
 export default async function platformsRoutes(app: FastifyInstance) {
   app.get('/platforms', async () => listPlatforms());
@@ -8,5 +8,14 @@ export default async function platformsRoutes(app: FastifyInstance) {
     const { id, name, description } = request.body as { id: string; name: string; description?: string };
     await createPlatform({ id, name, description: description ?? null });
     return { id };
+  });
+
+  app.get('/platforms/:id/mappings', async (request) => {
+    const { id } = request.params as { id: string };
+    const { entity } = request.query as Record<string, string>;
+    if (entity) {
+      return getMappingsForPlatform(id, entity);
+    }
+    return listFieldMappings(id);
   });
 }

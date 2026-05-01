@@ -11,6 +11,8 @@ import {
   getTaskPostStatuses,
   insertStrategyResult,
   updateTaskCliTemplates,
+  listMediaFilesByPost, getPostById,
+  query,
 } from '@scopai/core';
 import type { QueueJob } from '@scopai/core';
 import { getHandlers } from '../daemon/handlers';
@@ -579,5 +581,175 @@ export default async function tasksRoutes(app: FastifyInstance) {
 
     await updateTaskCliTemplates(id, cliTemplatesStr);
     return { updated: true };
+  });
+
+  // --- List steps for a task ---
+  app.get('/tasks/:id/steps', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const task = await getTaskById(id);
+    if (!task) {
+      reply.code(404);
+      throw new Error(`Task not found: ${id}`);
+    }
+    return listTaskSteps(id);
+  });
+
+  // --- Reset a task step ---
+  app.post('/tasks/:id/steps/:stepId/reset', async (request, reply) => {
+    const { id, stepId } = request.params as { id: string; stepId: string };
+    const task = await getTaskById(id);
+    if (!task) {
+      reply.code(404);
+      throw new Error(`Task not found: ${id}`);
+    }
+
+    const step = await getTaskStepById(stepId);
+    if (!step) {
+      reply.code(404);
+      throw new Error(`Step not found: ${stepId}`);
+    }
+    if (step.task_id !== id) {
+      reply.code(400);
+      throw new Error('Step does not belong to this task');
+    }
+
+    await updateTaskStepStatus(stepId, 'pending', { total: 0, done: 0, failed: 0 });
+    return { reset: true };
+  });
+
+  // --- Legacy result stats (built-in comment/media analysis) ---
+  app.get('/tasks/:id/results/stats', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const task = await getTaskById(id);
+    if (!task) {
+      reply.code(404);
+      throw new Error(`Task not found: ${id}`);
+    }
+
+    const commentRows = await query<{ cnt: bigint }>(
+      `SELECT COUNT(*) as cnt FROM analysis_results_comments WHERE task_id = ?`,
+      [id],
+    );
+    const mediaRows = await query<{ cnt: bigint }>(
+      `SELECT COUNT(*) as cnt FROM analysis_results_media WHERE task_id = ?`,
+      [id],
+    );
+
+    const sentimentDist = await query<{ val: string; cnt: bigint }>(
+      `SELECT sentiment_label as val, COUNT(*) as cnt FROM analysis_results_comments WHERE task_id = ? AND sentiment_label IS NOT NULL GROUP BY sentiment_label`,
+      [id],
+    );
+    const intentDist = await query<{ val: string; cnt: bigint }>(
+      `SELECT intent as val, COUNT(*) as cnt FROM analysis_results_comments WHERE task_id = ? AND intent IS NOT NULL GROUP BY intent`,
+      [id],
+    );
+
+    const sentiment: Record<string, number> = {};
+    for (const r of sentimentDist) sentiment[r.val] = Number(r.cnt);
+    const intent: Record<string, number> = {};
+    for (const r of intentDist) intent[r.val] = Number(r.cnt);
+
+    return {
+      total: Number(commentRows[0]?.cnt ?? 0) + Number(mediaRows[0]?.cnt ?? 0),
+      comments: Number(commentRows[0]?.cnt ?? 0),
+      media: Number(mediaRows[0]?.cnt ?? 0),
+      risk_flagged: 0,
+      sentiment,
+      intent,
+    };
+  });
+
+  // --- Legacy result export (built-in comment/media analysis) ---
+  app.post('/tasks/:id/results/export', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = request.body as Record<string, unknown>;
+    const format = (body.format as string) ?? 'json';
+    const output = body.output as string | undefined;
+
+    const task = await getTaskById(id);
+    if (!task) {
+      reply.code(404);
+      throw new Error(`Task not found: ${id}`);
+    }
+
+    const commentRows = await query<Record<string, unknown>>(
+      `SELECT * FROM analysis_results_comments WHERE task_id = ? ORDER BY analyzed_at DESC`,
+      [id],
+    );
+    const mediaRows = await query<Record<string, unknown>>(
+      `SELECT * FROM analysis_results_media WHERE task_id = ? ORDER BY analyzed_at DESC`,
+      [id],
+    );
+    const allRows = [...commentRows, ...mediaRows];
+
+    let content: string;
+    if (format === 'csv') {
+      if (allRows.length === 0) {
+        content = '';
+      } else {
+        const keys = Object.keys(allRows[0]);
+        const lines = [keys.join(',')];
+        for (const row of allRows) {
+          const values = keys.map((k) => {
+            const v = row[k];
+            const str = v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+            if (str.includes(',') || str.includes('"')) return '"' + str.replace(/"/g, '""') + '"';
+            return str;
+          });
+          lines.push(values.join(','));
+        }
+        content = lines.join('\n') + '\n';
+      }
+    } else {
+      content = JSON.stringify(allRows, null, 2) + '\n';
+    }
+
+    if (output) {
+      const fs = await import('fs');
+      fs.writeFileSync(output, content);
+    }
+
+    return { content, writtenTo: output ?? null, count: allRows.length };
+  });
+
+  // --- Get media files for a task's posts ---
+  app.get('/tasks/:id/media', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { post_id } = request.query as Record<string, string>;
+
+    const task = await getTaskById(id);
+    if (!task) {
+      reply.code(404);
+      throw new Error(`Task not found: ${id}`);
+    }
+
+    const targets = await listTaskTargets(id);
+    const postTargets = targets.filter((t) => t.target_type === 'post');
+    const postIds = postTargets.map((t) => t.target_id);
+
+    if (post_id) {
+      if (!postIds.includes(post_id)) {
+        reply.code(400);
+        throw new Error('Post not associated with this task');
+      }
+    }
+
+    const relevantPostIds = post_id ? [post_id] : postIds;
+    const posts: { post_id: string; title: string; media: unknown[] }[] = [];
+    let totalMedia = 0;
+
+    for (const pid of relevantPostIds) {
+      const post = await getPostById(pid);
+      if (!post) continue;
+      const media = await listMediaFilesByPost(pid);
+      totalMedia += media.length;
+      posts.push({
+        post_id: pid,
+        title: post.title ?? post.content.slice(0, 50) ?? '(untitled)',
+        media,
+      });
+    }
+
+    return { posts, totalMedia, totalAnalyzed: 0 };
   });
 }

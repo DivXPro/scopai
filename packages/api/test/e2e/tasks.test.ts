@@ -173,7 +173,7 @@ describe('Tasks routes', () => {
           target: 'post',
           needs_media: { enabled: false },
           prompt: 'Test',
-          output_schema: { type: 'object', properties: { sentiment: { type: 'string' } } },
+          output_schema: { type: 'object', properties: { sentiment: { type: 'string', title: '情感' } } },
         }),
       });
       assert.equal(stratRes.status, 200);
@@ -196,7 +196,7 @@ describe('Tasks routes', () => {
       output_schema: {
         type: 'object',
         properties: {
-          result: { type: 'string' },
+          result: { type: 'string', title: '结果' },
         },
       },
     };

@@ -15,8 +15,8 @@ const SAMPLE_STRATEGY = {
   output_schema: {
     type: 'object',
     properties: {
-      sentiment: { type: 'string' },
-      confidence: { type: 'number' },
+      sentiment: { type: 'string', title: '情感' },
+      confidence: { type: 'number', title: '置信度' },
     },
   },
 };
