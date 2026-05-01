@@ -65,8 +65,8 @@ describe('strategy-import', { timeout: 60000 }, () => {
         output_schema: {
           type: 'object',
           properties: {
-            label: { type: 'string' },
-            score: { type: 'number' },
+            label: { type: 'string', title: '标签' },
+            score: { type: 'number', title: '分数' },
           },
         },
       });

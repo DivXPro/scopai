@@ -400,20 +400,42 @@ export function taskCommands(program: Command): void {
     .command('results')
     .description('Show analysis results for a completed task')
     .requiredOption('--task-id <id>', 'Task ID')
-    .action(async (opts: { taskId: string }) => {
+    .option('--strategy-id <id>', 'Strategy ID (auto-detected from task steps if omitted)')
+    .action(async (opts: { taskId: string; strategyId?: string }) => {
       const full = await apiGet<TaskDetailResponse>('/tasks/' + opts.taskId);
       if (!full.id) {
         console.log(pc.red(`Task not found: ${opts.taskId}`));
         process.exit(1);
       }
-      const results = await apiGet<{ target_type: string; target_id: string | null; summary: string | null; raw_response: Record<string, unknown> | null }[]>('/tasks/' + opts.taskId + '/results');
-      console.log(pc.bold(`\nAnalysis results for task ${opts.taskId.slice(0, 8)}:`));
-      console.log(`  Total result records: ${results.length}`);
-      for (const r of results.slice(0, 5)) {
-        console.log(`  - ${r.target_type} ${r.target_id?.slice(0, 8) ?? '-'}: ${JSON.stringify(r.summary ?? r.raw_response ?? {}).slice(0, 80)}`);
+
+      // Determine strategy IDs to query
+      let strategyIds: string[] = [];
+      if (opts.strategyId) {
+        strategyIds = [opts.strategyId];
+      } else {
+        const steps = full.phases?.steps ?? [];
+        strategyIds = steps.map((s: any) => s.strategyId).filter(Boolean);
+        if (strategyIds.length === 0) {
+          console.log(pc.yellow('No strategy steps found for this task'));
+          process.exit(1);
+        }
       }
-      if (results.length > 5) {
-        console.log(pc.dim(`  ... and ${results.length - 5} more`));
+
+      for (const strategyId of strategyIds) {
+        const response = await apiGet<{ results: any[]; stats: Record<string, unknown> }>('/tasks/' + opts.taskId + '/results?strategy_id=' + strategyId);
+        const results = response.results ?? [];
+        const stepName = (full.phases?.steps ?? []).find((s: any) => s.strategyId === strategyId)?.name ?? strategyId;
+
+        console.log(pc.bold(`\nAnalysis results for strategy "${stepName}" (${results.length} records):`));
+        console.log(pc.dim('─'.repeat(80)));
+        for (const r of results.slice(0, 5)) {
+          const raw = r.raw_response ? JSON.stringify(r.raw_response).slice(0, 100) : '-';
+          console.log(`  - ${r.target_type} ${r.target_id?.slice(0, 8) ?? '-'}: ${raw}`);
+        }
+        if (results.length > 5) {
+          console.log(pc.dim(`  ... and ${results.length - 5} more`));
+        }
+        console.log(pc.dim('─'.repeat(80)));
       }
       console.log();
     });

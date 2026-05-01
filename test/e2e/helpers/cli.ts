@@ -1,7 +1,6 @@
 import { spawn } from 'child_process';
 import * as path from 'path';
-import * as os from 'os';
-import * as fs from 'fs';
+import { TEST_TMP_DIR, TEST_DB_PATH, TEST_IPC_SOCKET, TEST_DAEMON_PID } from './test-env.ts';
 
 const CLI_PATH = path.join(process.cwd(), 'bin', 'scopai.js');
 
@@ -11,10 +10,7 @@ export interface CliResult {
   exitCode: number;
 }
 
-// Fixed test environment for this process — all runCli calls share the same IPC socket
-const TEST_RUN_ID = `e2e_${Date.now()}_${process.pid}`;
-const TEST_TMP_DIR = path.join(os.tmpdir(), 'scopai-e2e', TEST_RUN_ID);
-fs.mkdirSync(TEST_TMP_DIR, { recursive: true });
+export { TEST_TMP_DIR };
 
 function getTestEnv(): Record<string, string> {
   return {

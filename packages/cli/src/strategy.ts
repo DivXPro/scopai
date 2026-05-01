@@ -180,7 +180,8 @@ export function strategyCommands(program: Command): void {
     .option('--limit <n>', 'Max results', '50')
     .action(async (opts: { taskId: string; strategy: string; limit: string }) => {
       try {
-        const rows = await apiGet<any[]>('/tasks/' + opts.taskId + '/results?strategy_id=' + opts.strategy + '&limit=' + (opts.limit ?? '50'));
+        const response = await apiGet<{ results: any[]; stats: Record<string, unknown> }>('/tasks/' + opts.taskId + '/results?strategy_id=' + opts.strategy + '&limit=' + (opts.limit ?? '50'));
+        const rows = response.results ?? [];
         if (rows.length === 0) {
           console.log(pc.yellow('No results found'));
           return;

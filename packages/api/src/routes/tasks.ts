@@ -9,6 +9,7 @@ import {
   getStrategyById,
   generateId, now,
   getTaskPostStatuses,
+  insertStrategyResult,
 } from '@scopai/core';
 import type { QueueJob } from '@scopai/core';
 import { getHandlers } from '../daemon/handlers';
@@ -513,5 +514,49 @@ export default async function tasksRoutes(app: FastifyInstance) {
     }
 
     return { completed, failed, skipped };
+  });
+
+  // --- Test-only: seed mock strategy results ---
+  app.post('/tasks/:id/seed-results', async (request, reply) => {
+    if (process.env.NODE_ENV === 'production') {
+      reply.code(403);
+      throw new Error('Not available in production');
+    }
+
+    const { id } = request.params as { id: string };
+    const body = request.body as Record<string, unknown>;
+    const strategyId = body.strategy_id as string | undefined;
+    const results = body.results as Array<Record<string, unknown>> | undefined;
+
+    if (!strategyId || !Array.isArray(results)) {
+      reply.code(400);
+      throw new Error('strategy_id and results are required');
+    }
+
+    const strategy = await getStrategyById(strategyId);
+    if (!strategy) {
+      reply.code(404);
+      throw new Error(`Strategy not found: ${strategyId}`);
+    }
+
+    const outputSchema = strategy.output_schema as Record<string, unknown>;
+    const properties = (outputSchema.properties ?? {}) as Record<string, Record<string, unknown>>;
+    const dynamicColumns = Object.keys(properties);
+
+    for (const result of results) {
+      const dynamicValues = dynamicColumns.map(col => result[col]);
+      await insertStrategyResult(strategyId, {
+        task_id: id,
+        target_type: (result.target_type as string) ?? 'post',
+        target_id: (result.target_id as string) ?? '',
+        post_id: (result.post_id as string) ?? null,
+        strategy_version: (result.strategy_version as string) ?? '1.0.0',
+        raw_response: (result.raw_response as Record<string, unknown>) ?? null,
+        error: (result.error as string) ?? null,
+        analyzed_at: new Date((result.analyzed_at as string) ?? new Date().toISOString()),
+      }, dynamicColumns, dynamicValues);
+    }
+
+    return { inserted: results.length };
   });
 }

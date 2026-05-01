@@ -1,15 +1,9 @@
-import * as path from 'path';
-import * as os from 'os';
-
-// Generate a consistent test run ID and DB path shared with cli.ts
-const TEST_RUN_ID = `e2e_${Date.now()}_${process.pid}`;
-const TEST_TMP_DIR = path.join(os.tmpdir(), 'scopai-e2e', TEST_RUN_ID);
-const TEST_DB_PATH = path.join(TEST_TMP_DIR, 'test.duckdb');
+import { TEST_TMP_DIR, TEST_DB_PATH, TEST_IPC_SOCKET, TEST_DAEMON_PID } from './test-env.ts';
 
 // Set env vars BEFORE any db modules are loaded
 process.env.ANALYZE_CLI_DB_PATH = TEST_DB_PATH;
-process.env.ANALYZE_CLI_IPC_SOCKET = path.join(TEST_TMP_DIR, 'daemon.sock');
-process.env.ANALYZE_CLI_DAEMON_PID = path.join(TEST_TMP_DIR, 'daemon.pid');
+process.env.ANALYZE_CLI_IPC_SOCKET = TEST_IPC_SOCKET;
+process.env.ANALYZE_CLI_DAEMON_PID = TEST_DAEMON_PID;
 
 // Lazy-load db modules after env vars are set to ensure they pick up the test paths
 let _dbModule: typeof import('../../../packages/core/dist/db/client.js') | null = null;

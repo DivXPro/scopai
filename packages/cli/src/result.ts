@@ -10,9 +10,37 @@ export function resultCommands(program: Command): void {
     .alias('ls')
     .description('List analysis results for a task')
     .requiredOption('--task-id <id>', 'Task ID')
+    .option('--strategy-id <id>', 'Strategy ID (required for custom strategy results)')
     .option('--target <type>', 'Target type (comment/media)', 'comment')
     .option('--limit <n>', 'Max results', '50')
-    .action(async (opts: { taskId: string; target: string; limit: string }) => {
+    .action(async (opts: { taskId: string; strategyId?: string; target: string; limit: string }) => {
+      // Strategy-based results
+      if (opts.strategyId) {
+        const response = await apiGet<{ results: any[]; stats: Record<string, unknown> }>(
+          '/tasks/' + opts.taskId + '/results?strategy_id=' + opts.strategyId + '&limit=' + opts.limit,
+        );
+        const results = response.results ?? [];
+        if (results.length === 0) {
+          console.log(pc.yellow('No results found'));
+          return;
+        }
+        console.log(pc.bold(`\nAnalysis Results (${results.length}):`));
+        console.log(pc.dim('─'.repeat(80)));
+        for (const r of results) {
+          const rec = r as Record<string, unknown>;
+          const id = String(rec.id ?? '').slice(0, 8);
+          const dynamicKeys = Object.keys(rec).filter(
+            k => !['id', 'task_id', 'target_type', 'target_id', 'post_id', 'strategy_version', 'raw_response', 'error', 'analyzed_at'].includes(k),
+          );
+          const summary = dynamicKeys.map(k => `${k}=${JSON.stringify(rec[k]).slice(0, 30)}`).join(' ');
+          console.log(`  ${pc.green(id)} ${summary}`);
+        }
+        console.log(pc.dim('─'.repeat(80)));
+        console.log(`Showing ${results.length}\n`);
+        return;
+      }
+
+      // Built-in comment/media results (legacy endpoint — may not be available)
       const params = new URLSearchParams();
       params.set('target', opts.target);
       params.set('limit', opts.limit);
