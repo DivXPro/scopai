@@ -65,6 +65,21 @@ export async function queryPosts(platformId: string, whereClause: string, limit 
   );
 }
 
+export async function listPostsByAuthor(platformId: string, authorId: string, limit = 50, offset = 0): Promise<Post[]> {
+  return query<Post>(
+    `SELECT * FROM posts WHERE platform_id = ? AND author_id = ? ORDER BY fetched_at DESC LIMIT ? OFFSET ?`,
+    [platformId, authorId, limit, offset]
+  );
+}
+
+export async function countPostsByAuthor(platformId: string, authorId: string): Promise<number> {
+  const rows = await query<{ cnt: bigint }>(
+    'SELECT COUNT(*) as cnt FROM posts WHERE platform_id = ? AND author_id = ?',
+    [platformId, authorId]
+  );
+  return Number(rows[0]?.cnt ?? 0);
+}
+
 export async function countPosts(platformId?: string): Promise<number> {
   const sql = platformId
     ? 'SELECT COUNT(*) as cnt FROM posts WHERE platform_id = ?'

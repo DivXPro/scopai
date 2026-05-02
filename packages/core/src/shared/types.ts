@@ -365,7 +365,6 @@ export interface Creator {
   platform_id: string;
   platform_author_id: string;
   author_name: string | null;
-  display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
   homepage_url: string | null;

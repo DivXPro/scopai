@@ -40,7 +40,6 @@ export default async function creatorsRoutes(app: FastifyInstance) {
       platform_id: platformId,
       platform_author_id: authorId,
       author_name: body.author_name ? String(body.author_name) : null,
-      display_name: null,
       bio: null,
       avatar_url: null,
       homepage_url: null,
@@ -171,9 +170,9 @@ export default async function creatorsRoutes(app: FastifyInstance) {
     const creator = await getCreatorById(id);
     if (!creator) return { items: [], total: 0 };
 
-    const posts = await listPosts(creator.platform_id, parseInt(limit, 10), parseInt(offset, 10));
-    const filtered = posts.filter((p) => p.author_id === creator.platform_author_id);
-    return { items: filtered, total: filtered.length };
+    const posts = await listPostsByAuthor(creator.platform_id, creator.platform_author_id, parseInt(limit, 10), parseInt(offset, 10));
+    const total = await countPostsByAuthor(creator.platform_id, creator.platform_author_id);
+    return { items: posts, total };
   });
 
   app.get('/creators/:id/sync-logs', async (request) => {

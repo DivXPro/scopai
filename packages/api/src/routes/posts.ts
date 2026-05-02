@@ -9,6 +9,10 @@ const FIELD_NAME_MAP: Record<string, string> = {
   shares: 'share_count',
   plays: 'play_count',
   note_id: 'platform_post_id',
+  author: 'author_name',
+  user_id: 'author_id',
+  cover: 'cover_url',
+  cover_image: 'cover_url',
 };
 
 function normalizeFieldValueArray(item: unknown): unknown {

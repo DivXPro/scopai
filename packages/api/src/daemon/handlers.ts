@@ -30,6 +30,10 @@ const FIELD_NAME_MAP: Record<string, string> = {
   shares: 'share_count',
   plays: 'play_count',
   note_id: 'platform_post_id',
+  author: 'author_name',
+  user_id: 'author_id',
+  cover: 'cover_url',
+  cover_image: 'cover_url',
 };
 
 function normalizeFieldValueArray(item: unknown): unknown {
@@ -1255,7 +1259,7 @@ async function importMediaToDb(
     const index = obj.index ?? count + 1;
     const mediaType = (obj.media_type ?? obj.type ?? 'image') as string;
     const ext = mediaType === 'video' ? 'mp4' : mediaType === 'audio' ? 'mp3' : 'jpg';
-    const localPath = noteId ? `${downloadBase}/${noteId}_${index}.${ext}` : null;
+    const localPath = (obj.local_path as string) ?? (obj.path as string) ?? (noteId ? `${downloadBase}/${noteId}_${index}.${ext}` : null);
     const url = (obj.url as string) || localPath || '';
 
     try {

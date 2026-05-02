@@ -23,7 +23,9 @@ const FIELD_NAME_MAP: Record<string, string> = {
   plays: 'play_count',
   note_id: 'platform_post_id',
   author: 'author_name',
+  user_id: 'author_id',
   cover: 'cover_url',
+  cover_image: 'cover_url',
 };
 
 interface RawPostItem {
@@ -164,7 +166,7 @@ export async function processCreatorProfileSyncJob(job: CreatorSyncJob, workerId
 
     // Map user-info fields to creator fields
     const rawProfile = raw as RawProfileItem;
-    if (rawProfile.name) profile.display_name = rawProfile.name;
+    if (rawProfile.name) profile.author_name = rawProfile.name;
     if (rawProfile.avatar) profile.avatar_url = rawProfile.avatar;
     if (rawProfile.followers !== undefined) {
       profile.follower_count = typeof rawProfile.followers === 'string' ? parseInt(rawProfile.followers, 10) : rawProfile.followers;
