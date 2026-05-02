@@ -10,9 +10,17 @@ const DEFAULT_CONFIG: Config = {
   database: {
     path: expandPath(isDevEnv ? '~/.scopai/dev.duckdb' : '~/.scopai/data.duckdb'),
   },
+  api_format: 'anthropic',
   anthropic: {
     api_key: '',
     model: 'claude-opus-4-5-20250514',
+    max_tokens: 4096,
+    temperature: 0.3,
+  },
+  openai: {
+    api_key: '',
+    base_url: 'https://api.openai.com',
+    model: 'gpt-4o',
     max_tokens: 4096,
     temperature: 0.3,
   },
@@ -100,12 +108,20 @@ export function loadConfig(): Config {
 
   // Environment variable overrides
   const envConfig: Partial<Config> = {
+    api_format: (process.env.API_FORMAT as Config['api_format']) ?? undefined,
     anthropic: {
       api_key: process.env.ANTHROPIC_API_KEY ?? '',
       base_url: process.env.ANTHROPIC_BASE_URL ?? '',
       model: process.env.ANTHROPIC_MODEL ?? '',
       max_tokens: parseInt(process.env.ANTHROPIC_MAX_TOKENS ?? '4096', 10),
       temperature: parseFloat(process.env.ANTHROPIC_TEMPERATURE ?? '0.3'),
+    },
+    openai: {
+      api_key: process.env.OPENAI_API_KEY ?? '',
+      base_url: process.env.OPENAI_BASE_URL ?? '',
+      model: process.env.OPENAI_MODEL ?? '',
+      max_tokens: parseInt(process.env.OPENAI_MAX_TOKENS ?? '4096', 10),
+      temperature: parseFloat(process.env.OPENAI_TEMPERATURE ?? '0.3'),
     },
     database: {
       path: process.env.ANALYZE_CLI_DB_PATH ?? '',

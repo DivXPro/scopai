@@ -261,18 +261,22 @@ export interface QueueJob {
   processed_at: Date | null;
 }
 
+export interface LLMProviderConfig {
+  api_key: string;
+  base_url?: string;
+  model: string;
+  max_tokens: number;
+  temperature: number;
+}
+
 // === Config ===
 export interface Config {
   database: {
     path: string;
   };
-  anthropic: {
-    api_key: string;
-    base_url?: string;
-    model: string;
-    max_tokens: number;
-    temperature: number;
-  };
+  api_format: 'anthropic' | 'openai';
+  anthropic: LLMProviderConfig;
+  openai: LLMProviderConfig;
   worker: {
     concurrency: number;
     max_retries: number;
@@ -310,6 +314,7 @@ export interface NeedsMediaConfig {
   media_types?: MediaType[];
   max_media?: number;
   mode?: 'all' | 'first_n' | 'best_quality';
+  upload_images?: boolean;
 }
 
 export interface BatchConfig {

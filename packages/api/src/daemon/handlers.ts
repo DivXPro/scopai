@@ -1377,7 +1377,7 @@ async function runPrepareDataAsync(
           metadataObj = postMeta.metadata as Record<string, unknown>;
         }
       }
-      const noteId = metadataObj?.note_id as string | undefined;
+      const noteId = (metadataObj?.note_id as string | undefined) ?? postMeta?.platform_post_id ?? undefined;
       const postUrl = postMeta?.url ?? undefined;
       const fetchVars: Record<string, string> = {
         post_id: postId,

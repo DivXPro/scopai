@@ -432,10 +432,15 @@ export function taskCommands(program: Command): void {
       if (opts.strategyId) {
         strategyIds = [opts.strategyId];
       } else {
-        const steps = full.phases?.steps ?? [];
-        strategyIds = steps.map((s: any) => s.strategyId).filter(Boolean);
+        // Try phases.steps first, then fallback to top-level steps
+        const phaseSteps = full.phases?.steps ?? [];
+        const topSteps = (full as any).steps ?? [];
+        const allSteps = phaseSteps.length > 0 ? phaseSteps : topSteps;
+        strategyIds = allSteps
+          .map((s: any) => s.strategyId ?? s.strategy_id)
+          .filter(Boolean);
         if (strategyIds.length === 0) {
-          console.log(pc.yellow('No strategy steps found for this task'));
+          console.log(pc.yellow('No strategy steps found for this task. Use --strategy-id <id> to specify one manually.'));
           process.exit(1);
         }
       }
@@ -443,7 +448,8 @@ export function taskCommands(program: Command): void {
       for (const strategyId of strategyIds) {
         const response = await apiGet<{ results: any[]; stats: Record<string, unknown> }>('/tasks/' + opts.taskId + '/results?strategy_id=' + strategyId);
         const results = response.results ?? [];
-        const stepName = (full.phases?.steps ?? []).find((s: any) => s.strategyId === strategyId)?.name ?? strategyId;
+        const allSteps = [...(full.phases?.steps ?? []), ...((full as any).steps ?? [])];
+        const stepName = allSteps.find((s: any) => (s.strategyId ?? s.strategy_id) === strategyId)?.name ?? strategyId;
 
         console.log(pc.bold(`\nAnalysis results for strategy "${stepName}" (${results.length} records):`));
         console.log(pc.dim('─'.repeat(80)));
