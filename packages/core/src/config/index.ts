@@ -4,11 +4,9 @@ import { Config } from '../shared/types';
 import { expandPath } from '../shared/utils';
 import { loadClaudeConfig } from './claude-config';
 
-const isDevEnv = process.env.NODE_ENV === 'development' || process.env.SCOPAI_ENV === 'dev';
-
 const DEFAULT_CONFIG: Config = {
   database: {
-    path: expandPath(isDevEnv ? '~/.scopai/dev.duckdb' : '~/.scopai/data.duckdb'),
+    path: expandPath('~/.scopai/data.duckdb'),
   },
   api_format: 'anthropic',
   anthropic: {
