@@ -439,39 +439,28 @@ function MediaFilesModal({ postId, onClose }: { postId: string; onClose: () => v
                     {/* Media */}
                     <div className="flex-1 flex items-center justify-center px-14">
                       {current.media_type === 'image' && current.url ? (
-                        <a href={current.url} target="_blank" rel="noopener noreferrer" className="block">
-                          <img
-                            src={mediaSrc(current)}
-                            alt={`媒体 ${currentIndex + 1}`}
-                            className="max-w-full max-h-[440px] object-contain rounded-lg border shadow-sm hover:opacity-95 transition-opacity"
-                          />
-                        </a>
+                        <img
+                          src={mediaSrc(current)}
+                          alt={`媒体 ${currentIndex + 1}`}
+                          className="max-w-full max-h-[440px] object-contain rounded-lg border shadow-sm"
+                        />
                       ) : current.media_type === 'video' ? (
-                        <a
-                          href={current.url || '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex flex-col items-center justify-center w-full min-h-[320px] rounded-lg border bg-slate-50 hover:bg-slate-100 transition-colors"
-                        >
-                          <CirclePlay className="h-16 w-16 text-slate-400 mb-3" />
-                          <span className="text-sm text-muted-foreground">视频</span>
-                          {current.url && (
-                            <span className="text-xs text-primary mt-2 hover:underline">点击打开原视频</span>
-                          )}
-                        </a>
+                        <video
+                          src={mediaSrc(current)}
+                          controls
+                          className="max-w-full max-h-[440px] rounded-lg border shadow-sm"
+                        />
+                      ) : current.media_type === 'audio' ? (
+                        <audio
+                          src={mediaSrc(current)}
+                          controls
+                          className="w-full max-w-md"
+                        />
                       ) : (
-                        <a
-                          href={current.url || '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex flex-col items-center justify-center w-full min-h-[320px] rounded-lg border bg-slate-50 hover:bg-slate-100 transition-colors"
-                        >
-                          <span className="text-3xl mb-3">{current.media_type === 'audio' ? '🎧' : '📏'}</span>
+                        <div className="flex flex-col items-center justify-center w-full min-h-[320px] rounded-lg border bg-slate-50">
+                          <span className="text-3xl mb-3">📏</span>
                           <span className="text-sm text-muted-foreground capitalize">{current.media_type}</span>
-                          {current.url && (
-                            <span className="text-xs text-primary mt-2 hover:underline">点击打开原文件</span>
-                          )}
-                        </a>
+                        </div>
                       )}
                     </div>
 
