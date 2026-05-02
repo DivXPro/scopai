@@ -23,7 +23,7 @@ import {
 } from '@scopai/core';
 import { config } from '@scopai/core';
 import { getLogger } from '@scopai/core';
-import { getPendingCreatorSyncJobs } from '@scopai/core';
+import { getPendingCreatorSyncJobs, checkpoint } from '@scopai/core';
 
 const POLL_INTERVAL_MS = 2000;
 const MAX_WAIT_MS = 30000;
@@ -87,6 +87,13 @@ export async function runConsumer(workerId: number): Promise<void> {
         if (active.size > 0) {
           await Promise.race(active);
           continue;
+        }
+
+        // All jobs drained — checkpoint WAL before sleeping
+        try {
+          await checkpoint();
+        } catch (e) {
+          logger.warn(`[Worker-${workerId}] Checkpoint failed: ${e instanceof Error ? e.message : String(e)}`);
         }
 
         // Nothing active and nothing in buffer → wait for notification or timeout
@@ -269,11 +276,14 @@ async function processStrategyJob(
   task: { id: string; name: string },
   workerId: number,
 ): Promise<void> {
+  const logger = getLogger();
   if (!job.strategy_id) throw new Error('Job has no strategy_id');
   if (!job.target_id) throw new Error('Job has no target_id');
 
   const strategy = await getStrategyById(job.strategy_id);
   if (!strategy) throw new Error(`Strategy ${job.strategy_id} not found`);
+
+  logger.info(`[Worker-${workerId}] Strategy ${strategy.id} (target=${strategy.target}, media=${strategy.needs_media?.enabled ?? false})`);
 
   // Resolve upstream result for secondary strategies
   let upstreamResult: Record<string, unknown> | null = null;
@@ -285,7 +295,9 @@ async function processStrategyJob(
     const post = await getPostById(job.target_id);
     if (!post) throw new Error(`Post ${job.target_id} not found`);
 
+    logger.info(`[Worker-${workerId}] Calling analyzeWithStrategy for post ${post.id}, media=${strategy.needs_media?.enabled ?? false}`);
     const rawResponse = await analyzeWithStrategy(post, strategy, upstreamResult);
+    logger.info(`[Worker-${workerId}] analyzeWithStrategy returned ${rawResponse.length} chars`);
     const parsed = parseStrategyResult(rawResponse, strategy.output_schema);
 
     const dynamicColumns = Object.keys(parsed.values);

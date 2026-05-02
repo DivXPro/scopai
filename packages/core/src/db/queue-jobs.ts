@@ -199,3 +199,21 @@ export async function getExistingJobTargets(
   );
   return new Set(rows.map(r => r.target_id));
 }
+
+export async function deleteJobsByTaskAndStrategy(
+  taskId: string,
+  strategyId: string,
+): Promise<number> {
+  const rows = await query<{ cnt: bigint }>(
+    `SELECT COUNT(*) as cnt FROM queue_jobs WHERE task_id = ? AND strategy_id = ?`,
+    [taskId, strategyId],
+  );
+  const count = Number(rows[0]?.cnt ?? 0);
+  if (count > 0) {
+    await run(
+      `DELETE FROM queue_jobs WHERE task_id = ? AND strategy_id = ?`,
+      [taskId, strategyId],
+    );
+  }
+  return count;
+}

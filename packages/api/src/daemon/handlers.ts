@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { createPost, getPostById, listPosts, searchPosts } from '@scopai/core';
+import { createPost, getPostById, updatePost, listPosts, searchPosts } from '@scopai/core';
 import { createComment, listCommentsByPost } from '@scopai/core';
 import { createTask, getTaskById, listTasks, updateTaskStatus, updateTaskStats } from '@scopai/core';
 import { addTaskTargets, getTargetStats, listTaskTargets } from '@scopai/core';
@@ -10,109 +10,19 @@ import { createPlatform, listPlatforms } from '@scopai/core';
 import { createFieldMapping, listFieldMappings } from '@scopai/core';
 import { createTemplate, listTemplates, getTemplateById, updateTemplate, setDefaultTemplate } from '@scopai/core';
 import { enqueueJobs, getQueueStats, syncWaitingMediaJobs } from '@scopai/core';
-import { getDbPath, query, run } from '@scopai/core';
+import { getDbPath, query, run, checkpoint } from '@scopai/core';
 import { getLogger } from '@scopai/core';
 import { generateId, now, parseImportFile } from '@scopai/core';
-import { fetchViaOpencli, parseChineseNumber } from '@scopai/core';
+import { fetchViaOpencli } from '@scopai/core';
 import { createStrategy, getStrategyById, listStrategies, validateStrategyJson, updateStrategy, deleteStrategy, parseJsonSchemaToColumns, createStrategyResultTable, syncStrategyResultTable } from '@scopai/core';
 import { getExistingResultIds } from '@scopai/core';
 import { getTaskPostStatus } from '@scopai/core';
 import { config } from '@scopai/core';
+import { normalizePostItem, normalizeCommentItem } from '@scopai/core';
 import type { QueueJob } from '@scopai/core';
 
 // Track in-flight prepare-data tasks to prevent concurrent execution
 type Handler = (params: Record<string, unknown>) => Promise<unknown>;
-
-const FIELD_NAME_MAP: Record<string, string> = {
-  likes: 'like_count',
-  collects: 'collect_count',
-  comments: 'comment_count',
-  shares: 'share_count',
-  plays: 'play_count',
-  note_id: 'platform_post_id',
-  author: 'author_name',
-  user_id: 'author_id',
-  cover: 'cover_url',
-  cover_image: 'cover_url',
-};
-
-function normalizeFieldValueArray(item: unknown): unknown {
-  if (
-    Array.isArray(item) &&
-    item.length > 0 &&
-    item.every(
-      (i) =>
-        typeof i === 'object' &&
-        i !== null &&
-        'field' in i &&
-        'value' in i,
-    )
-  ) {
-    const obj: Record<string, unknown> = {};
-    for (const entry of item) {
-      const rawField = (entry as Record<string, unknown>).field as string;
-      const mappedField = FIELD_NAME_MAP[rawField] ?? rawField;
-      obj[mappedField] = (entry as Record<string, unknown>).value;
-    }
-    return obj;
-  }
-  if (item !== null && typeof item === 'object' && !Array.isArray(item)) {
-    const obj: Record<string, unknown> = {};
-    for (const key of Object.keys(item)) {
-      const mapped = FIELD_NAME_MAP[key] ?? key;
-      if (obj[mapped] === undefined) {
-        obj[mapped] = (item as Record<string, unknown>)[key];
-      }
-    }
-    return obj;
-  }
-  return item;
-}
-
-interface RawPostItem {
-  platform_post_id?: string;
-  noteId?: string;
-  id?: string;
-  title?: string;
-  content?: string;
-  text?: string;
-  desc?: string;
-  author_id?: string;
-  author_name?: string;
-  author?: string;
-  author_url?: string;
-  url?: string;
-  cover_url?: string;
-  post_type?: string;
-  type?: string;
-  likes?: string;
-  like_count?: number;
-  collect_count?: number;
-  comment_count?: number;
-  share_count?: number;
-  play_count?: number;
-  score?: number;
-  tags?: unknown;
-  media_files?: unknown;
-  published_at?: string;
-  metadata?: unknown;
-}
-
-interface RawCommentItem {
-  platform_comment_id?: string;
-  id?: string;
-  parent_comment_id?: string;
-  root_comment_id?: string;
-  depth?: number;
-  author_id?: string;
-  author_name?: string;
-  author?: string;
-  content?: string;
-  like_count?: number;
-  reply_count?: number;
-  published_at?: string;
-  metadata?: unknown;
-}
 
 // Prevent concurrent prepare-data for the same task
 const prepareDataRunning = new Set<string>();
@@ -123,26 +33,22 @@ export function getHandlers(): Record<string, Handler> {
       const platformId = params.platform as string;
       const file = params.file as string;
       const taskId = (params.task_id as string | undefined) ?? undefined;
-      let items: RawPostItem[];
+      let rawItems: unknown[];
       try {
-        items = parseImportFile(file) as RawPostItem[];
+        rawItems = parseImportFile(file);
       } catch (err: unknown) {
         throw new Error(`Failed to parse import file: ${err instanceof Error ? err.message : String(err)}`);
       }
 
       // Support opencli xiaohongshu note field-value array format: [{field, value}, ...]
-      const normalizedFirst = normalizeFieldValueArray(items);
-      if (normalizedFirst !== items) {
-        items = [normalizedFirst as RawPostItem];
-      }
+      const items = rawItems.map((raw) => normalizePostItem(raw));
 
       let imported = 0;
       let skipped = 0;
       const postIds: string[] = [];
 
-      for (const rawItem of items) {
-        const item = normalizeFieldValueArray(rawItem) as RawPostItem;
-        const platformPostId = item.platform_post_id ?? item.noteId ?? item.id ?? generateId();
+      for (const item of items) {
+        const platformPostId = item.platform_post_id ?? generateId();
         const existing = await query<{ id: string }>(
           'SELECT id FROM posts WHERE platform_id = ? AND platform_post_id = ?',
           [platformId, platformPostId],
@@ -160,23 +66,23 @@ export function getHandlers(): Record<string, Handler> {
                 media_files = ?, published_at = ?, metadata = ?, fetched_at = ?
               WHERE id = ?`,
               [
-                item.title ?? null,
-                item.content ?? item.text ?? item.desc ?? '',
-                item.author_id ?? null,
-                item.author_name ?? item.author ?? null,
-                item.author_url ?? null,
-                item.url ?? null,
-                item.cover_url ?? null,
-                (item.post_type ?? item.type ?? null) as any,
-                parseChineseNumber(item.likes) ?? item.like_count ?? 0,
-                Number(item.collect_count ?? 0),
-                Number(item.comment_count ?? 0),
-                Number(item.share_count ?? 0),
-                Number(item.play_count ?? 0),
-                item.score ? Number(item.score) : null,
+                item.title,
+                item.content,
+                item.author_id,
+                item.author_name,
+                item.author_url,
+                item.url,
+                item.cover_url,
+                item.post_type as any,
+                item.like_count,
+                item.collect_count,
+                item.comment_count,
+                item.share_count,
+                item.play_count,
+                item.score,
                 item.tags ? JSON.stringify(item.tags) : null,
                 item.media_files ? JSON.stringify(item.media_files) : null,
-                item.published_at ? new Date(item.published_at) : null,
+                item.published_at,
                 item.metadata ? JSON.stringify(item.metadata) : null,
                 now(),
                 postId,
@@ -187,24 +93,24 @@ export function getHandlers(): Record<string, Handler> {
             const post = await createPost({
               platform_id: platformId,
               platform_post_id: platformPostId,
-              title: item.title ?? null,
-              content: item.content ?? item.text ?? item.desc ?? '',
-              author_id: item.author_id ?? null,
-              author_name: item.author_name ?? item.author ?? null,
-              author_url: item.author_url ?? null,
-              url: item.url ?? null,
-              cover_url: item.cover_url ?? null,
-              post_type: (item.post_type ?? item.type ?? null) as any,
-              like_count: parseChineseNumber(item.likes) ?? item.like_count ?? 0,
-              collect_count: Number(item.collect_count ?? 0),
-              comment_count: Number(item.comment_count ?? 0),
-              share_count: Number(item.share_count ?? 0),
-              play_count: Number(item.play_count ?? 0),
-              score: item.score ? Number(item.score) : null,
-              tags: item.tags as { name: string; url?: string }[] | null ?? null,
-              media_files: item.media_files as { type: 'image' | 'video' | 'audio'; url: string; local_path?: string }[] | null ?? null,
-              published_at: item.published_at ? new Date(item.published_at) : null,
-              metadata: item.metadata as Record<string, unknown> | null ?? null,
+              title: item.title,
+              content: item.content,
+              author_id: item.author_id,
+              author_name: item.author_name,
+              author_url: item.author_url,
+              url: item.url,
+              cover_url: item.cover_url,
+              post_type: item.post_type as any,
+              like_count: item.like_count,
+              collect_count: item.collect_count,
+              comment_count: item.comment_count,
+              share_count: item.share_count,
+              play_count: item.play_count,
+              score: item.score,
+              tags: item.tags as { name: string; url?: string }[] | null,
+              media_files: item.media_files as { type: 'image' | 'video' | 'audio'; url: string; local_path?: string }[] | null,
+              published_at: item.published_at,
+              metadata: item.metadata,
             });
             postId = post.id;
             imported++;
@@ -240,30 +146,31 @@ export function getHandlers(): Record<string, Handler> {
       const platformId = params.platform as string;
       const postId = params.post_id as string;
       const file = params.file as string;
-      let items: RawCommentItem[];
+      let rawItems: unknown[];
       try {
-        items = parseImportFile(file) as RawCommentItem[];
+        rawItems = parseImportFile(file);
       } catch (err: unknown) {
         throw new Error(`Failed to parse import file: ${err instanceof Error ? err.message : String(err)}`);
       }
       let imported = 0;
       let skipped = 0;
-      for (const item of items) {
+      for (const rawItem of rawItems) {
         try {
+          const item = normalizeCommentItem(rawItem);
           await createComment({
             post_id: postId,
             platform_id: platformId,
-            platform_comment_id: item.platform_comment_id ?? item.id ?? null,
-            parent_comment_id: item.parent_comment_id ?? null,
-            root_comment_id: item.root_comment_id ?? null,
-            depth: Number(item.depth ?? 0),
-            author_id: item.author_id ?? null,
-            author_name: item.author_name ?? item.author ?? null,
-            content: item.content ?? '',
-            like_count: parseChineseNumber(item.likes) ?? item.like_count ?? 0,
-            reply_count: Number(item.reply_count ?? 0),
-            published_at: item.published_at ? new Date(item.published_at) : null,
-            metadata: item.metadata as Record<string, unknown> | null ?? null,
+            platform_comment_id: item.platform_comment_id,
+            parent_comment_id: item.parent_comment_id,
+            root_comment_id: item.root_comment_id,
+            depth: item.depth,
+            author_id: item.author_id,
+            author_name: item.author_name,
+            content: item.content,
+            like_count: item.like_count,
+            reply_count: item.reply_count,
+            published_at: item.published_at,
+            metadata: item.metadata,
           });
           imported++;
         } catch {
@@ -428,7 +335,7 @@ export function getHandlers(): Record<string, Handler> {
         dataPrepStatus = 'failed';
       } else if (postStatuses.some(p => p.status === 'fetching')) {
         dataPrepStatus = 'fetching';
-      } else if (postStatuses.some(p => p.status === 'pending' || p.status === 'failed')) {
+      } else if (postStatuses.some(p => p.status === 'pending')) {
         dataPrepStatus = 'pending';
       }
 
@@ -1220,24 +1127,23 @@ async function importCommentsToDb(
   platformId: string,
 ): Promise<number> {
   let count = 0;
-  for (const item of data) {
-    if (typeof item !== 'object' || item === null) continue;
-    const obj = item as Record<string, unknown>;
+  for (const rawItem of data) {
     try {
+      const item = normalizeCommentItem(rawItem);
       await createComment({
         post_id: postId,
         platform_id: platformId,
-        platform_comment_id: (obj.platform_comment_id ?? obj.id ?? null) as string | null,
-        parent_comment_id: (obj.parent_comment_id ?? null) as string | null,
-        root_comment_id: (obj.root_comment_id ?? null) as string | null,
-        depth: Number(obj.depth ?? 0),
-        author_id: (obj.author_id ?? null) as string | null,
-        author_name: (obj.author_name ?? obj.author ?? null) as string | null,
-        content: (obj.content ?? obj.text ?? '') as string,
-        like_count: Number(obj.like_count ?? 0),
-        reply_count: Number(obj.reply_count ?? 0),
-        published_at: obj.published_at ? new Date(obj.published_at as string) : null,
-        metadata: (obj.metadata ?? obj) as Record<string, unknown> | null,
+        platform_comment_id: item.platform_comment_id,
+        parent_comment_id: item.parent_comment_id,
+        root_comment_id: item.root_comment_id,
+        depth: item.depth,
+        author_id: item.author_id,
+        author_name: item.author_name,
+        content: item.content,
+        like_count: item.like_count,
+        reply_count: item.reply_count,
+        published_at: item.published_at,
+        metadata: item.metadata,
       });
       count++;
     } catch (err: unknown) {
@@ -1362,6 +1268,7 @@ async function runPrepareDataAsync(
   const pending = await getPendingPostIds(taskId);
   logger.info(`[prepare-data] Task ${taskId}: ${pending.length} pending posts`);
 
+  let processedCount = 0;
   for (const item of pending) {
     const postId = item.post_id;
     logger.info(`[prepare-data] Task ${taskId}: processing post ${postId}`);
@@ -1401,48 +1308,28 @@ async function runPrepareDataAsync(
           continue;
         }
         if (noteResult.data && noteResult.data.length > 0) {
-          const noteData = normalizeFieldValueArray(noteResult.data[0]) as RawPostItem;
-          await run(
-            `UPDATE posts SET
-              title = COALESCE(?, title),
-              content = COALESCE(?, content),
-              author_id = COALESCE(?, author_id),
-              author_name = COALESCE(?, author_name),
-              author_url = COALESCE(?, author_url),
-              cover_url = COALESCE(?, cover_url),
-              post_type = COALESCE(?, post_type),
-              like_count = COALESCE(?, like_count),
-              collect_count = COALESCE(?, collect_count),
-              comment_count = COALESCE(?, comment_count),
-              share_count = COALESCE(?, share_count),
-              play_count = COALESCE(?, play_count),
-              tags = COALESCE(?, tags),
-              media_files = COALESCE(?, media_files),
-              published_at = COALESCE(?, published_at),
-              metadata = COALESCE(?, metadata),
-              fetched_at = ?
-            WHERE id = ?`,
-            [
-              noteData.title ?? null,
-              noteData.content ?? noteData.text ?? noteData.desc ?? null,
-              noteData.author_id ?? null,
-              noteData.author_name ?? noteData.author ?? null,
-              noteData.author_url ?? null,
-              noteData.cover_url ?? null,
-              (noteData.post_type ?? noteData.type ?? null) as any,
-              noteData.like_count != null ? Number(noteData.like_count) : null,
-              noteData.collect_count != null ? Number(noteData.collect_count) : null,
-              noteData.comment_count != null ? Number(noteData.comment_count) : null,
-              noteData.share_count != null ? Number(noteData.share_count) : null,
-              noteData.play_count != null ? Number(noteData.play_count) : null,
-              noteData.tags ? JSON.stringify(noteData.tags) : null,
-              noteData.media_files ? JSON.stringify(noteData.media_files) : null,
-              noteData.published_at ? new Date(noteData.published_at) : null,
-              noteData.metadata ? JSON.stringify(noteData.metadata) : null,
-              now(),
-              postId,
-            ],
-          );
+          const noteData = normalizePostItem(noteResult.data);
+          const existingPost = await getPostById(postId);
+          const updates: Parameters<typeof updatePost>[1] = {};
+          if (existingPost) {
+            if (noteData.title !== existingPost.title) updates.title = noteData.title;
+            if (noteData.content !== existingPost.content) updates.content = noteData.content;
+            if (noteData.author_id !== existingPost.author_id) updates.author_id = noteData.author_id;
+            if (noteData.author_name !== existingPost.author_name) updates.author_name = noteData.author_name;
+            if (noteData.author_url !== existingPost.author_url) updates.author_url = noteData.author_url;
+            if (noteData.cover_url !== existingPost.cover_url) updates.cover_url = noteData.cover_url;
+            if (noteData.post_type !== existingPost.post_type) updates.post_type = noteData.post_type as any;
+            if (noteData.like_count !== existingPost.like_count) updates.like_count = noteData.like_count;
+            if (noteData.collect_count !== existingPost.collect_count) updates.collect_count = noteData.collect_count;
+            if (noteData.comment_count !== existingPost.comment_count) updates.comment_count = noteData.comment_count;
+            if (noteData.share_count !== existingPost.share_count) updates.share_count = noteData.share_count;
+            if (noteData.play_count !== existingPost.play_count) updates.play_count = noteData.play_count;
+            if (JSON.stringify(noteData.tags) !== JSON.stringify(existingPost.tags)) updates.tags = noteData.tags as { name: string; url?: string }[] | null;
+            if (JSON.stringify(noteData.media_files) !== JSON.stringify(existingPost.media_files)) updates.media_files = noteData.media_files as { type: 'image' | 'video' | 'audio'; url: string; local_path?: string }[] | null;
+            if (noteData.published_at?.getTime() !== existingPost.published_at?.getTime()) updates.published_at = noteData.published_at;
+            if (JSON.stringify(noteData.metadata) !== JSON.stringify(existingPost.metadata)) updates.metadata = noteData.metadata;
+          }
+          await updatePost(postId, updates);
           logger.info(`[prepare-data] Task ${taskId} post ${postId}: post updated from fetch_note`);
         }
       } catch (err) {
@@ -1571,8 +1458,14 @@ async function runPrepareDataAsync(
     } catch (err: unknown) {
       await upsertTaskPostStatus(taskId, postId, { status: 'failed', error: err instanceof Error ? err.message : String(err) });
     }
+
+    processedCount++;
+    if (processedCount % 5 === 0) {
+      try { await checkpoint(); } catch (e) { logger.warn(`[prepare-data] checkpoint failed: ${e instanceof Error ? e.message : String(e)}`); }
+    }
   }
 
+  try { await checkpoint(); } catch (e) { logger.warn(`[prepare-data] final checkpoint failed: ${e instanceof Error ? e.message : String(e)}`); }
   logger.info(`[prepare-data] Task ${taskId}: all ${pending.length} pending posts processed`);
   // All posts processed; task remains in its current state.
   // Steps transition to completed via worker job completion.

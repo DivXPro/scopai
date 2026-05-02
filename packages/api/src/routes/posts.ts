@@ -1,81 +1,15 @@
 import { FastifyInstance } from 'fastify';
-import { listPosts, searchPosts, listCommentsByPost, listMediaFilesByPost, getPostAnalysisResults, getPostById, countPosts, createComment, countPostAnalysisResults, countMediaFilesByPost } from '@scopai/core';
-import { createPost, generateId, now, query, run, getTaskById, addTaskTargets, upsertTaskPostStatus, parseChineseNumber } from '@scopai/core';
-
-const FIELD_NAME_MAP: Record<string, string> = {
-  likes: 'like_count',
-  collects: 'collect_count',
-  comments: 'comment_count',
-  shares: 'share_count',
-  plays: 'play_count',
-  note_id: 'platform_post_id',
-  author: 'author_name',
-  user_id: 'author_id',
-  cover: 'cover_url',
-  cover_image: 'cover_url',
-};
-
-function normalizeFieldValueArray(item: unknown): unknown {
-  if (
-    Array.isArray(item) &&
-    item.length > 0 &&
-    item.every(
-      (i) =>
-        typeof i === 'object' &&
-        i !== null &&
-        'field' in i &&
-        'value' in i,
-    )
-  ) {
-    const obj: Record<string, unknown> = {};
-    for (const entry of item) {
-      const rawField = (entry as Record<string, unknown>).field as string;
-      const mappedField = FIELD_NAME_MAP[rawField] ?? rawField;
-      obj[mappedField] = (entry as Record<string, unknown>).value;
-    }
-    return obj;
-  }
-  if (item !== null && typeof item === 'object' && !Array.isArray(item)) {
-    const obj: Record<string, unknown> = {};
-    for (const key of Object.keys(item)) {
-      const mapped = FIELD_NAME_MAP[key] ?? key;
-      if (obj[mapped] === undefined) {
-        obj[mapped] = (item as Record<string, unknown>)[key];
-      }
-    }
-    return obj;
-  }
-  return item;
-}
-
-interface RawPostItem {
-  platform_post_id?: string;
-  noteId?: string;
-  id?: string;
-  title?: string;
-  content?: string;
-  text?: string;
-  desc?: string;
-  author_id?: string;
-  author_name?: string;
-  author?: string;
-  author_url?: string;
-  url?: string;
-  cover_url?: string;
-  post_type?: string;
-  type?: string;
-  likes?: string;
-  like_count?: number;
-  collect_count?: number;
-  comment_count?: number;
-  share_count?: number;
-  play_count?: number;
-  score?: number;
-  tags?: unknown;
-  media_files?: unknown;
-  published_at?: string;
-  metadata?: unknown;
-}
+import {
+  listPosts, searchPosts, listCommentsByPost, listMediaFilesByPost,
+  getPostAnalysisResults, getPostById, countPosts, createComment,
+  countPostAnalysisResults, countMediaFilesByPost,
+} from '@scopai/core';
+import {
+  createPost, updatePost, generateId, now, query, run, checkpoint,
+  getTaskById, addTaskTargets, upsertTaskPostStatus,
+  normalizePostItem, normalizeCommentItem,
+  getLogger,
+} from '@scopai/core';
 
 export default async function postsRoutes(app: FastifyInstance) {
   app.get('/posts', async (request) => {
@@ -116,9 +50,9 @@ export default async function postsRoutes(app: FastifyInstance) {
     const postIds: string[] = [];
 
     for (const rawItem of body.posts) {
-      const item = normalizeFieldValueArray(rawItem) as RawPostItem;
+      const item = normalizePostItem(rawItem);
       const platformId = (rawItem as Record<string, unknown>).platform_id as string;
-      const platformPostId = item.platform_post_id ?? item.noteId ?? item.id ?? generateId();
+      const platformPostId = item.platform_post_id ?? generateId();
 
       const existing = await query<{ id: string }>(
         'SELECT id FROM posts WHERE platform_id = ? AND platform_post_id = ?',
@@ -129,59 +63,55 @@ export default async function postsRoutes(app: FastifyInstance) {
       try {
         if (existing.length > 0) {
           postId = existing[0].id;
-          await run(
-            `UPDATE posts SET
-              title = ?, content = ?, author_id = ?, author_name = ?, author_url = ?,
-              url = ?, cover_url = ?, post_type = ?, like_count = ?, collect_count = ?,
-              comment_count = ?, share_count = ?, play_count = ?, score = ?, tags = ?,
-              media_files = ?, published_at = ?, metadata = ?, fetched_at = ?
-            WHERE id = ?`,
-            [
-              item.title ?? null,
-              item.content ?? item.text ?? item.desc ?? '',
-              item.author_id ?? null,
-              item.author_name ?? item.author ?? null,
-              item.author_url ?? null,
-              item.url ?? null,
-              item.cover_url ?? null,
-              (item.post_type ?? item.type ?? null) as any,
-              parseChineseNumber(item.likes) ?? item.like_count ?? 0,
-              Number(item.collect_count ?? 0),
-              Number(item.comment_count ?? 0),
-              Number(item.share_count ?? 0),
-              Number(item.play_count ?? 0),
-              item.score ? Number(item.score) : null,
-              item.tags ? JSON.stringify(item.tags) : null,
-              item.media_files ? JSON.stringify(item.media_files) : null,
-              item.published_at ? new Date(item.published_at) : null,
-              item.metadata ? JSON.stringify(item.metadata) : null,
-              now(),
-              postId,
-            ],
-          );
+          // Fetch existing post to compare and only update changed fields.
+          // DuckDB fails on UPDATEs touching >16 columns on rows with FK refs
+          // (internal DELETE+INSERT), so we minimize the update set.
+          const existingPost = await getPostById(postId);
+          const updates: Parameters<typeof updatePost>[1] = {};
+          if (existingPost) {
+            if (item.title !== existingPost.title) updates.title = item.title;
+            if (item.content !== existingPost.content) updates.content = item.content;
+            if (item.author_id !== existingPost.author_id) updates.author_id = item.author_id;
+            if (item.author_name !== existingPost.author_name) updates.author_name = item.author_name;
+            if (item.author_url !== existingPost.author_url) updates.author_url = item.author_url;
+            if (item.url !== existingPost.url) updates.url = item.url;
+            if (item.cover_url !== existingPost.cover_url) updates.cover_url = item.cover_url;
+            if (item.post_type !== existingPost.post_type) updates.post_type = item.post_type as any;
+            if (item.like_count !== existingPost.like_count) updates.like_count = item.like_count;
+            if (item.collect_count !== existingPost.collect_count) updates.collect_count = item.collect_count;
+            if (item.comment_count !== existingPost.comment_count) updates.comment_count = item.comment_count;
+            if (item.share_count !== existingPost.share_count) updates.share_count = item.share_count;
+            if (item.play_count !== existingPost.play_count) updates.play_count = item.play_count;
+            if (item.score !== existingPost.score) updates.score = item.score;
+            if (JSON.stringify(item.tags) !== JSON.stringify(existingPost.tags)) updates.tags = item.tags as { name: string; url?: string }[] | null;
+            if (JSON.stringify(item.media_files) !== JSON.stringify(existingPost.media_files)) updates.media_files = item.media_files as { type: 'image' | 'video' | 'audio'; url: string; local_path?: string }[] | null;
+            if (item.published_at?.getTime() !== existingPost.published_at?.getTime()) updates.published_at = item.published_at;
+            if (JSON.stringify(item.metadata) !== JSON.stringify(existingPost.metadata)) updates.metadata = item.metadata;
+          }
+          await updatePost(postId, updates);
           skipped++;
         } else {
           const post = await createPost({
             platform_id: platformId,
             platform_post_id: platformPostId,
-            title: item.title ?? null,
-            content: item.content ?? item.text ?? item.desc ?? '',
-            author_id: item.author_id ?? null,
-            author_name: item.author_name ?? item.author ?? null,
-            author_url: item.author_url ?? null,
-            url: item.url ?? null,
-            cover_url: item.cover_url ?? null,
-            post_type: (item.post_type ?? item.type ?? null) as any,
-            like_count: parseChineseNumber(item.likes) ?? item.like_count ?? 0,
-            collect_count: Number(item.collect_count ?? 0),
-            comment_count: Number(item.comment_count ?? 0),
-            share_count: Number(item.share_count ?? 0),
-            play_count: Number(item.play_count ?? 0),
-            score: item.score ? Number(item.score) : null,
-            tags: item.tags as { name: string; url?: string }[] | null ?? null,
-            media_files: item.media_files as { type: 'image' | 'video' | 'audio'; url: string; local_path?: string }[] | null ?? null,
-            published_at: item.published_at ? new Date(item.published_at) : null,
-            metadata: item.metadata as Record<string, unknown> | null ?? null,
+            title: item.title,
+            content: item.content,
+            author_id: item.author_id,
+            author_name: item.author_name,
+            author_url: item.author_url,
+            url: item.url,
+            cover_url: item.cover_url,
+            post_type: item.post_type as any,
+            like_count: item.like_count,
+            collect_count: item.collect_count,
+            comment_count: item.comment_count,
+            share_count: item.share_count,
+            play_count: item.play_count,
+            score: item.score,
+            tags: item.tags as { name: string; url?: string }[] | null,
+            media_files: item.media_files as { type: 'image' | 'video' | 'audio'; url: string; local_path?: string }[] | null,
+            published_at: item.published_at,
+            metadata: item.metadata,
           });
           postId = post.id;
           imported++;
@@ -198,6 +128,10 @@ export default async function postsRoutes(app: FastifyInstance) {
         await upsertTaskPostStatus(body.task_id, postId, { status: 'pending' });
       }
     }
+
+    getLogger().info(`[PostImport] Imported ${imported} new posts, updated ${skipped} existing posts, task_id=${body.task_id ?? 'none'}`);
+
+    try { await checkpoint(); } catch {}
 
     return { imported, skipped, postIds };
   });
@@ -227,22 +161,23 @@ export default async function postsRoutes(app: FastifyInstance) {
     const platformId = body.platform ?? '';
     let imported = 0;
     let skipped = 0;
-    for (const item of body.comments) {
+    for (const rawItem of body.comments) {
       try {
+        const item = normalizeCommentItem(rawItem);
         await createComment({
           post_id: postId,
           platform_id: platformId,
-          platform_comment_id: (item.platform_comment_id ?? item.id ?? null) as string | null,
-          parent_comment_id: (item.parent_comment_id ?? null) as string | null,
-          root_comment_id: (item.root_comment_id ?? null) as string | null,
-          depth: Number(item.depth ?? 0),
-          author_id: (item.author_id ?? null) as string | null,
-          author_name: (item.author_name ?? item.author ?? null) as string | null,
-          content: (item.content ?? '') as string,
-          like_count: parseChineseNumber(item.likes) ?? item.like_count ?? 0,
-          reply_count: Number(item.reply_count ?? 0),
-          published_at: item.published_at ? new Date(item.published_at as string) : null,
-          metadata: (item.metadata ?? null) as Record<string, unknown> | null,
+          platform_comment_id: item.platform_comment_id,
+          parent_comment_id: item.parent_comment_id,
+          root_comment_id: item.root_comment_id,
+          depth: item.depth,
+          author_id: item.author_id,
+          author_name: item.author_name,
+          content: item.content,
+          like_count: item.like_count,
+          reply_count: item.reply_count,
+          published_at: item.published_at,
+          metadata: item.metadata,
         });
         imported++;
       } catch {

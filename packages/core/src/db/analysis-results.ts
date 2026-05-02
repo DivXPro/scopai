@@ -308,3 +308,27 @@ export async function getPostAnalysisResults(postId: string): Promise<PostAnalys
     new Date(b.analyzed_at).getTime() - new Date(a.analyzed_at).getTime(),
   );
 }
+
+export async function deleteStrategyResultsByTaskAndStrategy(
+  taskId: string,
+  strategyId: string,
+): Promise<number> {
+  const tableName = getStrategyResultTableName(strategyId);
+  try {
+    const rows = await query<{ cnt: bigint }>(
+      `SELECT COUNT(*) as cnt FROM "${tableName}" WHERE task_id = ?`,
+      [taskId],
+    );
+    const count = Number(rows[0]?.cnt ?? 0);
+    if (count > 0) {
+      await run(
+        `DELETE FROM "${tableName}" WHERE task_id = ?`,
+        [taskId],
+      );
+    }
+    return count;
+  } catch {
+    // Table may not exist, skip
+    return 0;
+  }
+}

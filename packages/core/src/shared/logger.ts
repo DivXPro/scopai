@@ -105,6 +105,25 @@ export function initLogger(): Logger {
   // Auto-enable file output when not in a TTY (background daemon mode)
   if (!process.stdout.isTTY) {
     globalLogger.enableFileOutput();
+    // Hijack console methods so logs from external libs / console.log also go to file
+    const origLog = console.log;
+    const origError = console.error;
+    const origWarn = console.warn;
+    console.log = (...args: unknown[]) => {
+      const msg = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+      globalLogger?.info(msg);
+      origLog.apply(console, args);
+    };
+    console.error = (...args: unknown[]) => {
+      const msg = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+      globalLogger?.error(msg);
+      origError.apply(console, args);
+    };
+    console.warn = (...args: unknown[]) => {
+      const msg = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+      globalLogger?.warn(msg);
+      origWarn.apply(console, args);
+    };
   }
   return globalLogger;
 }

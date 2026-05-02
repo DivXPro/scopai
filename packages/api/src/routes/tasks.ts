@@ -5,14 +5,16 @@ import {
   getTargetStats,
   addTaskTargets, listTaskTargets,
   createTaskStep, getNextStepOrder, getTaskStepById, updateTaskStepStatus,
-  enqueueJob, enqueueJobs, getExistingJobTargets,
+  enqueueJob, enqueueJobs, getExistingJobTargets, deleteJobsByTaskAndStrategy,
+  deleteStrategyResultsByTaskAndStrategy,
   getStrategyById,
   generateId, now,
   getTaskPostStatuses,
   insertStrategyResult,
-  updateTaskCliTemplates,
   listMediaFilesByPost, getPostById,
   query,
+  checkpoint,
+  getLogger,
 } from '@scopai/core';
 import type { QueueJob } from '@scopai/core';
 import { getHandlers } from '../daemon/handlers';
@@ -52,7 +54,7 @@ export default async function tasksRoutes(app: FastifyInstance) {
       dataPrepStatus = 'failed';
     } else if (postStatuses.some(p => p.status === 'fetching')) {
       dataPrepStatus = 'fetching';
-    } else if (postStatuses.some(p => p.status === 'pending' || p.status === 'failed')) {
+    } else if (postStatuses.some(p => p.status === 'pending')) {
       dataPrepStatus = 'pending';
     }
 
@@ -563,26 +565,6 @@ export default async function tasksRoutes(app: FastifyInstance) {
     return { inserted: results.length };
   });
 
-  // --- Update CLI templates for an existing task ---
-  app.post('/tasks/:id/update-cli-templates', async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const body = request.body as Record<string, unknown>;
-    const cliTemplates = body.cli_templates;
-
-    const task = await getTaskById(id);
-    if (!task) {
-      reply.code(404);
-      throw new Error(`Task not found: ${id}`);
-    }
-
-    const cliTemplatesStr = cliTemplates
-      ? (typeof cliTemplates === 'string' ? cliTemplates : JSON.stringify(cliTemplates))
-      : null;
-
-    await updateTaskCliTemplates(id, cliTemplatesStr);
-    return { updated: true };
-  });
-
   // --- List steps for a task ---
   app.get('/tasks/:id/steps', async (request, reply) => {
     const { id } = request.params as { id: string };
@@ -611,6 +593,16 @@ export default async function tasksRoutes(app: FastifyInstance) {
     if (step.task_id !== id) {
       reply.code(400);
       throw new Error('Step does not belong to this task');
+    }
+
+    // Clear old jobs and results so step run can recreate them
+    if (step.strategy_id) {
+      const deletedJobs = await deleteJobsByTaskAndStrategy(id, step.strategy_id);
+      const deletedResults = await deleteStrategyResultsByTaskAndStrategy(id, step.strategy_id);
+      getLogger().info(`[StepReset] Step ${stepId}: deleted ${deletedJobs} jobs, ${deletedResults} results for strategy ${step.strategy_id}`);
+      if (deletedJobs > 0 || deletedResults > 0) {
+        await checkpoint();
+      }
     }
 
     await updateTaskStepStatus(stepId, 'pending', { total: 0, done: 0, failed: 0 });

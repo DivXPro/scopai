@@ -168,3 +168,159 @@ export function parseImportFile(filePath: string): unknown[] {
 
   throw new Error(`Unsupported file format: ${filePath}. Use .json or .jsonl`);
 }
+
+// ── Post / Comment field normalization ──────────────────────────────────────
+
+const POST_FIELD_MAP: Record<string, string> = {
+  likes: 'like_count',
+  collects: 'collect_count',
+  comments: 'comment_count',
+  shares: 'share_count',
+  plays: 'play_count',
+  note_id: 'platform_post_id',
+  author: 'author_name',
+  user_id: 'author_id',
+  cover: 'cover_url',
+  cover_image: 'cover_url',
+};
+
+const COMMENT_FIELD_MAP: Record<string, string> = {
+  likes: 'like_count',
+  author: 'author_name',
+};
+
+function normalizeRawItem(
+  raw: unknown,
+  fieldMap: Record<string, string>,
+): Record<string, unknown> {
+  // Field-value array: [{ field: 'likes', value: '1.5万' }, ...]
+  if (
+    Array.isArray(raw) &&
+    raw.length > 0 &&
+    raw.every(
+      (i) =>
+        typeof i === 'object' &&
+        i !== null &&
+        'field' in i &&
+        'value' in i,
+    )
+  ) {
+    const obj: Record<string, unknown> = {};
+    for (const entry of raw) {
+      const rawField = (entry as Record<string, unknown>).field as string;
+      const mappedField = fieldMap[rawField] ?? rawField;
+      obj[mappedField] = (entry as Record<string, unknown>).value;
+    }
+    return obj;
+  }
+
+  // Plain object
+  if (raw !== null && typeof raw === 'object' && !Array.isArray(raw)) {
+    const obj: Record<string, unknown> = {};
+    for (const key of Object.keys(raw)) {
+      const mapped = fieldMap[key] ?? key;
+      if (obj[mapped] === undefined) {
+        obj[mapped] = (raw as Record<string, unknown>)[key];
+      }
+    }
+    return obj;
+  }
+
+  return {};
+}
+
+function pickString(obj: Record<string, unknown>, keys: string[]): string | null {
+  for (const k of keys) {
+    const v = obj[k];
+    if (v !== undefined && v !== null) return String(v);
+  }
+  return null;
+}
+
+function pickNumber(obj: Record<string, unknown>, key: string): number {
+  const v = obj[key];
+  if (v === undefined || v === null) return 0;
+  const parsed = parseChineseNumber(v);
+  return parsed ?? 0;
+}
+
+export interface NormalizedPostItem {
+  platform_post_id: string | null;
+  title: string | null;
+  content: string;
+  author_id: string | null;
+  author_name: string | null;
+  author_url: string | null;
+  url: string | null;
+  cover_url: string | null;
+  post_type: string | null;
+  like_count: number;
+  collect_count: number;
+  comment_count: number;
+  share_count: number;
+  play_count: number;
+  score: number | null;
+  tags: unknown;
+  media_files: unknown;
+  published_at: Date | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export function normalizePostItem(raw: unknown): NormalizedPostItem {
+  const obj = normalizeRawItem(raw, POST_FIELD_MAP);
+
+  return {
+    platform_post_id:
+      pickString(obj, ['platform_post_id', 'noteId', 'id']) ?? null,
+    title: pickString(obj, ['title']),
+    content: pickString(obj, ['content', 'text', 'desc']) ?? '',
+    author_id: pickString(obj, ['author_id', 'user_id']),
+    author_name: pickString(obj, ['author_name', 'author']),
+    author_url: pickString(obj, ['author_url']),
+    url: pickString(obj, ['url']),
+    cover_url: pickString(obj, ['cover_url', 'cover', 'cover_image']),
+    post_type: pickString(obj, ['post_type', 'type']),
+    like_count: pickNumber(obj, 'like_count'),
+    collect_count: pickNumber(obj, 'collect_count'),
+    comment_count: pickNumber(obj, 'comment_count'),
+    share_count: pickNumber(obj, 'share_count'),
+    play_count: pickNumber(obj, 'play_count'),
+    score: obj.score !== undefined && obj.score !== null ? Number(obj.score) : null,
+    tags: obj.tags ?? null,
+    media_files: obj.media_files ?? null,
+    published_at: obj.published_at ? new Date(obj.published_at as string) : null,
+    metadata: (obj.metadata as Record<string, unknown> | null) ?? null,
+  };
+}
+
+export interface NormalizedCommentItem {
+  platform_comment_id: string | null;
+  parent_comment_id: string | null;
+  root_comment_id: string | null;
+  depth: number;
+  author_id: string | null;
+  author_name: string | null;
+  content: string;
+  like_count: number;
+  reply_count: number;
+  published_at: Date | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export function normalizeCommentItem(raw: unknown): NormalizedCommentItem {
+  const obj = normalizeRawItem(raw, COMMENT_FIELD_MAP);
+
+  return {
+    platform_comment_id: pickString(obj, ['platform_comment_id', 'id']),
+    parent_comment_id: pickString(obj, ['parent_comment_id']),
+    root_comment_id: pickString(obj, ['root_comment_id']),
+    depth: Number(obj.depth ?? 0),
+    author_id: pickString(obj, ['author_id']),
+    author_name: pickString(obj, ['author_name', 'author']),
+    content: pickString(obj, ['content', 'text']) ?? '',
+    like_count: pickNumber(obj, 'like_count'),
+    reply_count: pickNumber(obj, 'reply_count'),
+    published_at: obj.published_at ? new Date(obj.published_at as string) : null,
+    metadata: (obj.metadata as Record<string, unknown> | null) ?? null,
+  };
+}

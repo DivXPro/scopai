@@ -7,6 +7,7 @@ export {
   exec,
   checkpoint,
   close,
+  createIsolatedConnection,
 } from './db/client';
 
 export { runMigrations as migrate } from './db/migrate';
@@ -41,7 +42,8 @@ export { loadClaudeConfig } from './config/claude-config';
 export * from './shared/types';
 export * from './shared/constants';
 export * from './shared/utils';
-export { getLogger } from './shared/logger';
+export { getLogger, initLogger } from './shared/logger';
+export type { NormalizedPostItem, NormalizedCommentItem } from './shared/utils';
 export { registerWorker, unregisterWorker, setWorkerActiveCount, getTotalActiveJobs, getWorkerCount, requestShutdown, isShuttingDown, resetShutdown } from './shared/shutdown';
 export { VERSION as version } from './shared/version';
 export { notifyJobAvailable, waitForJob } from './shared/job-events';

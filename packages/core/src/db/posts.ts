@@ -115,9 +115,23 @@ export async function updatePost(id: string, updates: Partial<Omit<Post, 'id' | 
   if (updates.metadata !== undefined) { fields.push('metadata = ?'); params.push(updates.metadata ? JSON.stringify(updates.metadata) : null); }
 
   if (fields.length === 0) return;
-  fields.push('fetched_at = ?');
-  params.push(now());
-  params.push(id);
 
-  await run(`UPDATE posts SET ${fields.join(', ')} WHERE id = ?`, params);
+  // DuckDB internally switches to DELETE+INSERT when UPDATE touches too many
+  // columns on rows with FK references, causing FK violations. Batch updates
+  // to stay under the threshold (empirically: max 8 SET columns incl. fetched_at).
+  const MAX_SET_COLUMNS = 7;
+  if (fields.length > MAX_SET_COLUMNS) {
+    const batch1 = fields.slice(0, MAX_SET_COLUMNS);
+    const params1 = [...params.slice(0, MAX_SET_COLUMNS), now(), id];
+    await run(`UPDATE posts SET ${batch1.join(', ')}, fetched_at = ? WHERE id = ?`, params1);
+
+    const batch2 = fields.slice(MAX_SET_COLUMNS);
+    const params2 = [...params.slice(MAX_SET_COLUMNS), now(), id];
+    await run(`UPDATE posts SET ${batch2.join(', ')}, fetched_at = ? WHERE id = ?`, params2);
+  } else {
+    fields.push('fetched_at = ?');
+    params.push(now());
+    params.push(id);
+    await run(`UPDATE posts SET ${fields.join(', ')} WHERE id = ?`, params);
+  }
 }

@@ -7,6 +7,7 @@ import { expandPath } from '../shared/utils';
 let _db: duckdb.Database | null = null;
 let _conn: duckdb.Connection | null = null;
 let _dbLock: Promise<unknown> = Promise.resolve();
+let _isClosing = false;
 
 export function getDbPath(): string {
   const dbPath = expandPath(config.database.path);
@@ -34,8 +35,14 @@ export function getConnection(): duckdb.Connection {
 }
 
 async function withLock<T>(fn: () => Promise<T>): Promise<T> {
+  if (_isClosing) {
+    throw new Error('Database is closing');
+  }
   const next = _dbLock.then(() => fn());
-  _dbLock = next.catch(() => {}) as Promise<unknown>;
+  _dbLock = next.then(
+    () => {},
+    () => {},
+  );
   return next;
 }
 
@@ -101,9 +108,40 @@ export async function checkpoint(): Promise<void> {
   return exec('CHECKPOINT;');
 }
 
+/**
+ * Create an isolated database connection for long-running operations.
+ * Caller is responsible for closing the connection and database.
+ */
+export function createIsolatedConnection(): { db: duckdb.Database; conn: duckdb.Connection; close: () => void } {
+  const db = new duckdb.Database(getDbPath());
+  db.run("PRAGMA journal_mode='wal';");
+  const conn = db.connect();
+  return {
+    db,
+    conn,
+    close: () => {
+      try { conn.close(); } catch {}
+      try { db.close(); } catch {}
+    },
+  };
+}
+
 export async function close(): Promise<void> {
+  _isClosing = true;
+
+  // Wait for all queued operations to complete or fail
+  try {
+    await _dbLock;
+  } catch {
+    // ignore
+  }
+
   if (_db) {
-    try { await checkpoint(); } catch {}
+    try {
+      await checkpoint();
+    } catch {
+      // ignore
+    }
   }
   if (_conn) {
     _conn.close();
@@ -113,4 +151,7 @@ export async function close(): Promise<void> {
     _db.close();
     _db = null;
   }
+
+  _isClosing = false;
+  _dbLock = Promise.resolve();
 }

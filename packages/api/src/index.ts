@@ -1,7 +1,7 @@
 import fastify from 'fastify';
 import staticPlugin from '@fastify/static';
 import * as path from 'path';
-import { existsSync } from 'fs';
+import { existsSync, renameSync, unlinkSync } from 'fs';
 import { spawnSync } from 'child_process';
 import {
   config,
@@ -17,6 +17,7 @@ import {
   resetShutdown,
   registerWorker,
   recoverStalledJobs,
+  initLogger,
 } from '@scopai/core';
 import { setupAuth } from './auth';
 import { registerRoutes } from './routes';
@@ -27,7 +28,45 @@ const HOST = process.env.HOST ?? '127.0.0.1';
 const WORKER_CONCURRENCY = config.worker.concurrency ?? 2;
 const SHUTDOWN_DRAIN_TIMEOUT_MS = 30_000;
 
+function recoverWalIfNeeded(): void {
+  const dbPath = config.database.path;
+  const walPath = dbPath + '.wal';
+  if (!existsSync(walPath)) return;
+
+  const walSize = require('fs').statSync(walPath).size;
+  if (walSize === 0) {
+    unlinkSync(walPath);
+    return;
+  }
+
+  // Test if DuckDB can open the database with the existing WAL
+  const duckdb = require('duckdb');
+  let canOpen = false;
+  try {
+    const testDb = new duckdb.Database(dbPath);
+    testDb.exec('SELECT 1');
+    testDb.close();
+    canOpen = true;
+  } catch {
+    canOpen = false;
+  }
+
+  if (!canOpen) {
+    const backupPath = dbPath + '.corrupted.' + Date.now();
+    try {
+      renameSync(dbPath, backupPath);
+      if (existsSync(walPath)) unlinkSync(walPath);
+      console.warn(`WAL recovery failed. Database backed up to ${backupPath}. Fresh database will be created.`);
+    } catch (err) {
+      console.error('Failed to backup corrupted database:', err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+  }
+}
+
 async function main() {
+  recoverWalIfNeeded();
+
   await migrate();
   await seedPlatforms();
 
@@ -102,6 +141,9 @@ async function main() {
 
   await setupAuth(app);
   await registerRoutes(app);
+
+  // Initialize file-based logging for background daemon mode
+  initLogger();
 
   try {
     await app.listen({ port: PORT, host: HOST });

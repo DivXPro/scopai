@@ -182,6 +182,7 @@ async function callLLM(
   for (const m of mediaBlocks) {
     content.push(m as Anthropic.Messages.ContentBlockParam);
   }
+  console.log(`[callLLM] Sending ${content.length} content blocks (${mediaBlocks.length} media) to LLM, model=${config.anthropic.model ?? 'default'}`);
 
   const tools: Anthropic.Messages.Tool[] = [
     {
@@ -275,7 +276,7 @@ export async function analyzeWithStrategy(
   strategy: Strategy,
   upstreamResult?: Record<string, unknown> | null,
 ): Promise<string> {
-  const isPost = 'post_id' in target;
+  const isPost = strategy.target === 'post';
   const promptText = isPost
     ? await buildStrategyPrompt(target as Post, strategy, upstreamResult)
     : await buildCommentPrompt(target as Comment, strategy, upstreamResult);
@@ -283,7 +284,7 @@ export async function analyzeWithStrategy(
   // Build media blocks for upload
   const mediaBlocks: Array<{ type: string; source: { type: 'base64'; media_type: string; data: string } }> = [];
 
-  if (isPost && strategy.needs_media?.enabled && strategy.needs_media.upload_images) {
+  if (isPost && strategy.needs_media?.enabled) {
     const mediaFiles = await listMediaFilesByPost((target as Post).id);
     const filtered = filterMediaFiles(mediaFiles, strategy.needs_media);
     for (const m of filtered) {
@@ -292,6 +293,7 @@ export async function analyzeWithStrategy(
         mediaBlocks.push(block);
       }
     }
+    console.log(`[analyzeWithStrategy] Post ${(target as Post).id}: ${mediaFiles.length} media files, ${filtered.length} filtered, ${mediaBlocks.length} blocks built`);
   }
 
   return callLLM(promptText, mediaBlocks, strategy.output_schema);
@@ -391,11 +393,13 @@ async function buildMediaContentBlock(
 ): Promise<{ type: string; source: { type: 'base64'; media_type: string; data: string } } | null> {
   let filePath = media.local_path;
   if (!filePath || !fs.existsSync(filePath)) {
+    console.warn(`[MediaBlock] File not found: ${filePath}`);
     return null;
   }
 
   const mediaType = detectMediaType(filePath);
   if (!mediaType) {
+    console.warn(`[MediaBlock] Unknown media type for: ${filePath}`);
     return null;
   }
 
@@ -405,10 +409,12 @@ async function buildMediaContentBlock(
   const maxSize = 20 * 1024 * 1024;
 
   if (isVideo && stats.size > maxSize) {
+    console.log(`[MediaBlock] Compressing video: ${filePath} (${stats.size} bytes)`);
     const compressed = await compressVideo(filePath);
     if (compressed) {
       filePath = compressed;
     } else {
+      console.warn(`[MediaBlock] Video compression failed: ${filePath}`);
       return null;
     }
   }
@@ -417,6 +423,7 @@ async function buildMediaContentBlock(
     const data = fs.readFileSync(filePath);
     const base64 = data.toString('base64');
     const blockType = isVideo ? 'video' : 'image';
+    console.log(`[MediaBlock] Built ${blockType} block: ${path.basename(filePath)}, size=${data.length}, base64_len=${base64.length}`);
     return {
       type: blockType,
       source: {
@@ -425,7 +432,8 @@ async function buildMediaContentBlock(
         data: base64,
       },
     };
-  } catch {
+  } catch (err) {
+    console.error(`[MediaBlock] Failed to read file ${filePath}: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }

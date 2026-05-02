@@ -314,7 +314,6 @@ export interface NeedsMediaConfig {
   media_types?: MediaType[];
   max_media?: number;
   mode?: 'all' | 'first_n' | 'best_quality';
-  upload_images?: boolean;
 }
 
 export interface BatchConfig {
