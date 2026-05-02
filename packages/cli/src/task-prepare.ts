@@ -7,13 +7,12 @@ export function taskPrepareCommands(program: Command): void {
   const task = program.commands.find(c => c.name() === 'task') ?? program.command('task');
 
   task
-    .command('prepare-data')
+    .command('prepare-data <id>')
     .description('Download comments and media for task posts via opencli (resumable)')
-    .requiredOption('--task-id <id>', 'Task ID')
-    .action(async (opts: { taskId: string }) => {
-      const t = await apiGet<TaskDetailResponse>('/tasks/' + opts.taskId);
+    .action(async (taskId: string) => {
+      const t = await apiGet<TaskDetailResponse>('/tasks/' + taskId);
       if (!t.id) {
-        console.log(pc.red(`Task not found: ${opts.taskId}`));
+        console.log(pc.red(`Task not found: ${taskId}`));
         process.exit(1);
       }
 
@@ -22,7 +21,7 @@ export function taskPrepareCommands(program: Command): void {
         process.exit(1);
       }
 
-      const result = await apiPost<TaskPrepareDataResponse>('/tasks/' + opts.taskId + '/prepare-data');
+      const result = await apiPost<TaskPrepareDataResponse>('/tasks/' + taskId + '/prepare-data');
       if (result.status !== 'queued') {
         console.log(pc.red('Failed to start data preparation'));
         process.exit(1);
@@ -31,7 +30,7 @@ export function taskPrepareCommands(program: Command): void {
       console.log(pc.yellow('Data preparation started. Polling progress...\n'));
 
       const poll = async () => {
-        const status = await apiGet<Record<string, any>>('/tasks/' + opts.taskId);
+        const status = await apiGet<Record<string, any>>('/tasks/' + taskId);
         const dp = status.phases?.dataPreparation ?? {};
         const done = dp.status === 'done';
         const failed = dp.status === 'failed';

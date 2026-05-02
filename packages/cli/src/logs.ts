@@ -2,11 +2,15 @@ import { Command } from 'commander';
 import * as pc from 'picocolors';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getLogFilePath } from '@scopai/core';
 import { expandPath } from '@scopai/core';
 
 function getLogDir(): string {
   return expandPath('~/.scopai/logs');
+}
+
+function getLogFilePath(date?: string): string {
+  const d = date ?? new Date().toISOString().slice(0, 10);
+  return path.join(getLogDir(), `daemon.${d}.log`);
 }
 
 function readLastLines(filePath: string, lineCount: number): string[] {

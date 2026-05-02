@@ -5,7 +5,6 @@ import { apiGet, apiPost } from './api-client';
 import type {
   ListTasksResponse,
   TaskDetailResponse,
-  TaskStartResponse,
   CreateTaskStepResponse,
   RunTaskStepResponse,
   ResetTaskStepResponse,
@@ -59,87 +58,47 @@ export function taskCommands(program: Command): void {
     });
 
   task
-    .command('add-posts')
+    .command('add-posts <id>')
     .description('Add posts to a task')
-    .requiredOption('--task-id <id>', 'Task ID')
-    .option('--post-ids <ids>', 'Comma-separated post IDs')
-    .action(async (opts: { taskId: string; postIds?: string }) => {
-      if (!opts.postIds) {
-        console.log(pc.red('Error: --post-ids is required'));
-        process.exit(1);
-      }
+    .requiredOption('--post-ids <ids>', 'Comma-separated post IDs')
+    .action(async (taskId: string, opts: { postIds: string }) => {
       const postIds = opts.postIds.split(',').map(id => id.trim());
-      await apiPost('/tasks/' + opts.taskId + '/add-posts', { post_ids: postIds });
-      console.log(pc.green(`Added ${postIds.length} posts to task ${opts.taskId}`));
+      await apiPost('/tasks/' + taskId + '/add-posts', { post_ids: postIds });
+      console.log(pc.green(`Added ${postIds.length} posts to task ${taskId}`));
     });
 
   task
-    .command('add-comments')
+    .command('add-comments <id>')
     .description('Add comments to a task')
-    .requiredOption('--task-id <id>', 'Task ID')
-    .option('--comment-ids <ids>', 'Comma-separated comment IDs')
-    .action(async (opts: { taskId: string; commentIds?: string }) => {
-      if (!opts.commentIds) {
-        console.log(pc.red('Error: --comment-ids is required'));
-        process.exit(1);
-      }
+    .requiredOption('--comment-ids <ids>', 'Comma-separated comment IDs')
+    .action(async (taskId: string, opts: { commentIds: string }) => {
       const commentIds = opts.commentIds.split(',').map(id => id.trim());
-      await apiPost('/tasks/' + opts.taskId + '/add-comments', { comment_ids: commentIds });
-      console.log(pc.green(`Added ${commentIds.length} comments to task ${opts.taskId}`));
+      await apiPost('/tasks/' + taskId + '/add-comments', { comment_ids: commentIds });
+      console.log(pc.green(`Added ${commentIds.length} comments to task ${taskId}`));
     });
 
   task
-    .command('start')
-    .description('Start a task (enqueue jobs for analysis)')
-    .requiredOption('--task-id <id>', 'Task ID')
-    .action(async (opts: { taskId: string }) => {
-      const full = await apiGet<TaskDetailResponse>('/tasks/' + opts.taskId);
-      if (!full.id) {
-        console.log(pc.red(`Task not found: ${opts.taskId}`));
-        process.exit(1);
-      }
-      const pending = full.pending as { target_type: string; target_id: string }[] | undefined;
-      if (!pending || pending.length === 0) {
-        console.log(pc.yellow('No pending targets to process'));
-        return;
-      }
-
-      const result = await apiPost<TaskStartResponse>('/tasks/' + opts.taskId + '/start');
-
-      if (result.skipped > 0) {
-        console.log(pc.dim(`  Skipped ${result.skipped} already-analyzed targets`));
-      }
-      if (result.mediaJobs > 0) {
-        console.log(pc.dim(`  Enqueued ${result.mediaJobs} media analysis jobs`));
-      }
-      console.log(pc.green(`Task started. Enqueued ${result.enqueued} jobs for analysis.`));
-    });
-
-  task
-    .command('pause')
+    .command('pause <id>')
     .description('Pause a running task')
-    .requiredOption('--task-id <id>', 'Task ID')
-    .action(async (opts: { taskId: string }) => {
-      await apiPost('/tasks/' + opts.taskId + '/pause');
-      console.log(pc.green(`Task ${opts.taskId} paused`));
+    .action(async (taskId: string) => {
+      await apiPost('/tasks/' + taskId + '/pause');
+      console.log(pc.green(`Task ${taskId} paused`));
     });
 
   task
-    .command('resume')
+    .command('resume <id>')
     .description('Resume a paused task')
-    .requiredOption('--task-id <id>', 'Task ID')
-    .action(async (opts: { taskId: string }) => {
-      await apiPost('/tasks/' + opts.taskId + '/resume');
-      console.log(pc.green(`Task ${opts.taskId} resumed`));
+    .action(async (taskId: string) => {
+      await apiPost('/tasks/' + taskId + '/resume');
+      console.log(pc.green(`Task ${taskId} resumed`));
     });
 
   task
-    .command('cancel')
+    .command('cancel <id>')
     .description('Cancel a task')
-    .requiredOption('--task-id <id>', 'Task ID')
-    .action(async (opts: { taskId: string }) => {
-      await apiPost('/tasks/' + opts.taskId + '/cancel');
-      console.log(pc.yellow(`Task ${opts.taskId} cancelled`));
+    .action(async (taskId: string) => {
+      await apiPost('/tasks/' + taskId + '/cancel');
+      console.log(pc.yellow(`Task ${taskId} cancelled`));
     });
 
   task
@@ -181,14 +140,13 @@ export function taskCommands(program: Command): void {
     });
 
   task
-    .command('show')
+    .command('show <id>')
     .alias('status')
     .description('Show task status and progress')
-    .requiredOption('--task-id <id>', 'Task ID')
-    .action(async (opts: { taskId: string }) => {
-      const full = await apiGet<TaskDetailResponse>('/tasks/' + opts.taskId);
+    .action(async (taskId: string) => {
+      const full = await apiGet<TaskDetailResponse>('/tasks/' + taskId);
       if (!full.id) {
-        console.log(pc.red(`Task not found: ${opts.taskId}`));
+        console.log(pc.red(`Task not found: ${taskId}`));
         process.exit(1);
       }
       console.log(pc.bold(`\nTask: ${full.name}`));
@@ -261,17 +219,16 @@ export function taskCommands(program: Command): void {
     });
 
   stepCmd
-    .command('list')
+    .command('list <id>')
     .alias('ls')
     .description('List steps for a task')
-    .requiredOption('--task-id <id>', 'Task ID')
-    .action(async (opts: { taskId: string }) => {
-      const steps = await apiGet<any[]>('/tasks/' + opts.taskId + '/steps');
+    .action(async (taskId: string) => {
+      const steps = await apiGet<any[]>('/tasks/' + taskId + '/steps');
       if (steps.length === 0) {
         console.log(pc.yellow('No steps found'));
         return;
       }
-      console.log(pc.bold(`\nSteps for task ${opts.taskId.slice(0, 8)}:`));
+      console.log(pc.bold(`\nSteps for task ${taskId.slice(0, 8)}:`));
       console.log(pc.dim('─'.repeat(70)));
       for (const s of steps) {
         const statusColor = s.status === 'completed' ? pc.green : s.status === 'running' ? pc.cyan : s.status === 'failed' ? pc.red : pc.gray;
@@ -350,13 +307,12 @@ export function taskCommands(program: Command): void {
     });
 
   task
-    .command('run-all-steps')
+    .command('run-all-steps <id>')
     .description('Run all pending/failed steps for a task in order')
-    .requiredOption('--task-id <id>', 'Task ID')
     .option('--wait', 'Block until all steps complete (default: true)')
     .option('--no-wait', 'Return immediately after enqueueing')
-    .action(async (opts: { taskId: string; wait: boolean }) => {
-      const result = await apiPost<RunAllTaskStepsResponse>('/tasks/' + opts.taskId + '/run-all-steps');
+    .action(async (taskId: string, opts: { wait: boolean }) => {
+      const result = await apiPost<RunAllTaskStepsResponse>('/tasks/' + taskId + '/run-all-steps');
 
       if (opts.wait === false) {
         console.log(pc.green('All steps processed'));
@@ -370,7 +326,7 @@ export function taskCommands(program: Command): void {
 
       try {
         const final = await waitForTaskSteps(
-          opts.taskId,
+          taskId,
           (id) => apiGet<Record<string, any>>('/tasks/' + id),
           (completed, total, running) => {
             const ts = formatTimestamp();
@@ -397,33 +353,13 @@ export function taskCommands(program: Command): void {
     });
 
   task
-    .command('update-templates')
-    .description('Update CLI templates for an existing task')
-    .requiredOption('--task-id <id>', 'Task ID')
-    .requiredOption('--templates <json>', 'JSON string of opencli command templates')
-    .action(async (opts: { taskId: string; templates: string }) => {
-      let cliTemplates: Record<string, unknown> | null = null;
-      try {
-        cliTemplates = JSON.parse(opts.templates);
-      } catch {
-        console.log(pc.red('Invalid JSON for --templates'));
-        process.exit(1);
-      }
-      await apiPost('/tasks/' + opts.taskId + '/update-cli-templates', {
-        cli_templates: cliTemplates,
-      });
-      console.log(pc.green(`Task ${opts.taskId} CLI templates updated`));
-    });
-
-  task
-    .command('results')
+    .command('results <id>')
     .description('Show analysis results for a completed task')
-    .requiredOption('--task-id <id>', 'Task ID')
     .option('--strategy-id <id>', 'Strategy ID (auto-detected from task steps if omitted)')
-    .action(async (opts: { taskId: string; strategyId?: string }) => {
-      const full = await apiGet<TaskDetailResponse>('/tasks/' + opts.taskId);
+    .action(async (taskId: string, opts: { strategyId?: string }) => {
+      const full = await apiGet<TaskDetailResponse>('/tasks/' + taskId);
       if (!full.id) {
-        console.log(pc.red(`Task not found: ${opts.taskId}`));
+        console.log(pc.red(`Task not found: ${taskId}`));
         process.exit(1);
       }
 
@@ -446,7 +382,7 @@ export function taskCommands(program: Command): void {
       }
 
       for (const strategyId of strategyIds) {
-        const response = await apiGet<{ results: any[]; stats: Record<string, unknown> }>('/tasks/' + opts.taskId + '/results?strategy_id=' + strategyId);
+        const response = await apiGet<{ results: any[]; stats: Record<string, unknown> }>('/tasks/' + taskId + '/results?strategy_id=' + strategyId);
         const results = response.results ?? [];
         const allSteps = [...(full.phases?.steps ?? []), ...((full as any).steps ?? [])];
         const stepName = allSteps.find((s: any) => (s.strategyId ?? s.strategy_id) === strategyId)?.name ?? strategyId;
