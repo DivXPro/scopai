@@ -44,16 +44,15 @@ Run these **in order** before any workflow:
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 8 | **prepare_task_data** | `scopai task prepare-data --task-id {tid}` | Fetch full post details, comments, and media. Media downloads automatically use platform defaults if `fetch_media` is not configured. **Resumable** — continues from unfinished posts on retry. Fails if `cli_templates` lacks `fetch_note`. |
+| 8 | **prepare_task_data** | `scopai task prepare-data {tid}` | Fetch full post details, comments, and media. Media downloads automatically use platform defaults if `fetch_media` is not configured. **Resumable** — continues from unfinished posts on retry. Fails if `cli_templates` lacks `fetch_note`. |
 
 ### Phase 4: Analysis Execution
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 9 | **run_all_steps** | `scopai task run-all-steps --task-id {tid}` | **Default `--wait`**: blocks until all steps complete, printing progress. Use `--no-wait` for fire-and-forget. |
+| 9 | **run_all_steps** | `scopai task run-all-steps {tid}` | **Default `--wait`**: blocks until all steps complete, printing progress. Use `--no-wait` for fire-and-forget. |
 | 10 | **run_task_step** | `scopai task step run --task-id {tid} --step-id {sid}` | Run a single step. **Default `--wait`**: blocks until completion. |
-| 11 | **start_task** | `scopai task start --task-id {tid}` | Enqueue jobs for pending targets **without** running strategy steps. |
-| 12 | **reset_task_step** | `scopai task step reset --task-id {tid} --step-id {sid}` | Reset a failed step to pending for retry. |
+| 11 | **reset_task_step** | `scopai task step reset --task-id {tid} --step-id {sid}` | Reset a failed step to pending for retry. |
 
 > **Progress output** (`--wait` mode):
 > ```
@@ -65,39 +64,38 @@ Run these **in order** before any workflow:
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 13 | **get_task_results** | `scopai task results --task-id {tid}` | After all steps complete. Shows result summary. |
-| 14 | **get_task_status** | `scopai task show --task-id {tid}` | Show full task details including phases, steps, jobs, and recent failures. **Not needed when using `--wait` mode.** |
-| 15 | **list_tasks** | `scopai task list [--status {s}] [--query {text}]` | View existing tasks. Filter by status or search by name. |
-| 16 | **list_task_steps** | `scopai task step list --task-id {tid}` | Inspect step states before running. |
-| 17 | **update_task_templates** | `scopai task update-templates --task-id {tid} --templates '{...}'` | Update `cli_templates` on an existing task (e.g., add `fetch_media` after creation). |
-| 18 | **strategy_result_list** | `scopai strategy result list --task-id {tid} --strategy {sid}` | Inspect per-post results. |
-| 19 | **strategy_result_export** | `scopai strategy result export --task-id {tid} --strategy {sid} [--format csv|json] [--output {path}]` | Export results to file. |
-| 20 | **strategy_result_stats** | `scopai strategy result stats --task-id {tid} --strategy {sid}` | Show numeric and text field statistics. |
-| 21 | **strategy_result_aggregate** | `scopai strategy result aggregate --task-id {tid} --strategy {sid} --group-by {field} [--agg count|sum|avg|min|max] [--format table|csv|json]` | Aggregate a specific result field. |
+| 12 | **get_task_results** | `scopai task results {tid}` | After all steps complete. Shows result summary. |
+| 13 | **get_task_status** | `scopai task show {tid}` | Show full task details including phases, steps, jobs, and recent failures. **Not needed when using `--wait` mode.** |
+| 14 | **list_tasks** | `scopai task list [--status {s}] [--query {text}]` | View existing tasks. Filter by status or search by name. |
+| 15 | **list_task_steps** | `scopai task step list {tid}` | Inspect step states before running. |
+| 16 | **strategy_result_list** | `scopai strategy result list --task-id {tid} --strategy {sid}` | Inspect per-post results. |
+| 17 | **strategy_result_export** | `scopai strategy result export --task-id {tid} --strategy {sid} [--format csv|json] [--output {path}]` | Export results to file. |
+| 18 | **strategy_result_stats** | `scopai strategy result stats --task-id {tid} --strategy {sid}` | Show numeric and text field statistics. |
+| 19 | **strategy_result_aggregate** | `scopai strategy result aggregate --task-id {tid} --strategy {sid} --group-by {field} [--agg count|sum|avg|min|max] [--format table|csv|json]` | Aggregate a specific result field. |
 
 ### Utility & Recovery
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 22 | **retry_failed_queue_jobs** | `scopai queue retry [--task-id {tid}]` | Re-run only failed jobs. |
-| 23 | **reset_queue_jobs** | `scopai queue reset [--task-id {tid}]` | **Blunt instrument**: force-reset all non-pending jobs. Prefer `queue retry`. |
-| 24 | **list_queue_jobs** | `scopai queue list --task-id {tid} [--failed-only] [--limit {n}]` | Inspect queue job status. |
-| 25 | **pause_task / resume_task / cancel_task** | `scopai task pause|resume|cancel --task-id {tid}` | Control running tasks. |
-| 26 | **list_posts / search_posts_db** | `scopai post list [--platform {id}]` / `scopai post search --platform {id} --query {text}` | Browse imported data. |
-| 27 | **daemon management** | `scopai daemon start [--fg] [--verbose]` / `stop` / `restart` / `status` | Manage API server lifecycle. CLI auto-restarts if version mismatch. |
-| 28 | **run_single_analysis** | `scopai analyze --task-id {tid} --strategy-id {sid}` | Run a one-shot strategy analysis without task steps. |
-| 29 | **view_logs** | `scopai logs show [--lines {n}] [--level {l}]` | View recent API server log entries. |
+| 20 | **retry_failed_queue_jobs** | `scopai queue retry [--task-id {tid}]` | Re-run only failed jobs. |
+| 21 | **reset_queue_jobs** | `scopai queue reset [--task-id {tid}]` | **Blunt instrument**: force-reset all non-pending jobs. Prefer `queue retry`. |
+| 22 | **list_queue_jobs** | `scopai queue list --task-id {tid} [--failed-only] [--limit {n}]` | Inspect queue job status. |
+| 23 | **pause_task / resume_task / cancel_task** | `scopai task pause|resume|cancel {tid}` | Control running tasks. |
+| 24 | **list_posts / search_posts_db** | `scopai post list [--platform {id}]` / `scopai post search --platform {id} --query {text}` | Browse imported data. |
+| 25 | **daemon management** | `scopai daemon start [--fg] [--verbose]` / `stop` / `restart` / `status` | Manage API server lifecycle. CLI auto-restarts if version mismatch. |
+| 26 | **run_single_analysis** | `scopai analyze run --task-id {tid} --strategy {sid}` | Run a one-shot strategy analysis without task steps. |
+| 27 | **view_logs** | `scopai logs show [--lines {n}] [--date {d}]` | View recent API server log entries. |
 
 ### Creator Subscription & Sync
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 30 | **creator_add** | `scopai creator add --platform {id} --author-id {aid} [--name {name}]` | Subscribe to a creator/blogger. Auto-creates sync schedule. |
-| 31 | **creator_list** | `scopai creator list [--platform {id}] [--status {s}]` | List subscribed creators. |
-| 32 | **creator_show** | `scopai creator show --id {id}` | Show creator details and recent sync logs. |
-| 33 | **creator_sync** | `scopai creator sync --id {id} [--initial]` | Trigger manual sync. `--initial` imports all historical posts. |
-| 34 | **creator_pause/resume** | `scopai creator pause|resume --id {id}` | Pause/resume automatic sync. |
-| 35 | **creator_remove** | `scopai creator remove --id {id}` | Unsubscribe from a creator. |
+| 28 | **creator_add** | `scopai creator add --platform {id} --author-id {aid} [--name {name}]` | Subscribe to a creator/blogger. Auto-creates sync schedule. |
+| 29 | **creator_list** | `scopai creator list [--platform {id}] [--status {s}]` | List subscribed creators. |
+| 30 | **creator_show** | `scopai creator show --id {id}` | Show creator details and recent sync logs. |
+| 31 | **creator_sync** | `scopai creator sync --id {id} [--initial]` | Trigger manual sync. `--initial` imports all historical posts. |
+| 32 | **creator_pause/resume** | `scopai creator pause|resume --id {id}` | Pause/resume automatic sync. |
+| 33 | **creator_remove** | `scopai creator remove --id {id}` | Unsubscribe from a creator. |
 
 > **Creator sync pipeline**: Independent from task/queue pipeline. Worker polls `creator_sync_jobs` directly, fetches posts via `opencli` (e.g., `opencli xiaohongshu user {author_id} --format json`), normalizes via field mappings, and upserts into `posts` table.
 
@@ -105,7 +103,7 @@ Run these **in order** before any workflow:
 
 | # | Tool | Description |
 |---|------|-------------|
-| 36 | **create_strategy** | Generate a new analysis strategy via conversation. See JSON Rules below. |
+| 34 | **create_strategy** | Generate a new analysis strategy via conversation. See JSON Rules below. |
 
 ---
 
@@ -199,16 +197,16 @@ scopai task step add --task-id <task_id> --strategy-id sentiment-topics --name "
 scopai task step add --task-id <task_id> --strategy-id risk-detection --name "风险检测"
 
 # 6. Prepare data (blocks, resumable)
-scopai task prepare-data --task-id <task_id>
+scopai task prepare-data <task_id>
 
 # 7. Run analysis (blocks with progress output)
-scopai task run-all-steps --task-id <task_id>
+scopai task run-all-steps <task_id>
 # → [10:23:45] Steps progress: 0/2 completed | running: 情感分析
 # → [10:24:12] Steps progress: 1/2 completed | running: 风险检测
 # → [10:24:45] Steps progress: 2/2 completed
 
 # 8. Results
-scopai task results --task-id <task_id>
+scopai task results <task_id>
 ```
 
 ### Alternative: Non-blocking Mode
@@ -217,14 +215,14 @@ If the user wants to start the analysis and check back later (e.g., running mult
 
 ```bash
 # Data preparation still blocks
-scopai task prepare-data --task-id <task_id>
+scopai task prepare-data <task_id>
 
 # But analysis runs in background
-scopai task run-all-steps --task-id <task_id> --no-wait
+scopai task run-all-steps <task_id> --no-wait
 # → "All steps processed" (returns immediately)
 
 # Check status later
-scopai task status --task-id <task_id>
+scopai task show <task_id>
 ```
 
 ### Recovery from Failure
@@ -235,6 +233,8 @@ scopai task step reset --task-id <tid> --step-id <sid>
 scopai task step run --task-id <tid> --step-id <sid> --wait
 ```
 
+> `step reset` automatically clears old queue jobs and strategy results for that step, then recreates them on the next run. No manual cleanup needed.
+
 ---
 
 ## JSON Rules for create_strategy
@@ -244,8 +244,17 @@ scopai task step run --task-id <tid> --step-id <sid> --wait
 - `id`: lowercase `a-z0-9_-`, e.g. `monetization-v1`
 - `name`, `version` (default `"1.0.0"`)
 - `target`: `"post"` only
-- `needs_media`: `{ enabled: true/false, media_types, max_media, mode }` if enabled
+- `needs_media`: media upload configuration (see table below)
 - `prompt`: must include `{{content}}`; include `{{media_urls}}` if `needs_media.enabled`
+
+**`needs_media` fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | `boolean` | If `true`, media files are fetched, filtered, and uploaded as base64 content blocks to the LLM for multimodal analysis |
+| `media_types` | `string[]` | Filter which media types to process, e.g. `["image"]`, `["image", "video"]` |
+| `max_media` | `number` | Maximum number of media files to upload (per post) |
+| `mode` | `string` | `"all"` = use all filtered media; `"best_quality"` = sort by resolution and pick highest |
 - `output_schema`: standard JSON Schema, `type: "object"`, each property needs `type` and `title` (human-readable Chinese label)
 
 **Prompt variables (whitelist only):**
