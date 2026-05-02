@@ -14,6 +14,17 @@ export interface TestContext {
   cleanup: () => Promise<void>;
 }
 
+export interface StartServerOptions {
+  /** Extra env vars passed to the server child process. */
+  env?: Record<string, string>;
+  /**
+   * Optional callback invoked with the temp DB path BEFORE the server child starts.
+   * Use it to seed rows directly via @scopai/core dynamic imports — make sure to
+   * close the DB connection before returning so the child can open it cleanly.
+   */
+  seed?: (dbPath: string) => Promise<void>;
+}
+
 function getFreePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
@@ -25,9 +36,13 @@ function getFreePort(): Promise<number> {
   });
 }
 
-export async function startServer(): Promise<TestContext> {
+export async function startServer(options: StartServerOptions = {}): Promise<TestContext> {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scopai-e2e-'));
   const dbPath = path.join(tmpDir, 'test.duckdb');
+
+  if (options.seed) {
+    await options.seed(dbPath);
+  }
 
   const distPath = path.resolve(__dirname, '../../dist/index.js');
   if (!fs.existsSync(distPath)) {
@@ -42,9 +57,15 @@ export async function startServer(): Promise<TestContext> {
       PORT: String(port),
       ANALYZE_CLI_DB_PATH: dbPath,
       ANALYZE_CLI_LOG_LEVEL: 'error',
+      ...(options.env ?? {}),
     },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
+
+  let stderrBuf = '';
+  let stdoutBuf = '';
+  proc.stderr.on('data', (chunk) => { stderrBuf += chunk.toString(); });
+  proc.stdout.on('data', (chunk) => { stdoutBuf += chunk.toString(); });
 
   // Wait for server to be ready
   let ready = false;
@@ -63,8 +84,10 @@ export async function startServer(): Promise<TestContext> {
 
   if (!ready) {
     proc.kill('SIGKILL');
-    const stderr = proc.stderr.read()?.toString() ?? '';
-    throw new Error(`Server failed to start within 10s on port ${port}\n${stderr}`);
+    throw new Error(
+      `Server failed to start within 10s on port ${port}\n` +
+      `stderr: ${stderrBuf}\nstdout: ${stdoutBuf}`,
+    );
   }
 
   return {

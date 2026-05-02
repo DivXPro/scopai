@@ -51,6 +51,10 @@ interface MediaFile {
   downloaded_at: string | null;
 }
 
+function mediaSrc(m: MediaFile): string {
+  return m.local_path ? `/api/media/${m.id}/file` : m.url;
+}
+
 interface Platform {
   id: string;
   name: string;
@@ -437,7 +441,7 @@ function MediaFilesModal({ postId, onClose }: { postId: string; onClose: () => v
                       {current.media_type === 'image' && current.url ? (
                         <a href={current.url} target="_blank" rel="noopener noreferrer" className="block">
                           <img
-                            src={current.url}
+                            src={mediaSrc(current)}
                             alt={`媒体 ${currentIndex + 1}`}
                             className="max-w-full max-h-[440px] object-contain rounded-lg border shadow-sm hover:opacity-95 transition-opacity"
                           />
@@ -507,7 +511,7 @@ function MediaFilesModal({ postId, onClose }: { postId: string; onClose: () => v
                           }`}
                         >
                           {m.media_type === 'image' && m.url ? (
-                            <img src={m.url} alt="" className="w-full h-full object-cover" />
+                            <img src={mediaSrc(m)} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-slate-100">
                               <span className="text-lg">

@@ -1331,13 +1331,13 @@ function isDuplicateError(err: unknown): boolean {
 function getDefaultFetchMediaTemplate(platformId: string): string | null {
   const pid = platformId.toLowerCase();
   if (pid.includes('xhs') || pid.includes('xiaohongshu')) {
-    return 'opencli xiaohongshu download {url} --output {download_dir} -f json';
+    return 'opencli xiaohongshu download {url} --output {download_dir}/{platform} -f json';
   }
   if (pid.includes('dy') || pid.includes('douyin')) {
-    return 'opencli douyin download {url} --output {download_dir} -f json';
+    return 'opencli douyin download {url} --output {download_dir}/{platform} -f json';
   }
   if (pid.includes('bili')) {
-    return 'opencli bilibili download {url} --output {download_dir} -f json';
+    return 'opencli bilibili download {url} --output {download_dir}/{platform} -f json';
   }
   return null;
 }
@@ -1379,11 +1379,13 @@ async function runPrepareDataAsync(
       }
       const noteId = (metadataObj?.note_id as string | undefined) ?? postMeta?.platform_post_id ?? undefined;
       const postUrl = postMeta?.url ?? undefined;
+      const platformDir = platformId.includes('xhs') ? 'xhs' : platformId.includes('dy') ? 'douyin' : platformId.includes('bili') ? 'bilibili' : platformId.split('_')[0];
       const fetchVars: Record<string, string> = {
         post_id: postId,
         note_id: noteId ?? postUrl ?? postId,
         url: postUrl ?? noteId ?? postId,
         limit: '100',
+        platform: platformDir,
         download_dir: config.paths.download_dir,
       };
       logger.info(`[prepare-data] Task ${taskId} post ${postId}: fetchVars note_id=${fetchVars.note_id}, url=${fetchVars.url}`);

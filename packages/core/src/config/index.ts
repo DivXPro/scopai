@@ -126,6 +126,11 @@ export function loadConfig(): Config {
     database: {
       path: process.env.ANALYZE_CLI_DB_PATH ?? '',
     },
+    paths: {
+      media_dir: process.env.ANALYZE_CLI_MEDIA_DIR ? expandPath(process.env.ANALYZE_CLI_MEDIA_DIR) : '',
+      download_dir: process.env.ANALYZE_CLI_DOWNLOAD_DIR ? expandPath(process.env.ANALYZE_CLI_DOWNLOAD_DIR) : '',
+      export_dir: process.env.ANALYZE_CLI_EXPORT_DIR ? expandPath(process.env.ANALYZE_CLI_EXPORT_DIR) : '',
+    },
     worker: {
       concurrency: parseInt(process.env.ANALYZE_CLI_WORKERS ?? '1', 10),
       max_retries: 3,
