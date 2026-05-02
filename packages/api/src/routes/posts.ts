@@ -35,6 +35,16 @@ function normalizeFieldValueArray(item: unknown): unknown {
     }
     return obj;
   }
+  if (item !== null && typeof item === 'object' && !Array.isArray(item)) {
+    const obj: Record<string, unknown> = {};
+    for (const key of Object.keys(item)) {
+      const mapped = FIELD_NAME_MAP[key] ?? key;
+      if (obj[mapped] === undefined) {
+        obj[mapped] = (item as Record<string, unknown>)[key];
+      }
+    }
+    return obj;
+  }
   return item;
 }
 
