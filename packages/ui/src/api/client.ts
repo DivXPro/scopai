@@ -20,8 +20,8 @@ async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-export async function apiGet<T>(path: string): Promise<T> {
-  return apiRequest<T>(path);
+export async function apiGet<T>(path: string, options?: RequestInit): Promise<T> {
+  return apiRequest<T>(path, options);
 }
 
 export async function apiPost<T>(path: string, body?: unknown): Promise<T> {

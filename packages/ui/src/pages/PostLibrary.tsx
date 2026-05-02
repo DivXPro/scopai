@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import * as icons from '@gravity-ui/icons';
 import { apiGet } from '@/api/client';
 import { Card, Skeleton, Button, Select, ListBox, Modal } from '@heroui/react';
@@ -691,8 +691,14 @@ export default function PostLibrary() {
   const [analyzingPostId, setAnalyzingPostId] = useState<string | null>(null);
   const [viewingMediaPostId, setViewingMediaPostId] = useState<string | null>(null);
   const analyzingPost = posts.find((p) => p.id === analyzingPostId) ?? null;
+  const abortRef = useRef<AbortController | null>(null);
+  const latestRef = useRef(0);
 
   const fetchPosts = useCallback(async () => {
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    const id = ++latestRef.current;
+
     setLoading(true);
     setError('');
     const offset = (page - 1) * PAGE_SIZE;
@@ -700,16 +706,27 @@ export default function PostLibrary() {
     if (searchQuery.trim()) params.set('query', searchQuery.trim());
     if (selectedPlatform) params.set('platform', selectedPlatform);
     try {
-      const data = await apiGet<{ posts: Post[]; total: number }>(`/api/posts?${params}`);
+      const data = await apiGet<{ posts: Post[]; total: number }>(`/api/posts?${params}`, { signal: abortRef.current.signal });
+      if (id !== latestRef.current) return;
       setPosts(data.posts);
       setTotal(data.total);
     } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return;
+      if (id !== latestRef.current) return;
       setError(e instanceof Error ? e.message : '加载失败');
       setPosts([]);
     } finally {
-      setLoading(false);
+      if (id === latestRef.current) {
+        setLoading(false);
+      }
     }
   }, [searchQuery, selectedPlatform, page]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     apiGet<Platform[]>('/api/platforms')
