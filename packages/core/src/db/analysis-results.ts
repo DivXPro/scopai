@@ -37,7 +37,7 @@ export async function insertStrategyResult(
     result.analyzed_at,
   ];
   await run(
-    `INSERT INTO "${tableName}" (${columns.join(',')}) VALUES (${placeholders})`,
+    `INSERT OR REPLACE INTO "${tableName}" (${columns.join(',')}) VALUES (${placeholders})`,
     values,
   );
 }

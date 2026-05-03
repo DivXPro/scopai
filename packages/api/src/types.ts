@@ -115,6 +115,12 @@ export interface CreateTaskStepResponse {
   stepOrder: number;
 }
 
+export interface AnalyzeSubmitResponse {
+  task_id: string;
+  enqueued: number;
+  skipped: number;
+}
+
 export interface RunTaskStepResponse {
   status: string;
   enqueued: number;

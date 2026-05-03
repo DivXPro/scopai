@@ -1,6 +1,6 @@
 {
   "name": "scopai",
-  "version": "1.3.21",
+  "version": "1.3.22",
   "private": true,
   "description": "AI-powered social media content analysis CLI tool",
   "scripts": {
