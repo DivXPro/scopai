@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS posts (
     published_at        TIMESTAMP,
     fetched_at          TIMESTAMP DEFAULT NOW(),
     metadata            JSON,
+    is_starred          BOOLEAN DEFAULT false,
     UNIQUE(platform_id, platform_post_id)
 );
 
@@ -255,4 +256,19 @@ CREATE INDEX IF NOT EXISTS idx_creators_status ON creators(status);
 CREATE INDEX IF NOT EXISTS idx_creator_sync_jobs_creator ON creator_sync_jobs(creator_id);
 CREATE INDEX IF NOT EXISTS idx_creator_sync_jobs_status ON creator_sync_jobs(status);
 CREATE INDEX IF NOT EXISTS idx_creator_sync_logs_creator ON creator_sync_logs(creator_id);
+
+CREATE TABLE IF NOT EXISTS labels (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL UNIQUE,
+    color      TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS post_labels (
+    post_id    TEXT NOT NULL REFERENCES posts(id),
+    label_id   TEXT NOT NULL REFERENCES labels(id),
+    PRIMARY KEY (post_id, label_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_post_labels_label ON post_labels(label_id);
 

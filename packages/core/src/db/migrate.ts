@@ -163,6 +163,35 @@ async function migrateCreatorSyncJobType(): Promise<void> {
   }
 }
 
+async function migrateIsStarredColumn(): Promise<void> {
+  const columns = await query<{ name: string }>(
+    "SELECT column_name as name FROM information_schema.columns WHERE table_name = 'posts'"
+  );
+  if (!columns.some(c => c.name === 'is_starred')) {
+    await exec('ALTER TABLE posts ADD COLUMN is_starred BOOLEAN DEFAULT false');
+  }
+}
+
+async function migrateLabelsTables(): Promise<void> {
+  const hasLabels = await query<{ name: string }>(
+    "SELECT table_name as name FROM information_schema.tables WHERE table_name = 'labels'"
+  );
+  if (hasLabels.length === 0) {
+    await exec(`CREATE TABLE labels (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      color TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`);
+    await exec(`CREATE TABLE post_labels (
+      post_id TEXT NOT NULL REFERENCES posts(id),
+      label_id TEXT NOT NULL REFERENCES labels(id),
+      PRIMARY KEY (post_id, label_id)
+    )`);
+    await exec('CREATE INDEX idx_post_labels_label ON post_labels(label_id)');
+  }
+}
+
 export async function runMigrations(): Promise<void> {
   const schemaPath = findSchemaPath();
   const schema = fs.readFileSync(schemaPath, 'utf-8');
@@ -177,6 +206,8 @@ export async function runMigrations(): Promise<void> {
   await migrateTaskStepsDependsOn();
   await migratePlatformSyncTemplates();
   await migrateCreatorSyncJobType();
+  await migrateIsStarredColumn();
+  await migrateLabelsTables();
 
   // Migration: drop legacy analysis_results table if present
   const hasAnalysisResults = await query<{ name: string }>(
