@@ -121,6 +121,14 @@ export interface AnalyzeSubmitResponse {
   skipped: number;
 }
 
+export interface LabelResponse {
+  id: string;
+  name: string;
+  color: string | null;
+  created_at: string;
+  post_count?: number;
+}
+
 export interface RunTaskStepResponse {
   status: string;
   enqueued: number;

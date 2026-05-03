@@ -3,7 +3,10 @@ import {
   listPosts, searchPosts, listCommentsByPost, listMediaFilesByPost,
   getPostAnalysisResults, getPostById, countPosts, createComment,
   countPostAnalysisResults, countMediaFilesByPost,
+  getOrCreateLabel, addPostLabel, removePostLabel, getPostLabels,
+  setPostStarred, listPostsByLabel, listStarredPostIds, getLabelByName,
 } from '@scopai/core';
+import type { Post } from '@scopai/core';
 import {
   createPost, updatePost, generateId, now, query, run, checkpoint,
   getTaskById, addTaskTargets, upsertTaskPostStatus,
@@ -13,21 +16,37 @@ import {
 
 export default async function postsRoutes(app: FastifyInstance) {
   app.get('/posts', async (request) => {
-    const { platform, limit = '50', offset = '0', query: searchQuery } = request.query as Record<string, string>;
+    const { platform, limit = '50', offset = '0', query: searchQuery, starred, label } = request.query as Record<string, string>;
     const parsedLimit = parseInt(limit, 10);
     const parsedOffset = parseInt(offset, 10);
-    const items = searchQuery
-      ? await searchPosts(platform || '', searchQuery, parsedLimit, parsedOffset)
-      : await listPosts(platform || undefined, parsedLimit, parsedOffset);
-    const total = await countPosts(platform || undefined);
-    const itemsWithCount = await Promise.all(
+
+    let items;
+    if (starred === 'true') {
+      const ids = await listStarredPostIds(parsedLimit, parsedOffset);
+      items = await Promise.all(ids.map(id => getPostById(id))).then(r => r.filter(Boolean) as Post[]);
+    } else if (label) {
+      const labelRow = await getLabelByName(label);
+      if (!labelRow) {
+        items = [];
+      } else {
+        const ids = await listPostsByLabel(labelRow.id, parsedLimit, parsedOffset);
+        items = await Promise.all(ids.map(id => getPostById(id))).then(r => r.filter(Boolean) as Post[]);
+      }
+    } else if (searchQuery) {
+      items = await searchPosts(platform || '', searchQuery, parsedLimit, parsedOffset);
+    } else {
+      items = await listPosts(platform || undefined, parsedLimit, parsedOffset);
+    }
+
+    const itemsWithExtras = await Promise.all(
       items.map(async (post) => ({
         ...post,
+        labels: await getPostLabels(post.id),
         analysis_count: await countPostAnalysisResults(post.id),
         media_count: await countMediaFilesByPost(post.id),
       })),
     );
-    return { posts: itemsWithCount, total };
+    return { posts: itemsWithExtras, total: await countPosts(platform || undefined) };
   });
 
   app.post('/posts/import', async (request, reply) => {
@@ -195,5 +214,46 @@ export default async function postsRoutes(app: FastifyInstance) {
   app.get('/posts/:id/analysis', async (request) => {
     const { id } = request.params as { id: string };
     return getPostAnalysisResults(id);
+  });
+
+  app.post('/posts/:id/labels', async (request, reply) => {
+    const { id: postId } = request.params as { id: string };
+    const body = request.body as { label_id?: string; label_name?: string; label_names?: string[] };
+
+    if (body.label_names && Array.isArray(body.label_names)) {
+      for (const name of body.label_names) {
+        const label = await getOrCreateLabel(name);
+        await addPostLabel(postId, label.id);
+      }
+      return { added: body.label_names.length };
+    }
+
+    if (body.label_name) {
+      const label = await getOrCreateLabel(body.label_name);
+      await addPostLabel(postId, label.id);
+      return { added: 1 };
+    }
+
+    if (body.label_id) {
+      await addPostLabel(postId, body.label_id);
+      return { added: 1 };
+    }
+
+    reply.code(400);
+    throw new Error('label_id, label_name, or label_names is required');
+  });
+
+  app.delete('/posts/:id/labels/:labelId', async (request) => {
+    const { id: postId, labelId } = request.params as { id: string; labelId: string };
+    await removePostLabel(postId, labelId);
+    return { removed: true };
+  });
+
+  app.post('/posts/:id/star', async (request) => {
+    const { id: postId } = request.params as { id: string };
+    const body = request.body as { starred?: boolean };
+    const starred = body.starred ?? true;
+    await setPostStarred(postId, starred);
+    return { starred };
   });
 }
