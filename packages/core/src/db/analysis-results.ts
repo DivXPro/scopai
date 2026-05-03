@@ -1,7 +1,7 @@
 import { query, run } from './client';
 import { AnalysisResult } from '../shared/types';
 import { generateId } from '../shared/utils';
-import { getStrategyResultTableName } from './strategies';
+import { getStrategyResultTableName, listStrategies } from './strategies';
 
 export async function insertStrategyResult(
   strategyId: string,
@@ -164,4 +164,40 @@ export async function deleteStrategyResultsByTaskAndStrategy(
     // Table may not exist, skip
     return 0;
   }
+}
+
+export async function countPostAnalysisResults(postId: string): Promise<number> {
+  const strategies = await listStrategies();
+  let total = 0;
+  for (const strategy of strategies) {
+    const tableName = getStrategyResultTableName(strategy.id);
+    try {
+      const rows = await query<{ cnt: bigint }>(
+        `SELECT COUNT(*) as cnt FROM "${tableName}" WHERE post_id = ?`,
+        [postId],
+      );
+      total += Number(rows[0]?.cnt ?? 0);
+    } catch {
+      // Table may not exist yet, skip
+    }
+  }
+  return total;
+}
+
+export async function getPostAnalysisResults(postId: string): Promise<AnalysisResult[]> {
+  const strategies = await listStrategies();
+  const results: AnalysisResult[] = [];
+  for (const strategy of strategies) {
+    const tableName = getStrategyResultTableName(strategy.id);
+    try {
+      const rows = await query<AnalysisResult>(
+        `SELECT * FROM "${tableName}" WHERE post_id = ? ORDER BY analyzed_at DESC`,
+        [postId],
+      );
+      results.push(...rows);
+    } catch {
+      // Table may not exist yet, skip
+    }
+  }
+  return results;
 }

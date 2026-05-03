@@ -30,11 +30,12 @@ export async function getOrCreateLabel(name: string, color?: string): Promise<La
 }
 
 export async function listLabels(): Promise<(Label & { post_count: number })[]> {
-  return query<Label & { post_count: number }>(
-    `SELECT l.*, COUNT(pl.post_id) as post_count
+  const rows = await query<Label & { post_count: number | bigint }>(
+    `SELECT l.id, l.name, l.color, l.created_at, COUNT(pl.post_id) as post_count
      FROM labels l LEFT JOIN post_labels pl ON l.id = pl.label_id
-     GROUP BY l.id ORDER BY l.name`
+     GROUP BY l.id, l.name, l.color, l.created_at ORDER BY l.name`
   );
+  return rows.map(r => ({ ...r, post_count: Number(r.post_count) }));
 }
 
 export async function deleteLabel(id: string): Promise<void> {
