@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import * as icons from '@gravity-ui/icons';
-import { apiGet } from '@/api/client';
+import { apiGet, apiPost, apiDelete } from '@/api/client';
 import { Card, Skeleton, Button, Select, ListBox, Modal } from '@heroui/react';
 import Pagination from '@/components/Pagination';
 import {
@@ -39,6 +39,8 @@ interface Post {
   fetched_at: string;
   analysis_count?: number;
   media_count?: number;
+  is_starred: boolean;
+  labels?: { id: string; name: string; color: string | null }[];
 }
 
 interface MediaFile {
@@ -121,7 +123,7 @@ function timeAgo(dateStr: string | null): string {
   return date.toLocaleDateString('zh-CN');
 }
 
-function PostCard({ post, onAnalyze, onViewMedia }: { post: Post; onAnalyze: (postId: string) => void; onViewMedia: (postId: string) => void }) {
+function PostCard({ post, onAnalyze, onViewMedia, onToggleStar, onAddLabel, onRemoveLabel }: { post: Post; onAnalyze: (postId: string) => void; onViewMedia: (postId: string) => void; onToggleStar: (postId: string, currentStarred: boolean) => void; onAddLabel: (postId: string, labelName: string) => void; onRemoveLabel: (postId: string, labelId: string) => void }) {
   const contentPreview = post.content?.slice(0, 120) + (post.content?.length > 120 ? '...' : '') || '无内容';
   const isVideo = post.post_type === 'video' || post.platform_id.includes('bilibili');
   const initials = (post.author_name || '匿名').slice(0, 2).toUpperCase();
@@ -144,7 +146,15 @@ function PostCard({ post, onAnalyze, onViewMedia }: { post: Post; onAnalyze: (po
               </p>
             </div>
           </div>
-          <PlatformBadge platformId={post.platform_id} />
+          <div className="flex items-center gap-1">
+            <PlatformBadge platformId={post.platform_id} />
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleStar(post.id, post.is_starred); }}
+              className="ml-1 text-lg leading-none hover:scale-110 transition-transform"
+            >
+              <span className={post.is_starred ? 'text-yellow-500' : 'text-gray-400'}>{post.is_starred ? '★' : '☆'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Cover Image */}
@@ -186,6 +196,46 @@ function PostCard({ post, onAnalyze, onViewMedia }: { post: Post; onAnalyze: (po
           <p className="text-sm text-on-surface-variant line-clamp-2 mb-3">
             {contentPreview}
           </p>
+        )}
+
+        {/* Labels */}
+        {(post.labels && post.labels.length > 0) && (
+          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+            {post.labels.map((label) => (
+              <span key={label.id} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">
+                {label.name}
+                <button
+                  onClick={(e) => { e.stopPropagation(); onRemoveLabel(post.id, label.id); }}
+                  className="ml-0.5 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  x
+                </button>
+              </span>
+            ))}
+            <button
+              className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-gray-300 text-gray-400 text-xs hover:border-gray-400 hover:text-gray-500 transition-colors"
+              onClick={() => {
+                const name = window.prompt('Label name:');
+                if (name?.trim()) onAddLabel(post.id, name.trim());
+              }}
+            >
+              +
+            </button>
+          </div>
+        )}
+        {(!post.labels || post.labels.length === 0) && (
+          <div className="flex items-center gap-1.5 mb-3">
+            <button
+              className="inline-flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-500 transition-colors"
+              onClick={() => {
+                const name = window.prompt('Label name:');
+                if (name?.trim()) onAddLabel(post.id, name.trim());
+              }}
+            >
+              <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-dashed border-gray-300 text-xs">+</span>
+              添加标签
+            </button>
+          </div>
         )}
 
         {/* Engagement Stats */}
@@ -690,6 +740,7 @@ export default function PostLibrary() {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [analyzingPostId, setAnalyzingPostId] = useState<string | null>(null);
   const [viewingMediaPostId, setViewingMediaPostId] = useState<string | null>(null);
+  const [starredFilter, setStarredFilter] = useState(false);
   const analyzingPost = posts.find((p) => p.id === analyzingPostId) ?? null;
   const abortRef = useRef<AbortController | null>(null);
   const latestRef = useRef(0);
@@ -705,6 +756,7 @@ export default function PostLibrary() {
     const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
     if (searchQuery.trim()) params.set('query', searchQuery.trim());
     if (selectedPlatform) params.set('platform', selectedPlatform);
+    if (starredFilter) params.set('starred', 'true');
     try {
       const data = await apiGet<{ posts: Post[]; total: number }>(`/api/posts?${params}`, { signal: abortRef.current.signal });
       if (id !== latestRef.current) return;
@@ -720,7 +772,24 @@ export default function PostLibrary() {
         setLoading(false);
       }
     }
-  }, [searchQuery, selectedPlatform, page]);
+  }, [searchQuery, selectedPlatform, starredFilter, page]);
+
+  const loadPosts = useCallback(() => setRefreshKey((k) => k + 1), []);
+
+  const toggleStar = useCallback(async (postId: string, currentStarred: boolean) => {
+    await apiPost(`/api/posts/${postId}/star`, { starred: !currentStarred });
+    await loadPosts();
+  }, [loadPosts]);
+
+  const addLabel = useCallback(async (postId: string, labelName: string) => {
+    await apiPost(`/api/posts/${postId}/labels`, { label_name: labelName });
+    await loadPosts();
+  }, [loadPosts]);
+
+  const removeLabel = useCallback(async (postId: string, labelId: string) => {
+    await apiDelete(`/api/posts/${postId}/labels/${labelId}`);
+    await loadPosts();
+  }, [loadPosts]);
 
   useEffect(() => {
     return () => {
@@ -757,7 +826,7 @@ export default function PostLibrary() {
       setRefreshKey((k) => k + 1);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, selectedPlatform]);
+  }, [searchQuery, selectedPlatform, starredFilter]);
 
   if (error && posts.length === 0) {
     return (
@@ -811,6 +880,15 @@ export default function PostLibrary() {
             </ListBox>
           </Select.Popover>
         </Select>
+        <Button
+          variant={starredFilter ? 'primary' : 'outline'}
+          size="sm"
+          className="h-9"
+          onPress={() => { setStarredFilter(!starredFilter); setPage(1); }}
+        >
+          <span className={starredFilter ? 'text-yellow-300' : 'text-yellow-500'}>&#9733;</span>
+          星标
+        </Button>
         <button className="flex items-center gap-2 px-4 py-2 bg-white border border-outline-variant rounded-lg text-sm font-medium text-on-surface-variant hover:bg-slate-50 transition-colors">
           <Sliders className="h-4 w-4" />
           更多筛选
@@ -858,8 +936,8 @@ export default function PostLibrary() {
       ) : posts.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-2">暂无匹配的帖子</p>
-          {(searchQuery || selectedPlatform) && (
-            <Button variant="ghost" size="sm" onPress={() => { setSearchQuery(''); setSelectedPlatform(null); }}>
+          {(searchQuery || selectedPlatform || starredFilter) && (
+            <Button variant="ghost" size="sm" onPress={() => { setSearchQuery(''); setSelectedPlatform(null); setStarredFilter(false); }}>
               清除筛选条件
             </Button>
           )}
@@ -868,7 +946,7 @@ export default function PostLibrary() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {posts.map((post) => (
-              <PostCard key={post.id} post={post} onAnalyze={setAnalyzingPostId} onViewMedia={setViewingMediaPostId} />
+              <PostCard key={post.id} post={post} onAnalyze={setAnalyzingPostId} onViewMedia={setViewingMediaPostId} onToggleStar={toggleStar} onAddLabel={addLabel} onRemoveLabel={removeLabel} />
             ))}
           </div>
           <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={(p) => { setPage(p); setRefreshKey((k) => k + 1); }} />
@@ -877,9 +955,11 @@ export default function PostLibrary() {
         <>
           <DataTable aria-label="帖子列表">
             <TableHeader>
-              <TableHead isRowHeader>平台</TableHead>
+              <TableHead isRowHeader>星标</TableHead>
+              <TableHead>平台</TableHead>
               <TableHead>作者</TableHead>
               <TableHead>标题</TableHead>
+              <TableHead>标签</TableHead>
               <TableHead>互动</TableHead>
               <TableHead>发布时间</TableHead>
               <TableHead className="text-right">操作</TableHead>
@@ -888,6 +968,14 @@ export default function PostLibrary() {
               {posts.map((post) => (
                 <TableRow key={post.id}>
                   <TableCell>
+                    <button
+                      onClick={() => toggleStar(post.id, post.is_starred)}
+                      className="text-lg leading-none hover:scale-110 transition-transform"
+                    >
+                      <span className={post.is_starred ? 'text-yellow-500' : 'text-gray-400'}>{post.is_starred ? '★' : '☆'}</span>
+                    </button>
+                  </TableCell>
+                  <TableCell>
                     <PlatformBadge platformId={post.platform_id} />
                   </TableCell>
                   <TableCell className="text-sm font-medium text-foreground">
@@ -895,6 +983,30 @@ export default function PostLibrary() {
                   </TableCell>
                   <TableCell className="text-sm text-foreground max-w-xs truncate">
                     {post.title || post.content?.slice(0, 60)}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    <div className="flex flex-wrap items-center gap-1">
+                      {post.labels?.map((label) => (
+                        <span key={label.id} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">
+                          {label.name}
+                          <button
+                            onClick={() => removeLabel(post.id, label.id)}
+                            className="ml-0.5 text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                            x
+                          </button>
+                        </span>
+                      ))}
+                      <button
+                        className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-gray-300 text-gray-400 text-xs hover:border-gray-400 hover:text-gray-500 transition-colors shrink-0"
+                        onClick={() => {
+                          const name = window.prompt('Label name:');
+                          if (name?.trim()) addLabel(post.id, name.trim());
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                     <span className="flex items-center gap-3">
