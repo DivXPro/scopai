@@ -82,11 +82,23 @@ Run these **in order** before any workflow:
 | 21 | **reset_queue_jobs** | `scopai queue reset [--task-id {tid}]` | **Blunt instrument**: force-reset all non-pending jobs. Prefer `queue retry`. |
 | 22 | **list_queue_jobs** | `scopai queue list --task-id {tid} [--failed-only] [--limit {n}]` | Inspect queue job status. |
 | 23 | **pause_task / resume_task / cancel_task** | `scopai task pause|resume|cancel {tid}` | Control running tasks. |
-| 24 | **list_posts / search_posts_db** | `scopai post list [--platform {id}]` / `scopai post search --platform {id} --query {text}` | Browse imported data. |
+| 24 | **list_posts / search_posts_db** | `scopai post list [--platform {id}] [--starred] [--label {name}]` / `scopai post search --platform {id} --query {text}` | Browse imported data. `--starred` filters starred posts; `--label` filters by label name. |
 | 25 | **daemon management** | `scopai daemon start [--fg] [--verbose]` / `stop` / `restart` / `status` | Manage API server lifecycle. CLI auto-restarts if version mismatch. |
 | 26 | **run_single_analysis** | `scopai analyze run --task-id {tid} --strategy-id {sid}` | Run a one-shot strategy analysis without task steps. |
 | 27 | **submit_analysis** | `scopai analyze submit --strategy-id {sid} --post-ids {ids}` | Simplified analysis entry point. See Phase 4 #12. |
 | 27 | **view_logs** | `scopai logs show [--lines {n}] [--date {d}]` | View recent API server log entries. |
+
+### Labels & Stars
+
+| # | Tool | Command | When to Use |
+|---|------|---------|-------------|
+| 28 | **star_post** | `scopai post star --id {pid}` | Star a post for quick access. |
+| 29 | **unstar_post** | `scopai post star --id {pid} --unstar` | Remove star from a post. |
+| 30 | **tag_post** | `scopai post tag --id {pid} --label-name {name}` or `--label-names {n1,n2}` | Add labels to a post. Labels are auto-created if they don't exist. |
+| 31 | **untag_post** | `scopai post untag --id {pid} --label-id {lid}` | Remove a label from a post. |
+| 32 | **list_labels** | `scopai label list` | List all labels with post counts. |
+| 33 | **create_label** | `scopai label create --name {name} [--color {hex}]` | Create a label. |
+| 34 | **delete_label** | `scopai label delete --id {lid}` | Delete a label and its post associations. |
 
 ### Creator Subscription & Sync
 
