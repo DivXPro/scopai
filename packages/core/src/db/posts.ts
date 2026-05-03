@@ -113,6 +113,7 @@ export async function updatePost(id: string, updates: Partial<Omit<Post, 'id' | 
   if (updates.media_files !== undefined) { fields.push('media_files = ?'); params.push(updates.media_files ? JSON.stringify(updates.media_files) : null); }
   if (updates.published_at !== undefined) { fields.push('published_at = ?'); params.push(updates.published_at); }
   if (updates.metadata !== undefined) { fields.push('metadata = ?'); params.push(updates.metadata ? JSON.stringify(updates.metadata) : null); }
+  if (updates.is_starred !== undefined) { fields.push('is_starred = ?'); params.push(updates.is_starred); }
 
   if (fields.length === 0) return;
 
