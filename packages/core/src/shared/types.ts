@@ -46,11 +46,19 @@ export interface Post {
   published_at: Date | null;
   fetched_at: Date;
   metadata: Record<string, unknown> | null;
+  is_starred: boolean;
 }
 
 export interface Tag {
   name: string;
   url?: string;
+}
+
+export interface Label {
+  id: string;
+  name: string;
+  color: string | null;
+  created_at: Date;
 }
 
 export interface MediaFileRef {
