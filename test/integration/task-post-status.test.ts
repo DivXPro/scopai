@@ -70,7 +70,6 @@ describe('task-post-status — real DB (integration)', { timeout: 15000 }, () =>
       id: TEST_TASK_ID,
       name: 'Test Task (status)',
       description: 'For task-post-status tests',
-      template_id: null,
       cli_templates: '{"fetch_comments":"opencli hackernews top --limit {limit} -f json"}',
       status: 'pending',
       stats: { total: 0, done: 0, failed: 0 },

@@ -91,7 +91,6 @@ describe('prepare-data — offline mock E2E', { timeout: 15000 }, () => {
       id: TEST_TASK_ID,
       name: 'Offline E2E Test',
       description: 'E2E test with mock data (no real opencli)',
-      template_id: null,
       cli_templates: cliTemplates,
       status: 'pending',
       stats: { total: 0, done: 0, failed: 0 },

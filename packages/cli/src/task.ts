@@ -19,20 +19,8 @@ export function taskCommands(program: Command): void {
     .description('Create a new analysis task')
     .requiredOption('--name <name>', 'Task name')
     .option('--description <desc>', 'Task description')
-    .option('--template <name>', 'Prompt template name')
     .option('--cli-templates <json>', 'JSON string of opencli command templates')
-    .action(async (opts: { name: string; description?: string; template?: string; cliTemplates?: string }) => {
-      let templateId: string | null = null;
-      if (opts.template) {
-        const tplList = await apiGet<any[]>('/templates?name=' + encodeURIComponent(opts.template));
-        const tpl = Array.isArray(tplList) ? tplList[0] : tplList;
-        if (!tpl) {
-          console.log(pc.red(`Template not found: ${opts.template}`));
-          process.exit(1);
-        }
-        templateId = tpl.id;
-      }
-
+    .action(async (opts: { name: string; description?: string; cliTemplates?: string }) => {
       const id = generateId();
       let cliTemplates: Record<string, unknown> | null = null;
       if (opts.cliTemplates) {
@@ -47,7 +35,6 @@ export function taskCommands(program: Command): void {
         id,
         name: opts.name,
         description: opts.description ?? null,
-        template_id: templateId,
         cli_templates: cliTemplates ? JSON.stringify(cliTemplates) : null,
       });
       console.log(pc.green(`Task created: ${id}`));
@@ -65,16 +52,6 @@ export function taskCommands(program: Command): void {
       const postIds = opts.postIds.split(',').map(id => id.trim());
       await apiPost('/tasks/' + taskId + '/add-posts', { post_ids: postIds });
       console.log(pc.green(`Added ${postIds.length} posts to task ${taskId}`));
-    });
-
-  task
-    .command('add-comments <id>')
-    .description('Add comments to a task')
-    .requiredOption('--comment-ids <ids>', 'Comma-separated comment IDs')
-    .action(async (taskId: string, opts: { commentIds: string }) => {
-      const commentIds = opts.commentIds.split(',').map(id => id.trim());
-      await apiPost('/tasks/' + taskId + '/add-comments', { comment_ids: commentIds });
-      console.log(pc.green(`Added ${commentIds.length} comments to task ${taskId}`));
     });
 
   task

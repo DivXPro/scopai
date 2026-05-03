@@ -26,7 +26,6 @@ describe('queue-jobs — recovery and retry logic', { timeout: 15000 }, () => {
       id: TEST_TASK_ID,
       name: 'Queue Jobs Test Task',
       description: null,
-      template_id: null,
       status: 'pending',
       stats: { total: 0, done: 0, failed: 0 },
       created_at: now(),

@@ -67,7 +67,6 @@ ui -> api（通过 HTTP，非 workspace 依赖）
 - `post`
 - `comment`
 - `task`
-- `template`
 - `result`
 - `strategy`
 - `queue`
@@ -83,7 +82,7 @@ ui -> api（通过 HTTP，非 workspace 依赖）
 - `GET /api/posts/:id/comments`、`GET /api/posts/:id/media` — 评论与媒体
 - `GET/POST/DELETE /api/strategies`、`POST /api/strategies/import` — 策略 CRUD 与导入
 - `GET/POST /api/tasks`、`POST /api/tasks/:id/start|pause|cancel|resume` — 任务生命周期
-- `POST /api/tasks/:id/prepare-data|add-posts|add-comments` — 任务数据操作
+- `POST /api/tasks/:id/prepare-data|add-posts` — 任务数据操作
 - `POST /api/tasks/:id/steps`、`POST /api/tasks/:id/steps/:stepId/run`、`POST /api/tasks/:id/run-all-steps` — 步骤管理
 - `GET /api/tasks/:id/results` — 分析结果查询
 - `GET /api/queue`、`POST /api/queue/retry|reset` — 队列管理
@@ -107,8 +106,7 @@ API e2e 测试使用 child process 启动真实服务器，每个 suite 独立 D
 
 ## 当前实现边界
 
-- `worker` 对 `comment` 路径是主实现路径
-- `media` 路径已有处理代码，但完整生产链路需要结合实际数据确认
+- `worker` 仅支持 Strategy 分析路径（`processStrategyJob`），Legacy comment/media 分析路径已废弃
 - `post` 目标在 `worker` 中当前会报 `Unsupported target_type`
 - `creator` 博主订阅与同步管道已实现（独立 sync pipeline，通过 opencli 抓取，支持字段映射归一化）
 - 规划文档里部分理想化 Bree 编排能力尚未完全成为当前实现

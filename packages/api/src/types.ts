@@ -9,7 +9,6 @@ import type {
   CreatorSyncLog,
   CreatorSyncSchedule,
   AnalysisResult,
-  PromptTemplate,
   FieldMapping,
   Comment,
   MediaFile,
@@ -85,7 +84,6 @@ export interface TaskDetailResponse extends Task {
 export interface TaskStartResponse {
   enqueued: number;
   skipped: number;
-  mediaJobs: number;
 }
 
 export interface TaskPauseResponse {
@@ -110,12 +108,6 @@ export interface TaskPrepareDataResponse {
 
 export interface TaskAddPostsResponse {
   added: number;
-}
-
-export interface TaskAddCommentsResponse {
-  jobId: string;
-  taskId: string;
-  status: string;
 }
 
 export interface CreateTaskStepResponse {
@@ -198,11 +190,6 @@ export interface QueueRetryResponse {
 
 export interface QueueResetResponse {
   reset: number;
-}
-
-// === Templates ===
-export interface ListTemplatesResponse {
-  templates: PromptTemplate[];
 }
 
 // === Platforms ===

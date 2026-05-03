@@ -114,34 +114,15 @@ describe('Tasks routes', () => {
     });
   });
 
-  describe('POST /api/tasks/:id/add-comments', () => {
-    it('queues an add-comments job', async () => {
-      const res = await fetchApi(ctx.baseUrl, `/api/tasks/${taskId}/add-comments`, {
-        method: 'POST',
-        body: JSON.stringify({ comment_ids: ['comment-1'] }),
-      });
-      assert.equal(res.status, 200);
-      const body = await res.json();
-      assert.ok(body.jobId);
-    });
-
-    it('rejects empty comment_ids', async () => {
-      const res = await fetchApi(ctx.baseUrl, `/api/tasks/${taskId}/add-comments`, {
-        method: 'POST',
-        body: JSON.stringify({ comment_ids: [] }),
-      });
-      assert.equal(res.status, 400);
-    });
-  });
-
   describe('POST /api/tasks/:id/resume', () => {
-    it('queues a resume job', async () => {
+    it('resumes a task', async () => {
       const res = await fetchApi(ctx.baseUrl, `/api/tasks/${taskId}/resume`, {
         method: 'POST',
       });
       assert.equal(res.status, 200);
       const body = await res.json();
-      assert.ok(body.jobId);
+      assert.equal(body.status, 'running');
+      assert.equal(body.taskId, taskId);
     });
   });
 

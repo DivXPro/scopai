@@ -4,7 +4,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { promisify } from 'util';
 import { config } from '@scopai/core';
-import type { Comment, MediaFile, PromptTemplate, Strategy, Post } from '@scopai/core';
+import type { Comment, MediaFile, Strategy, Post } from '@scopai/core';
 import { listMediaFilesByPost } from '@scopai/core';
 import { getPlatformById } from '@scopai/core';
 import { getCommentById } from '@scopai/core';
@@ -196,42 +196,6 @@ async function callLLM(
 }
 
 // === Exported functions ===
-
-export async function analyzeComment(
-  comment: Comment,
-  platformName: string,
-  template: PromptTemplate,
-): Promise<string> {
-  const prompt = fillTemplate(template.template, {
-    content: comment.content,
-    platform: platformName,
-    published_at: comment.published_at?.toISOString() ?? '未知',
-    author_name: comment.author_name ?? '匿名',
-  });
-
-  return callLLM(prompt, [], {});
-}
-
-export async function analyzeMedia(
-  media: MediaFile,
-  platformName: string,
-  template: PromptTemplate,
-): Promise<string> {
-  const prompt = fillTemplate(template.template, {
-    media_url: media.url,
-    platform: platformName,
-  });
-
-  return callLLM(prompt, [], {});
-}
-
-function fillTemplate(template: string, vars: Record<string, string>): string {
-  let result = template;
-  for (const [key, value] of Object.entries(vars)) {
-    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
-  }
-  return result;
-}
 
 export async function buildCommentPrompt(
   comment: Comment,

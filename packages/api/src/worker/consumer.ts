@@ -2,16 +2,14 @@ import { getNextJobs, updateJobStatus, requeueJob, listJobsByTask, lockPendingJo
 import { getTaskById, updateTaskStatus, updateTaskStats } from '@scopai/core';
 import { updateTargetStatus, getTargetStats } from '@scopai/core';
 import { getCommentById, listCommentsByIds } from '@scopai/core';
-import { getMediaFileById } from '@scopai/core';
 import { getPlatformById } from '@scopai/core';
-import { getTemplateById } from '@scopai/core';
 import { getPostById } from '@scopai/core';
 import { getStrategyById } from '@scopai/core';
 import { insertStrategyResult } from '@scopai/core';
 import { updateTaskStepStatus, listTaskSteps } from '@scopai/core';
-import { analyzeComment, analyzeMedia, analyzeWithStrategy, analyzeBatchWithStrategy } from './anthropic';
+import { analyzeWithStrategy, analyzeBatchWithStrategy } from './anthropic';
 import { processCreatorSyncJob } from './creator-sync';
-import { parseCommentResult, parseMediaResult, parseStrategyResult, parseBatchStrategyResult } from './parser';
+import { parseStrategyResult, parseBatchStrategyResult } from './parser';
 import type { QueueJob, Comment } from '@scopai/core';
 import { sleep } from '@scopai/core';
 import { waitForJob } from '@scopai/core';
@@ -158,98 +156,11 @@ async function processJob(job: QueueJob, workerId: number): Promise<void> {
   const task = await getTaskById(job.task_id);
   if (!task) throw new Error(`Task ${job.task_id} not found`);
 
-  if (job.strategy_id) {
-    await processStrategyJob(job, task, workerId);
-    return;
+  if (!job.strategy_id) {
+    throw new Error(`Job ${job.id} has no strategy_id — legacy analysis is no longer supported`);
   }
 
-  if (!task.template_id) throw new Error(`Task ${job.task_id} has no template`);
-  const template = await getTemplateById(task.template_id);
-  if (!template) throw new Error(`Template ${task.template_id} not found`);
-
-  if (job.target_type === 'comment') {
-    await processCommentJob(job, task, template);
-  } else if (job.target_type === 'post') {
-    throw new Error(`Unsupported target_type: ${job.target_type}`);
-  } else if (job.target_type === 'media') {
-    await processMediaJob(job, task, template);
-  } else {
-    throw new Error(`Unknown target_type: ${job.target_type}`);
-  }
-}
-
-async function processCommentJob(
-  job: QueueJob,
-  task: { id: string; name: string },
-  template: { id: string; name: string; template: string },
-): Promise<void> {
-  if (!job.target_id) throw new Error('Job has no target_id');
-
-  const comment = await getCommentById(job.target_id);
-  if (!comment) throw new Error(`Comment ${job.target_id} not found`);
-
-  const platform = await getPlatformById(comment.platform_id);
-  const platformName = platform?.name ?? 'unknown';
-
-  const rawResponse = await analyzeComment(comment, platformName, {
-    id: template.id,
-    name: template.name,
-    template: template.template,
-    description: null,
-    is_default: false,
-    created_at: new Date(),
-  });
-
-  const parsed = parseCommentResult(rawResponse);
-
-  await insertStrategyResult('legacy_comment', {
-    task_id: task.id,
-    target_type: 'comment',
-    target_id: job.target_id,
-    post_id: null,
-    strategy_version: 'legacy',
-    raw_response: parsed.raw,
-    error: null,
-    analyzed_at: new Date(),
-  }, ['sentiment_label', 'sentiment_score', 'intent', 'risk_flagged', 'risk_level', 'risk_reason', 'topics', 'emotion_tags', 'keywords', 'summary'],
-  [parsed.sentiment_label, parsed.sentiment_score, parsed.intent, parsed.risk_flagged, parsed.risk_level, parsed.risk_reason, parsed.topics, parsed.emotion_tags, parsed.keywords, parsed.summary]);
-}
-
-async function processMediaJob(
-  job: QueueJob,
-  task: { id: string; name: string },
-  template: { id: string; name: string; template: string },
-): Promise<void> {
-  if (!job.target_id) throw new Error('Job has no target_id');
-
-  const media = await getMediaFileById(job.target_id);
-  if (!media) throw new Error(`Media file ${job.target_id} not found`);
-
-  const platform = await getPlatformById(media.platform_id ?? '');
-  const platformName = platform?.name ?? 'unknown';
-
-  const rawResponse = await analyzeMedia(media, platformName, {
-    id: template.id,
-    name: template.name,
-    template: template.template,
-    description: null,
-    is_default: false,
-    created_at: new Date(),
-  });
-
-  const parsed = parseMediaResult(rawResponse);
-
-  await insertStrategyResult('legacy_media', {
-    task_id: task.id,
-    target_type: 'media',
-    target_id: job.target_id,
-    post_id: null,
-    strategy_version: 'legacy',
-    raw_response: parsed.raw,
-    error: null,
-    analyzed_at: new Date(),
-  }, ['media_type', 'content_type', 'description', 'ocr_text', 'sentiment_label', 'sentiment_score', 'risk_flagged', 'risk_level', 'risk_reason', 'objects', 'logos', 'faces'],
-  [media.media_type, parsed.content_type, parsed.description, parsed.ocr_text, parsed.sentiment_label, parsed.sentiment_score, parsed.risk_flagged, parsed.risk_level, parsed.risk_reason, parsed.objects, parsed.logos, parsed.faces]);
+  await processStrategyJob(job, task, workerId);
 }
 
 async function resolveUpstreamResult(

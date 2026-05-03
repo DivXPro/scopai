@@ -84,7 +84,7 @@ describe('Comment strategy analysis', { timeout: 30000 }, () => {
     taskId = `${RUN_ID}_task`;
     await createTask({
       id: taskId, name: 'Comment Analysis Test', description: null,
-      template_id: null, cli_templates: null, status: 'pending',
+      cli_templates: null, status: 'pending',
       stats: { total: 0, done: 0, failed: 0 },
       created_at: new Date(), updated_at: new Date(), completed_at: null,
     });

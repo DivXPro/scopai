@@ -451,7 +451,7 @@ describe('strategy system', { timeout: 15000 }, () => {
 
     const taskId = `e2e-task-${Date.now()}`;
     await createTask({
-      id: taskId, name: 'E2E Task', description: null, template_id: null, cli_templates: null,
+      id: taskId, name: 'E2E Task', description: null, cli_templates: null,
       status: 'pending', stats: { total: 0, done: 0, failed: 0 },
       created_at: new Date(), updated_at: new Date(), completed_at: null,
     });

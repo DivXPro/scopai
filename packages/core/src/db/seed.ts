@@ -1,6 +1,5 @@
 import { upsertPlatform, updatePlatform } from './platforms';
 import { createFieldMapping } from './field-mappings';
-import { createTemplate } from './templates';
 import { PLATFORMS } from '../shared/constants';
 import { generateId } from '../shared/utils';
 
@@ -120,62 +119,6 @@ const PLATFORM_MAPPINGS: Record<string, FieldMapDef[]> = {
   ],
 };
 
-const BUILT_IN_TEMPLATES = [
-  {
-    name: 'sentiment-topics',
-    description: '情感分析 + 话题分类',
-    is_default: true,
-    template: `你是一个社交媒体评论分析助手。请分析以下评论的情感倾向和话题分类。
-
-评论内容: {{content}}
-评论平台: {{platform}}
-评论发布时间: {{published_at}}
-评论者: {{author_name}}
-
-请分析并返回以下 JSON（直接返回 JSON，不要其他文字）：
-{
-  "sentiment": { "label": "positive|negative|neutral", "score": 0.0-1.0 },
-  "topics": [{ "name": "话题名称", "confidence": 0.0-1.0 }],
-  "intent": "praise|complaint|question|suggestion|neutral|other",
-  "risk": { "flagged": true/false, "level": "low|medium|high", "reason": "..." },
-  "summary": "一句话摘要"
-}`,
-  },
-  {
-    name: 'risk-detection',
-    description: '风险内容检测',
-    is_default: false,
-    template: `你是一个内容安全审核助手。请检测以下内容是否包含风险信息。
-
-内容: {{content}}
-平台: {{platform}}
-
-请返回 JSON：
-{
-  "risk": { "flagged": true/false, "level": "low|medium|high", "reason": "..." },
-  "categories": ["涉政", "涉暴", "涉黄", "广告", "虚假信息", "其他"]
-}`,
-  },
-  {
-    name: 'media-image',
-    description: '图片内容分析',
-    is_default: false,
-    template: `你是一个图片内容分析助手。请分析以下图片的内容。
-
-图片URL: {{media_url}}
-图片来源平台: {{platform}}
-
-请返回 JSON：
-{
-  "content_type": "product|person|scene|text|screenshot|meme|other",
-  "description": "画面内容描述",
-  "sentiment": { "label": "positive|negative|neutral", "score": 0.0-1.0 },
-  "objects": [{ "label": "物体名称", "confidence": 0.0-1.0 }],
-  "risk": { "flagged": true/false, "level": "low|medium|high", "reason": "..." }
-}`,
-  },
-];
-
 export async function seedPlatformsAndMappings(): Promise<void> {
   for (const platform of PLATFORMS) {
     await upsertPlatform({ id: platform.id, name: platform.name, description: platform.description ?? null });
@@ -202,26 +145,8 @@ export async function seedPlatformsAndMappings(): Promise<void> {
   }
 }
 
-export async function seedTemplates(): Promise<void> {
-  for (const t of BUILT_IN_TEMPLATES) {
-    try {
-      await createTemplate({
-        id: generateId(),
-        name: t.name,
-        description: t.description,
-        template: t.template,
-        is_default: t.is_default,
-        created_at: new Date(),
-      });
-    } catch {
-      // ignore duplicate
-    }
-  }
-}
-
 export async function seedAll(): Promise<void> {
   await seedPlatformsAndMappings();
-  await seedTemplates();
   await seedPlatformSyncTemplates();
 }
 

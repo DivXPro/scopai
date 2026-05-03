@@ -51,7 +51,6 @@ describe('stream-scheduler — buildJobsForPost', { timeout: 15000 }, () => {
       id: taskId,
       name: 'test-task',
       description: null,
-      template_id: null,
       cli_templates: null,
       status: 'pending',
       stats: { total: 0, done: 0, failed: 0 },

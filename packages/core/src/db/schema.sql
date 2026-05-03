@@ -80,20 +80,10 @@ CREATE TABLE IF NOT EXISTS media_files (
     created_at      TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS prompt_templates (
-    id          TEXT PRIMARY KEY,
-    name        TEXT NOT NULL UNIQUE,
-    description TEXT,
-    template    TEXT NOT NULL,
-    is_default  BOOLEAN DEFAULT false,
-    created_at  TIMESTAMP DEFAULT NOW()
-);
-
 CREATE TABLE IF NOT EXISTS tasks (
     id          TEXT PRIMARY KEY,
     name        TEXT NOT NULL,
     description TEXT,
-    template_id TEXT REFERENCES prompt_templates(id),
     status      TEXT DEFAULT 'pending' CHECK(status IN ('pending','running','paused','completed','failed')),
     stats       JSON,
     created_at  TIMESTAMP DEFAULT NOW(),
@@ -113,46 +103,6 @@ CREATE TABLE IF NOT EXISTS task_targets (
     error       TEXT,
     created_at  TIMESTAMP DEFAULT NOW(),
     UNIQUE(task_id, target_type, target_id)
-);
-
-CREATE TABLE IF NOT EXISTS analysis_results_comments (
-    id              TEXT PRIMARY KEY,
-    task_id         TEXT NOT NULL REFERENCES tasks(id),
-    comment_id      TEXT NOT NULL REFERENCES comments(id),
-    sentiment_label TEXT,
-    sentiment_score DOUBLE,
-    intent          TEXT,
-    risk_flagged    BOOLEAN DEFAULT false,
-    risk_level      TEXT,
-    risk_reason     TEXT,
-    topics          JSON,
-    emotion_tags    JSON,
-    keywords        JSON,
-    summary         TEXT,
-    raw_response    JSON,
-    error           TEXT,
-    analyzed_at     TIMESTAMP DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS analysis_results_media (
-    id              TEXT PRIMARY KEY,
-    task_id         TEXT NOT NULL REFERENCES tasks(id),
-    media_id        TEXT NOT NULL REFERENCES media_files(id),
-    media_type      TEXT NOT NULL,
-    content_type    TEXT,
-    description     TEXT,
-    ocr_text        TEXT,
-    sentiment_label TEXT,
-    sentiment_score DOUBLE,
-    risk_flagged    BOOLEAN DEFAULT false,
-    risk_level      TEXT,
-    risk_reason     TEXT,
-    objects         JSON,
-    logos           JSON,
-    faces           JSON,
-    raw_response    JSON,
-    error           TEXT,
-    analyzed_at     TIMESTAMP DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS queue_jobs (
@@ -191,9 +141,6 @@ CREATE INDEX IF NOT EXISTS idx_posts_published ON posts(published_at);
 CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id);
 CREATE INDEX IF NOT EXISTS idx_comments_platform ON comments(platform_id);
 CREATE INDEX IF NOT EXISTS idx_task_targets_task ON task_targets(task_id);
-CREATE INDEX IF NOT EXISTS idx_analysis_results_comments_task ON analysis_results_comments(task_id);
-CREATE INDEX IF NOT EXISTS idx_analysis_results_comments_sentiment ON analysis_results_comments(sentiment_label);
-CREATE INDEX IF NOT EXISTS idx_analysis_results_media_task ON analysis_results_media(task_id);
 CREATE INDEX IF NOT EXISTS idx_queue_jobs_status ON queue_jobs(status);
 
 CREATE TABLE IF NOT EXISTS strategies (

@@ -76,7 +76,6 @@ describe('prepare-data — flow with real XHS data', { timeout: 600000 }, () => 
       id: taskId,
       name: 'XHS Flow Test Task',
       description: 'Integration test with real XHS data',
-      template_id: null,
       cli_templates: JSON.stringify(templates),
       status: 'pending',
       stats: { total: 0, done: 0, failed: 0 },

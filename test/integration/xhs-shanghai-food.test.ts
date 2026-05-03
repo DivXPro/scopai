@@ -132,7 +132,6 @@ describe('xhs shanghai food — real data E2E', { timeout: 120000 }, () => {
       id: TEST_TASK_ID,
       name: '上海美食热帖分析',
       description: 'Analyze Shanghai food hot posts from Xiaohongshu',
-      template_id: null,
       cli_templates: cliTemplates,
       status: 'pending',
       stats: { total: 0, done: 0, failed: 0 },

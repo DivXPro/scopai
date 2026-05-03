@@ -150,7 +150,6 @@ export default async function tasksRoutes(app: FastifyInstance) {
       id,
       name: data.name as string,
       description: (data.description ?? null) as string | null,
-      template_id: (data.template_id ?? null) as string | null,
       cli_templates: cliTemplatesStr,
       status: 'pending',
       stats: { total: 0, done: 0, failed: 0 },
@@ -215,41 +214,6 @@ export default async function tasksRoutes(app: FastifyInstance) {
     return result;
   });
 
-  app.post('/tasks/:id/add-comments', async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const body = request.body as Record<string, unknown>;
-    const commentIds = body.comment_ids as string[] | undefined;
-
-    if (!commentIds || !Array.isArray(commentIds) || commentIds.length === 0) {
-      reply.code(400);
-      throw new Error('comment_ids is required and must be a non-empty array');
-    }
-
-    const task = await getTaskById(id);
-    if (!task) {
-      reply.code(404);
-      throw new Error(`Task not found: ${id}`);
-    }
-
-    const jobId = generateId();
-    await enqueueJob({
-      id: jobId,
-      task_id: id,
-      strategy_id: null,
-      target_type: 'comment',
-      target_id: null,
-      status: 'pending',
-      priority: 10,
-      attempts: 0,
-      max_attempts: 3,
-      error: null,
-      created_at: now(),
-      processed_at: null,
-    });
-
-    return { jobId, taskId: id, status: 'queued' };
-  });
-
   app.post('/tasks/:id/resume', async (request, reply) => {
     const { id } = request.params as { id: string };
     const task = await getTaskById(id);
@@ -259,24 +223,7 @@ export default async function tasksRoutes(app: FastifyInstance) {
     }
 
     await updateTaskStatus(id, 'running');
-
-    const jobId = generateId();
-    await enqueueJob({
-      id: jobId,
-      task_id: id,
-      strategy_id: null,
-      target_type: null,
-      target_id: null,
-      status: 'pending',
-      priority: 10,
-      attempts: 0,
-      max_attempts: 3,
-      error: null,
-      created_at: now(),
-      processed_at: null,
-    });
-
-    return { jobId, taskId: id, status: 'queued' };
+    return { taskId: id, status: 'running' };
   });
 
   app.post('/tasks/:id/steps', async (request, reply) => {
@@ -607,101 +554,6 @@ export default async function tasksRoutes(app: FastifyInstance) {
 
     await updateTaskStepStatus(stepId, 'pending', { total: 0, done: 0, failed: 0 });
     return { reset: true };
-  });
-
-  // --- Legacy result stats (built-in comment/media analysis) ---
-  app.get('/tasks/:id/results/stats', async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const task = await getTaskById(id);
-    if (!task) {
-      reply.code(404);
-      throw new Error(`Task not found: ${id}`);
-    }
-
-    const commentRows = await query<{ cnt: bigint }>(
-      `SELECT COUNT(*) as cnt FROM analysis_results_comments WHERE task_id = ?`,
-      [id],
-    );
-    const mediaRows = await query<{ cnt: bigint }>(
-      `SELECT COUNT(*) as cnt FROM analysis_results_media WHERE task_id = ?`,
-      [id],
-    );
-
-    const sentimentDist = await query<{ val: string; cnt: bigint }>(
-      `SELECT sentiment_label as val, COUNT(*) as cnt FROM analysis_results_comments WHERE task_id = ? AND sentiment_label IS NOT NULL GROUP BY sentiment_label`,
-      [id],
-    );
-    const intentDist = await query<{ val: string; cnt: bigint }>(
-      `SELECT intent as val, COUNT(*) as cnt FROM analysis_results_comments WHERE task_id = ? AND intent IS NOT NULL GROUP BY intent`,
-      [id],
-    );
-
-    const sentiment: Record<string, number> = {};
-    for (const r of sentimentDist) sentiment[r.val] = Number(r.cnt);
-    const intent: Record<string, number> = {};
-    for (const r of intentDist) intent[r.val] = Number(r.cnt);
-
-    return {
-      total: Number(commentRows[0]?.cnt ?? 0) + Number(mediaRows[0]?.cnt ?? 0),
-      comments: Number(commentRows[0]?.cnt ?? 0),
-      media: Number(mediaRows[0]?.cnt ?? 0),
-      risk_flagged: 0,
-      sentiment,
-      intent,
-    };
-  });
-
-  // --- Legacy result export (built-in comment/media analysis) ---
-  app.post('/tasks/:id/results/export', async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const body = request.body as Record<string, unknown>;
-    const format = (body.format as string) ?? 'json';
-    const output = body.output as string | undefined;
-
-    const task = await getTaskById(id);
-    if (!task) {
-      reply.code(404);
-      throw new Error(`Task not found: ${id}`);
-    }
-
-    const commentRows = await query<Record<string, unknown>>(
-      `SELECT * FROM analysis_results_comments WHERE task_id = ? ORDER BY analyzed_at DESC`,
-      [id],
-    );
-    const mediaRows = await query<Record<string, unknown>>(
-      `SELECT * FROM analysis_results_media WHERE task_id = ? ORDER BY analyzed_at DESC`,
-      [id],
-    );
-    const allRows = [...commentRows, ...mediaRows];
-
-    let content: string;
-    if (format === 'csv') {
-      if (allRows.length === 0) {
-        content = '';
-      } else {
-        const keys = Object.keys(allRows[0]);
-        const lines = [keys.join(',')];
-        for (const row of allRows) {
-          const values = keys.map((k) => {
-            const v = row[k];
-            const str = v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
-            if (str.includes(',') || str.includes('"')) return '"' + str.replace(/"/g, '""') + '"';
-            return str;
-          });
-          lines.push(values.join(','));
-        }
-        content = lines.join('\n') + '\n';
-      }
-    } else {
-      content = JSON.stringify(allRows, null, 2) + '\n';
-    }
-
-    if (output) {
-      const fs = await import('fs');
-      fs.writeFileSync(output, content);
-    }
-
-    return { content, writtenTo: output ?? null, count: allRows.length };
   });
 
   // --- Get media files for a task's posts ---

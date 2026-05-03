@@ -8,13 +8,12 @@ import { upsertTaskPostStatus, getPendingPostIds } from '@scopai/core';
 import { createMediaFile, listMediaFilesByPost } from '@scopai/core';
 import { createPlatform, listPlatforms } from '@scopai/core';
 import { createFieldMapping, listFieldMappings } from '@scopai/core';
-import { createTemplate, listTemplates, getTemplateById, updateTemplate, setDefaultTemplate } from '@scopai/core';
+import { createStrategy, getStrategyById, listStrategies, validateStrategyJson, updateStrategy, deleteStrategy, parseJsonSchemaToColumns, createStrategyResultTable, syncStrategyResultTable } from '@scopai/core';
 import { enqueueJobs, getQueueStats, syncWaitingMediaJobs } from '@scopai/core';
 import { getDbPath, query, run, checkpoint } from '@scopai/core';
 import { getLogger } from '@scopai/core';
 import { generateId, now, parseImportFile } from '@scopai/core';
 import { fetchViaOpencli } from '@scopai/core';
-import { createStrategy, getStrategyById, listStrategies, validateStrategyJson, updateStrategy, deleteStrategy, parseJsonSchemaToColumns, createStrategyResultTable, syncStrategyResultTable } from '@scopai/core';
 import { getExistingResultIds } from '@scopai/core';
 import { getTaskPostStatus } from '@scopai/core';
 import { config } from '@scopai/core';
@@ -190,7 +189,6 @@ export function getHandlers(): Record<string, Handler> {
         id,
         name: params.name as string,
         description: (params.description ?? null) as string | null,
-        template_id: (params.template_id ?? null) as string | null,
         cli_templates: (params.cli_templates ?? null) as string | null,
         status: 'pending',
         stats: { total: 0, done: 0, failed: 0 },
@@ -239,50 +237,7 @@ export function getHandlers(): Record<string, Handler> {
       const stats = await getTargetStats(taskId);
       await updateTaskStats(taskId, { total: stats.total, done: stats.done, failed: stats.failed });
 
-      const task = await getTaskById(taskId);
-
-      let totalEnqueued = 0;
-      let mediaJobsCreated = 0;
-      let targetsToProcess: { target_type: string; target_id: string }[] = [];
-
-      if (task?.template_id) {
-        // Skip already-analyzed comment targets
-        const analyzedCommentIds = new Set(
-          (await query<{ comment_id: string }>(
-            'SELECT DISTINCT comment_id FROM analysis_results_comments WHERE task_id = ?',
-            [taskId],
-          )).map(r => r.comment_id),
-        );
-        targetsToProcess = stats.pending.filter(t => {
-          if (t.target_type === 'comment' && analyzedCommentIds.has(t.target_id)) return false;
-          return true;
-        });
-
-        if (targetsToProcess.length > 0) {
-          const jobs = targetsToProcess.map(t => ({
-            id: generateId(),
-            task_id: taskId,
-            strategy_id: null as string | null,
-            target_type: t.target_type as 'post' | 'comment' | null,
-            target_id: t.target_id,
-            status: 'pending' as const,
-            priority: 0,
-            attempts: 0,
-            max_attempts: 3,
-            error: null,
-            created_at: now(),
-            processed_at: null,
-          }));
-          await enqueueJobs(jobs);
-          totalEnqueued += jobs.length;
-        }
-
-        // Also enqueue media jobs for this task's posts
-        mediaJobsCreated = await enqueueMediaJobsForTask(taskId);
-        totalEnqueued += mediaJobsCreated;
-      }
-
-      return { enqueued: totalEnqueued, skipped: stats.pending.length - targetsToProcess.length, mediaJobs: mediaJobsCreated };
+      return { enqueued: 0, skipped: 0 };
     },
 
     async 'task.pause'(params) {
@@ -659,51 +614,6 @@ export function getHandlers(): Record<string, Handler> {
       return { imported };
     },
 
-    async 'template.list'() {
-      return listTemplates();
-    },
-
-    async 'template.get'(params) {
-      return getTemplateById(params.id as string);
-    },
-
-    async 'template.getByName'(params) {
-      const { getTemplateByName } = await import('@scopai/core');
-      return getTemplateByName(params.name as string);
-    },
-
-    async 'template.add'(params) {
-      const id = generateId();
-      await createTemplate({
-        id,
-        name: params.name as string,
-        description: (params.description ?? null) as string | null,
-        template: params.template as string,
-        is_default: (params.is_default ?? false) as boolean,
-        created_at: now(),
-      });
-      if (params.is_default) {
-        await setDefaultTemplate(id);
-      }
-      return { id };
-    },
-
-    async 'template.update'(params) {
-      const id = params.id as string;
-      const updates: Record<string, unknown> = {};
-      if (params.name !== undefined) updates.name = params.name;
-      if (params.template !== undefined) updates.template = params.template;
-      if (params.description !== undefined) updates.description = params.description;
-      if (Object.keys(updates).length === 0) return { updated: false };
-      await updateTemplate(id, updates);
-      return { updated: true };
-    },
-
-    async 'template.setDefault'(params) {
-      await setDefaultTemplate(params.id as string);
-      return { success: true };
-    },
-
     async 'strategy.result.list'(params) {
       if (typeof params.task_id !== 'string') throw new Error('task_id is required');
       if (typeof params.strategy_id !== 'string') throw new Error('strategy_id is required');
@@ -1063,64 +973,6 @@ function exportToCsv(rows: Record<string, unknown>[]): string {
   return lines.join('\n') + '\n';
 }
 
-async function enqueueMediaJobsForTask(taskId: string): Promise<number> {
-  const task = await getTaskById(taskId);
-  if (!task?.template_id) return 0;
-
-  const postTargets = await query<{ target_id: string }>(
-    "SELECT target_id FROM task_targets WHERE task_id = ? AND target_type = 'post'",
-    [taskId],
-  );
-  if (postTargets.length === 0) return 0;
-
-  const postIds = postTargets.map(r => r.target_id);
-  const placeholders = postIds.map(() => '?').join(',');
-  const mediaFiles = await query<{ id: string; post_id: string }>(
-    `SELECT id, post_id FROM media_files WHERE post_id IN (${placeholders})`,
-    postIds,
-  );
-  if (mediaFiles.length === 0) return 0;
-
-  const analyzedMediaIds = new Set(
-    (await query<{ media_id: string }>(
-      'SELECT DISTINCT media_id FROM analysis_results_media WHERE task_id = ?',
-      [taskId],
-    )).map(r => r.media_id),
-  );
-
-  const mediaToProcess = mediaFiles.filter(m => !analyzedMediaIds.has(m.id));
-  if (mediaToProcess.length === 0) return 0;
-
-  const mediaIds = mediaToProcess.map(m => m.id);
-  const existingJobPlaceholders = mediaIds.map(() => '?').join(',');
-  const existingJobs = await query<{ target_id: string }>(
-    `SELECT target_id FROM queue_jobs WHERE task_id = ? AND target_type = 'media' AND target_id IN (${existingJobPlaceholders})`,
-    [taskId, ...mediaIds],
-  );
-  const existingTargetIds = new Set(existingJobs.map(j => j.target_id));
-  const newMediaJobs = mediaToProcess.filter(m => !existingTargetIds.has(m.id));
-
-  if (newMediaJobs.length === 0) return 0;
-
-  const jobs = newMediaJobs.map(m => ({
-    id: generateId(),
-    task_id: taskId,
-    strategy_id: null as string | null,
-    target_type: 'media' as const,
-    target_id: m.id,
-    status: 'pending' as const,
-    priority: 0,
-    attempts: 0,
-    max_attempts: 3,
-    error: null,
-    created_at: now(),
-    processed_at: null,
-  }));
-
-  await enqueueJobs(jobs);
-  return jobs.length;
-}
-
 async function importCommentsToDb(
   data: unknown[],
   postId: string,
@@ -1374,7 +1226,6 @@ async function runPrepareDataAsync(
             const mediaCount = await importMediaToDb(result.data ?? [], postId, platformId, noteId);
             logger.info(`[prepare-data] Task ${taskId} post ${postId}: imported ${mediaCount} media files`);
             await upsertTaskPostStatus(taskId, postId, { media_fetched: true, media_count: mediaCount });
-            await createMediaQueueJobs(taskId, postId, mediaCount);
             await syncWaitingMediaJobs(taskId, postId);
           }
         }

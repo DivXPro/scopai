@@ -185,4 +185,23 @@ export async function runMigrations(): Promise<void> {
   if (hasAnalysisResults.length > 0) {
     await exec('DROP TABLE analysis_results');
   }
+
+  // Migration: drop legacy prompt_templates, analysis_results_comments, analysis_results_media tables
+  const legacyTables = ['prompt_templates', 'analysis_results_comments', 'analysis_results_media'];
+  for (const table of legacyTables) {
+    const exists = await query<{ name: string }>(
+      `SELECT table_name as name FROM information_schema.tables WHERE table_name = '${table}'`
+    );
+    if (exists.length > 0) {
+      await exec(`DROP TABLE ${table}`);
+    }
+  }
+
+  // Migration: drop template_id column from tasks if present
+  const taskColumns = await query<{ name: string }>(
+    "SELECT column_name as name FROM information_schema.columns WHERE table_name = 'tasks'"
+  );
+  if (taskColumns.some(c => c.name === 'template_id')) {
+    await exec('ALTER TABLE tasks DROP COLUMN template_id');
+  }
 }

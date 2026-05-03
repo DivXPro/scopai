@@ -105,7 +105,6 @@ export interface Task {
   id: string;
   name: string;
   description: string | null;
-  template_id: string | null;
   cli_templates: string | null;
   status: TaskStatus;
   stats: TaskStats | null;
@@ -162,88 +161,6 @@ export interface TaskTarget {
 }
 
 // === Analysis Results ===
-export type SentimentLabel = 'positive' | 'negative' | 'neutral';
-export type CommentIntent = 'praise' | 'complaint' | 'question' | 'suggestion' | 'neutral' | 'other';
-export type RiskLevel = 'low' | 'medium' | 'high';
-export type MediaContentType = 'product' | 'person' | 'scene' | 'text' | 'screenshot' | 'meme' | 'other';
-
-export interface AnalysisResultComment {
-  id: string;
-  task_id: string;
-  comment_id: string;
-  sentiment_label: SentimentLabel | null;
-  sentiment_score: number | null;
-  intent: CommentIntent | null;
-  risk_flagged: boolean;
-  risk_level: RiskLevel | null;
-  risk_reason: string | null;
-  topics: TopicTag[] | null;
-  emotion_tags: EmotionTag[] | null;
-  keywords: string[] | null;
-  summary: string | null;
-  raw_response: Record<string, unknown> | null;
-  error: string | null;
-  analyzed_at: Date;
-}
-
-export interface TopicTag {
-  name: string;
-  confidence: number;
-}
-
-export interface EmotionTag {
-  tag: string;
-  confidence: number;
-}
-
-export interface AnalysisResultMedia {
-  id: string;
-  task_id: string;
-  media_id: string;
-  media_type: MediaType;
-  content_type: MediaContentType | null;
-  description: string | null;
-  ocr_text: string | null;
-  sentiment_label: SentimentLabel | null;
-  sentiment_score: number | null;
-  risk_flagged: boolean;
-  risk_level: RiskLevel | null;
-  risk_reason: string | null;
-  objects: DetectedObject[] | null;
-  logos: DetectedLogo[] | null;
-  faces: DetectedFace[] | null;
-  raw_response: Record<string, unknown> | null;
-  error: string | null;
-  analyzed_at: Date;
-}
-
-export interface DetectedObject {
-  label: string;
-  confidence: number;
-}
-
-export interface DetectedLogo {
-  name: string;
-  confidence: number;
-}
-
-export interface DetectedFace {
-  age?: number;
-  gender?: string;
-  emotion?: string;
-}
-
-// === Prompt Template ===
-export interface PromptTemplate {
-  id: string;
-  name: string;
-  description: string | null;
-  template: string;
-  is_default: boolean;
-  created_at: Date;
-}
-
-// === Queue ===
 export type QueueStatus = 'pending' | 'waiting_media' | 'processing' | 'completed' | 'failed';
 
 export interface QueueJob {
@@ -352,17 +269,7 @@ export interface AnalysisResult {
   [key: string]: unknown;
 }
 
-export interface UnifiedAnalysisResult {
-  id: string;
-  task_id: string;
-  target_type: string;
-  target_id: string | null;
-  summary: string | null;
-  raw_response: Record<string, unknown> | null;
-  analyzed_at: Date;
-}
-
-// === Creator Subscription ===
+// === Queue ===
 
 export interface Creator {
   id: string;

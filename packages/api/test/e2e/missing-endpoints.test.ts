@@ -14,65 +14,6 @@ describe('Missing endpoints', () => {
     await ctx.cleanup();
   });
 
-  describe('Templates routes', () => {
-    it('GET /api/templates returns list', async () => {
-      const res = await fetchApi(ctx.baseUrl, '/api/templates');
-      assert.equal(res.status, 200);
-      const body = await res.json();
-      assert.ok(Array.isArray(body));
-    });
-
-    it('POST /api/templates creates a template', async () => {
-      const res = await fetchApi(ctx.baseUrl, '/api/templates', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: 'Test Template',
-          description: 'For e2e testing',
-          content: 'Analyze: {{content}}',
-          is_default: false,
-        }),
-      });
-      assert.equal(res.status, 200);
-      const body = await res.json();
-      assert.ok(body.id);
-    });
-
-    it('GET /api/templates/:id returns template', async () => {
-      const createRes = await fetchApi(ctx.baseUrl, '/api/templates', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: 'Get By ID Template',
-          content: 'Test',
-          is_default: false,
-        }),
-      });
-      const created = await createRes.json();
-      const res = await fetchApi(ctx.baseUrl, `/api/templates/${created.id}`);
-      assert.equal(res.status, 200);
-      const body = await res.json();
-      assert.equal(body.name, 'Get By ID Template');
-    });
-
-    it('POST /api/templates/:id updates template', async () => {
-      const createRes = await fetchApi(ctx.baseUrl, '/api/templates', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: 'Update Template',
-          content: 'Old',
-          is_default: false,
-        }),
-      });
-      const created = await createRes.json();
-      const res = await fetchApi(ctx.baseUrl, `/api/templates/${created.id}`, {
-        method: 'POST',
-        body: JSON.stringify({ name: 'Updated Name' }),
-      });
-      assert.equal(res.status, 200);
-      const body = await res.json();
-      assert.equal(body.updated, true);
-    });
-  });
-
   describe('Platforms mappings', () => {
     it('GET /api/platforms/:id/mappings returns field mappings', async () => {
       const res = await fetchApi(ctx.baseUrl, '/api/platforms/xiaohongshu/mappings');
@@ -281,39 +222,12 @@ describe('Missing endpoints', () => {
       legacyTaskId = taskBody.id;
     });
 
-    it('GET /api/tasks/:id/results/stats returns legacy stats', async () => {
-      const res = await fetchApi(ctx.baseUrl, `/api/tasks/${legacyTaskId}/results/stats`);
-      assert.equal(res.status, 200);
-      const body = await res.json();
-      assert.equal(typeof body.total, 'number');
-      assert.equal(typeof body.comments, 'number');
-      assert.equal(typeof body.media, 'number');
-    });
-
-    it('POST /api/tasks/:id/results/export exports legacy results', async () => {
-      const res = await fetchApi(ctx.baseUrl, `/api/tasks/${legacyTaskId}/results/export`, {
-        method: 'POST',
-        body: JSON.stringify({ format: 'json' }),
-      });
-      assert.equal(res.status, 200);
-      const body = await res.json();
-      assert.ok(typeof body.content === 'string');
-      assert.equal(typeof body.count, 'number');
-    });
-
     it('GET /api/tasks/:id/media returns empty when no posts', async () => {
       const res = await fetchApi(ctx.baseUrl, `/api/tasks/${legacyTaskId}/media`);
       assert.equal(res.status, 200);
       const body = await res.json();
       assert.ok(Array.isArray(body.posts));
       assert.equal(body.totalMedia, 0);
-    });
-  });
-
-  describe('Results route', () => {
-    it('GET /api/results/:id returns 404 for unknown result', async () => {
-      const res = await fetchApi(ctx.baseUrl, '/api/results/nonexistent-id?target=comment');
-      assert.equal(res.status, 404);
     });
   });
 });

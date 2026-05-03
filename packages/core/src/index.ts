@@ -18,7 +18,6 @@ export * from './db/comments';
 export * from './db/platforms';
 export * from './db/media-files';
 export * from './db/field-mappings';
-export * from './db/templates';
 export * from './db/tasks';
 export * from './db/task-targets';
 export * from './db/task-steps';

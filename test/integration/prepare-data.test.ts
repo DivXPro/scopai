@@ -71,7 +71,6 @@ describe('prepare-data E2E — real opencli data', { timeout: 60000 }, () => {
       id: TEST_TASK_ID,
       name: 'E2E Test Task',
       description: 'E2E test with real opencli data',
-      template_id: null,
       cli_templates: cliTemplates,
       status: 'pending',
       stats: { total: 0, done: 0, failed: 0 },

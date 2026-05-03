@@ -97,6 +97,5 @@ export async function resetTestDb(): Promise<void> {
   await run('DELETE FROM media_files').catch(() => {});
   await run('DELETE FROM platforms').catch(() => {});
   await run('DELETE FROM strategies').catch(() => {});
-  await run('DELETE FROM prompt_templates').catch(() => {});
   await seedAll();
 }

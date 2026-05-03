@@ -6,8 +6,7 @@ import { postCommands } from './post';
 import { commentCommands } from './comment';
 import { taskCommands } from './task';
 import { taskPrepareCommands } from './task-prepare';
-import { templateCommands } from './template';
-import { resultCommands, resultMediaCommands } from './result';
+import { resultCommands } from './result';
 import { strategyCommands } from './strategy';
 import { analyzeCommands } from './analyze';
 import { queueCommands } from './queue';
@@ -40,12 +39,8 @@ taskCommands(program);
 // Task prepare-data command
 taskPrepareCommands(program);
 
-// Template commands
-templateCommands(program);
-
 // Result commands
 resultCommands(program);
-resultMediaCommands(program);
 
 strategyCommands(program);
 

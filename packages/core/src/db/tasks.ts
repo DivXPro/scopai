@@ -4,9 +4,9 @@ import { now } from '../shared/utils';
 
 export async function createTask(task: Task): Promise<void> {
   await run(
-    `INSERT INTO tasks (id, name, description, template_id, cli_templates, status, stats, created_at, updated_at, completed_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [task.id, task.name, task.description, task.template_id, task.cli_templates ?? null, task.status,
+    `INSERT INTO tasks (id, name, description, cli_templates, status, stats, created_at, updated_at, completed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [task.id, task.name, task.description, task.cli_templates ?? null, task.status,
      task.stats ? JSON.stringify(task.stats) : null,
      task.created_at, task.updated_at, task.completed_at]
   );
