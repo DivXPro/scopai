@@ -12,6 +12,7 @@ import { analyzeCommands } from './analyze';
 import { queueCommands } from './queue';
 import { logsCommands } from './logs';
 import { creatorCommands } from './creator';
+import { registerLabelCommands } from './label';
 import { version } from '@scopai/core';
 
 const program = new Command();
@@ -48,6 +49,8 @@ analyzeCommands(program);
 queueCommands(program);
 logsCommands(program);
 creatorCommands(program);
+
+registerLabelCommands(program);
 
 program.parse(process.argv);
 

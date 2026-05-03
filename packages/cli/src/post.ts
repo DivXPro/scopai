@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import * as pc from 'picocolors';
 import * as fs from 'fs';
-import { apiGet, apiPost } from './api-client';
+import { apiGet, apiPost, apiDelete } from './api-client';
 import type { ListPostsResponse, ImportPostsResponse } from '@scopai/api';
 
 interface RawPostItem {
@@ -126,5 +126,46 @@ export function postCommands(program: Command): void {
         console.log(`  ${pc.green(p.id.slice(0, 8))} ${title}`);
       }
       console.log();
+    });
+
+  post
+    .command('star')
+    .description('Star or unstar a post')
+    .requiredOption('--id <id>', 'Post ID')
+    .option('--unstar', 'Remove star (default: add star)')
+    .action(async (opts: { id: string; unstar?: boolean }) => {
+      const starred = !opts.unstar;
+      await apiPost(`/posts/${opts.id}/star`, { starred });
+      console.log(starred ? 'Post starred.' : 'Post unstarred.');
+    });
+
+  post
+    .command('tag')
+    .description('Add labels to a post')
+    .requiredOption('--id <id>', 'Post ID')
+    .option('--label-name <name>', 'Label name (auto-created if not exists)')
+    .option('--label-names <names>', 'Comma-separated label names', (val: string) => val.split(',').map(s => s.trim()))
+    .action(async (opts: { id: string; labelName?: string; labelNames?: string[] }) => {
+      const body: Record<string, unknown> = {};
+      if (opts.labelNames && opts.labelNames.length > 0) {
+        body.label_names = opts.labelNames;
+      } else if (opts.labelName) {
+        body.label_name = opts.labelName;
+      } else {
+        console.error('Provide --label-name or --label-names');
+        process.exit(1);
+      }
+      const result = await apiPost(`/posts/${opts.id}/labels`, body);
+      console.log(`Added ${(result as any).added} label(s).`);
+    });
+
+  post
+    .command('untag')
+    .description('Remove a label from a post')
+    .requiredOption('--id <id>', 'Post ID')
+    .requiredOption('--label-id <labelId>', 'Label ID to remove')
+    .action(async (opts: { id: string; labelId: string }) => {
+      await apiDelete(`/posts/${opts.id}/labels/${opts.labelId}`);
+      console.log('Label removed from post.');
     });
 }
