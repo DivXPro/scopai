@@ -209,7 +209,7 @@ export async function createStrategyResultTable(
 ${dynamicCols ? dynamicCols + ',\n' : ''}    raw_response JSON,
     error TEXT,
     analyzed_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(task_id, target_type, target_id)
+    UNIQUE(target_type, target_id)
   )`;
   await run(sql);
 
@@ -242,5 +242,47 @@ export async function syncStrategyResultTable(
     } else if (normalizeSqlType(existingMap.get(col.name) ?? '') !== col.sqlType) {
       throw new Error(`Column ${col.name} exists with different type. DuckDB does not support ALTER COLUMN type changes. Please create a new strategy version.`);
     }
+  }
+}
+
+/**
+ * Migrate existing strategy result tables from UNIQUE(task_id, target_type, target_id)
+ * to UNIQUE(target_type, target_id) so that results are overwritten across tasks.
+ * DuckDB does not support ALTER CONSTRAINT, so we recreate each table.
+ */
+export async function migrateStrategyResultTablesUnique(): Promise<void> {
+  const tables = await query<{ table_name: string }>(
+    `SELECT table_name FROM information_schema.tables WHERE table_name LIKE 'analysis_results_strategy_%'`
+  );
+  for (const { table_name: tableName } of tables) {
+    // Get column definitions for recreation
+    const cols = await query<{ column_name: string; data_type: string; is_nullable: string }>(
+      `SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = ? ORDER BY ordinal_position`,
+      [tableName]
+    );
+    const colDefs = cols.map(c => {
+      const nullable = c.is_nullable === 'YES' ? '' : ' NOT NULL';
+      return `${c.column_name} ${c.data_type}${nullable}`;
+    }).join(', ');
+
+    // Drop indexes
+    const indexes = await query<{ index_name: string }>(
+      `SELECT index_name FROM duckdb_indexes() WHERE table_name = ?`,
+      [tableName]
+    );
+    for (const { index_name } of indexes) {
+      try { await run(`DROP INDEX IF EXISTS "${index_name}"`); } catch {}
+    }
+
+    // Recreate table with new UNIQUE constraint
+    await run(`CREATE TABLE "${tableName}_new" AS SELECT * FROM "${tableName}"`);
+    await run(`DROP TABLE "${tableName}"`);
+    await run(`CREATE TABLE "${tableName}" (${colDefs}, UNIQUE(target_type, target_id))`);
+    await run(`INSERT INTO "${tableName}" SELECT * FROM "${tableName}_new"`);
+    await run(`DROP TABLE "${tableName}_new"`);
+
+    // Re-create task index
+    const strategyId = tableName.replace('analysis_results_strategy_', '');
+    await run(`CREATE INDEX IF NOT EXISTS "idx_${strategyId}_task" ON "${tableName}"(task_id)`);
   }
 }
