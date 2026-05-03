@@ -53,6 +53,7 @@ Run these **in order** before any workflow:
 | 9 | **run_all_steps** | `scopai task run-all-steps {tid}` | **Default `--wait`**: blocks until all steps complete, printing progress. Use `--no-wait` for fire-and-forget. |
 | 10 | **run_task_step** | `scopai task step run --task-id {tid} --step-id {sid}` | Run a single step. **Default `--wait`**: blocks until completion. |
 | 11 | **reset_task_step** | `scopai task step reset --task-id {tid} --step-id {sid}` | Reset a failed step to pending for retry. |
+| 12 | **submit_analysis** | `scopai analyze submit --strategy-id {sid} --post-ids {ids} [--task-id {tid}] [--force]` | Simplified single-post analysis. Auto-creates task and step. Deduplicates by default; `--force` deletes old results+jobs and re-enqueues. |
 
 > **Progress output** (`--wait` mode):
 > ```
@@ -83,7 +84,8 @@ Run these **in order** before any workflow:
 | 23 | **pause_task / resume_task / cancel_task** | `scopai task pause|resume|cancel {tid}` | Control running tasks. |
 | 24 | **list_posts / search_posts_db** | `scopai post list [--platform {id}]` / `scopai post search --platform {id} --query {text}` | Browse imported data. |
 | 25 | **daemon management** | `scopai daemon start [--fg] [--verbose]` / `stop` / `restart` / `status` | Manage API server lifecycle. CLI auto-restarts if version mismatch. |
-| 26 | **run_single_analysis** | `scopai analyze run --task-id {tid} --strategy {sid}` | Run a one-shot strategy analysis without task steps. |
+| 26 | **run_single_analysis** | `scopai analyze run --task-id {tid} --strategy-id {sid}` | Run a one-shot strategy analysis without task steps. |
+| 27 | **submit_analysis** | `scopai analyze submit --strategy-id {sid} --post-ids {ids}` | Simplified analysis entry point. See Phase 4 #12. |
 | 27 | **view_logs** | `scopai logs show [--lines {n}] [--date {d}]` | View recent API server log entries. |
 
 ### Creator Subscription & Sync
