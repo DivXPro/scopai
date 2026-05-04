@@ -19,10 +19,7 @@ export const xhsAdapter: PlatformAdapter = {
     comments: 'comment_count',
     shares: 'share_count',
     plays: 'play_count',
-    author: 'author_name',
     user_id: 'author_id',
-    cover: 'cover_url',
-    cover_image: 'cover_url',
   },
   profileFieldMap: {
     name: 'author_name',

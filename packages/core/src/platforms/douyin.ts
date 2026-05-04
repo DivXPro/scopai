@@ -13,16 +13,27 @@ export const douyinAdapter: PlatformAdapter = {
   },
   directoryName: 'douyin',
   fieldMap: {
+    // search 命令返回下划线风格
     aweme_id: 'platform_post_id',
     digg_count: 'like_count',
     collect_count: 'collect_count',
     share_count: 'share_count',
     comment_count: 'comment_count',
-    author: 'author_name',
     author_id: 'author_id',
-    cover_image: 'cover_url',
     is_image: 'post_type',
     create_time: 'published_at',
+    // note 命令返回驼峰风格
+    awemeId: 'platform_post_id',
+    diggCount: 'like_count',
+    collectCount: 'collect_count',
+    shareCount: 'share_count',
+    commentCount: 'comment_count',
+    nickname: 'author_name',
+    secUid: 'author_id',
+    isImage: 'post_type',
+    createTime: 'published_at',
+    // 通用
+    desc: 'content',
     hashtags: 'tags',
   },
   profileFieldMap: {
