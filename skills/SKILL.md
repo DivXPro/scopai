@@ -82,8 +82,9 @@ Run these **in order** before any workflow:
 | 21 | **reset_queue_jobs** | `scopai queue reset [--task-id {tid}]` | **Blunt instrument**: force-reset all non-pending jobs. Prefer `queue retry`. |
 | 22 | **list_queue_jobs** | `scopai queue list --task-id {tid} [--failed-only] [--limit {n}]` | Inspect queue job status. |
 | 23 | **pause_task / resume_task / cancel_task** | `scopai task pause|resume|cancel {tid}` | Control running tasks. |
-| 24 | **list_posts / search_posts_db** | `scopai post list [--platform {id}] [--starred] [--label {name}]` / `scopai post search --platform {id} --query {text}` | Browse imported data. `--starred` filters starred posts; `--label` filters by label name. |
-| 25 | **daemon management** | `scopai daemon start [--fg] [--verbose]` / `stop` / `restart` / `status` | Manage API server lifecycle. CLI auto-restarts if version mismatch. |
+| 24 | **show_post** | `scopai post show {pid}` | Show post details (title, author, stats, content preview). |
+| 25 | **list_posts / search_posts_db** | `scopai post list [--platform {id}] [--starred] [--label {name}]` / `scopai post search --platform {id} --query {text}` | Browse imported data. `--starred` filters starred posts; `--label` filters by label name. |
+| 26 | **daemon management** | `scopai daemon start [--fg] [--verbose]` / `stop` / `restart` / `status` | Manage API server lifecycle. CLI auto-restarts if version mismatch. |
 | 26 | **run_single_analysis** | `scopai analyze run --task-id {tid} --strategy-id {sid}` | Run a one-shot strategy analysis without task steps. |
 | 27 | **submit_analysis** | `scopai analyze submit --strategy-id {sid} --post-ids {ids}` | Simplified analysis entry point. See Phase 4 #12. |
 | 27 | **view_logs** | `scopai logs show [--lines {n}] [--date {d}]` | View recent API server log entries. |

@@ -16,11 +16,6 @@ export function taskPrepareCommands(program: Command): void {
         process.exit(1);
       }
 
-      if (!t.cli_templates) {
-        console.log(pc.red('Task has no CLI templates. Create the task with --cli-templates.'));
-        process.exit(1);
-      }
-
       const result = await apiPost<TaskPrepareDataResponse>('/tasks/' + taskId + '/prepare-data');
       if (result.status !== 'queued') {
         console.log(pc.red('Failed to start data preparation'));

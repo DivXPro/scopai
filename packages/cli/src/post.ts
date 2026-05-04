@@ -105,6 +105,30 @@ export function postCommands(program: Command): void {
     });
 
   post
+    .command('show')
+    .description('Show post details')
+    .argument('<id>', 'Post ID')
+    .action(async (id: string) => {
+      const p = await apiGet<any>(`/posts/${id}`);
+      console.log(pc.bold(`\nPost: ${p.title ?? '(untitled)'}`));
+      console.log(`  ID:          ${p.id}`);
+      console.log(`  Platform:    ${p.platform_id}`);
+      console.log(`  Author:      ${p.author_name ?? 'Unknown'}${p.author_id ? ` (${p.author_id})` : ''}`);
+      if (p.url) console.log(`  URL:         ${p.url}`);
+      if (p.post_type) console.log(`  Type:        ${p.post_type}`);
+      console.log(`  Likes:       ${p.like_count ?? 0}  Collects: ${p.collect_count ?? 0}  Comments: ${p.comment_count ?? 0}  Shares: ${p.share_count ?? 0}`);
+      if (p.published_at) console.log(`  Published:   ${new Date(p.published_at).toLocaleString()}`);
+      if (p.tags && (p.tags as any[]).length > 0) {
+        console.log(`  Tags:        ${(p.tags as { name: string }[]).map(t => t.name).join(', ')}`);
+      }
+      if (p.content) {
+        const preview = p.content.length > 200 ? p.content.slice(0, 200) + '...' : p.content;
+        console.log(`  Content:     ${preview}`);
+      }
+      console.log();
+    });
+
+  post
     .command('search')
     .description('Search posts by keyword')
     .requiredOption('--platform <id>', 'Platform ID')
