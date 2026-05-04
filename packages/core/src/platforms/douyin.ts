@@ -9,7 +9,7 @@ export const douyinAdapter: PlatformAdapter = {
   },
   creatorTemplates: {
     profileFetch: 'opencli douyin user-info {author_id} -f json',
-    postsFetch: '',
+    postsFetch: 'opencli douyin user-videos {author_id} --limit {limit} -f json',
   },
   directoryName: 'douyin',
   fieldMap: {

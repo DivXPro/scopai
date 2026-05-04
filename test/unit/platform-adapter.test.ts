@@ -97,12 +97,12 @@ describe('douyin adapter field map', () => {
     assert.equal(adapter!.defaultTemplates.fetchComments, '');
   });
 
-  it('should have creatorTemplates with profileFetch', () => {
+  it('should have creatorTemplates with profileFetch and postsFetch', () => {
     const adapter = getPlatformAdapter('douyin');
     assert.ok(adapter);
     assert.ok(adapter!.creatorTemplates);
     assert.ok(adapter!.creatorTemplates!.profileFetch.includes('opencli douyin user-info'));
-    assert.equal(adapter!.creatorTemplates!.postsFetch, '');
+    assert.ok(adapter!.creatorTemplates!.postsFetch.includes('opencli douyin user-videos'));
   });
 
   it('should have profileFieldMap', () => {
