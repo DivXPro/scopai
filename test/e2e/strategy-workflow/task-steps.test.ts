@@ -33,6 +33,7 @@ describe('strategy-workflow', { timeout: 180000 }, () => {
   after(async () => {
     await ensureDaemonStopped();
     await cleanupByPrefix(RUN_ID);
+    await closeDb();
   });
 
   it.skip('should create strategy, run task step, and produce results', async () => {
@@ -63,10 +64,10 @@ describe('strategy-workflow', { timeout: 180000 }, () => {
     assert.ok(taskId);
 
     // 3. Add posts
-    await runCli(['task', 'add-posts', '--task-id', taskId!, '--post-ids', 'post_001,post_002']);
+    await runCli(['task', 'add-posts', taskId!, '--post-ids', 'post_001,post_002']);
 
     // 4. Prepare data
-    await runCli(['task', 'prepare-data', '--task-id', taskId!]);
+    await runCli(['task', 'prepare-data', taskId!]);
     await waitForDataPreparation(taskId!, 60000);
 
     // 5. Add strategy step
@@ -80,8 +81,7 @@ describe('strategy-workflow', { timeout: 180000 }, () => {
 
     // 6. Run all steps with wait
     const { exitCode: runExit } = await runCli([
-      'task', 'run-all-steps',
-      '--task-id', taskId!,
+      'task', 'run-all-steps', taskId!,
       '--wait',
     ]);
     assert.equal(runExit, 0, 'Run all steps should succeed');

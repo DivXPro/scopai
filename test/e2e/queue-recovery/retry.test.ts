@@ -19,6 +19,7 @@ describe('queue-recovery', { timeout: 120000 }, () => {
   after(async () => {
     await ensureDaemonStopped();
     await cleanupByPrefix(RUN_ID);
+    await closeDb();
   });
 
   // Skip if no LLM API key — queue jobs won't be created
@@ -41,8 +42,8 @@ describe('queue-recovery', { timeout: 120000 }, () => {
     ]);
     const taskId = extractId(taskOut)!;
 
-    await runCli(['task', 'add-posts', '--task-id', taskId, '--post-ids', 'post_001']);
-    await runCli(['task', 'prepare-data', '--task-id', taskId]);
+    await runCli(['task', 'add-posts', taskId, '--post-ids', 'post_001']);
+    await runCli(['task', 'prepare-data', taskId]);
 
     // Create step
     await runCli([
@@ -52,7 +53,7 @@ describe('queue-recovery', { timeout: 120000 }, () => {
     ]);
 
     // Run steps (this may succeed or fail depending on LLM)
-    await runCli(['task', 'run-all-steps', '--task-id', taskId, '--wait']);
+    await runCli(['task', 'run-all-steps', taskId, '--wait']);
 
     // Stop daemon to query DB
     await ensureDaemonStopped();

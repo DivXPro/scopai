@@ -116,8 +116,8 @@ describe('cli-results-commands', { timeout: 90000 }, () => {
 
   after(async () => {
     await stopDaemon();
-    await closeDb();
     await cleanupByPrefix(RUN_ID);
+    await closeDb();
   });
 
   describe('task results', () => {

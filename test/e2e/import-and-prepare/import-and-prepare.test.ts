@@ -30,6 +30,7 @@ describe('import-and-prepare', { timeout: 90000 }, () => {
   after(async () => {
     await ensureDaemonStopped();
     await cleanupByPrefix(RUN_ID);
+    await closeDb();
   });
 
   it('should register platform, import posts, prepare data, and verify status', async () => {

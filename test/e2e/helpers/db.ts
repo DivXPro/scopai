@@ -41,9 +41,20 @@ export async function run(sql: string, params?: unknown[]): Promise<void> {
   return db.run(sql, params);
 }
 
+/**
+ * Close the test process's DuckDB connection and reset the module reference.
+ * MUST be called before starting the daemon — DuckDB does not support
+ * concurrent write access from multiple processes on the same file.
+ * Also call after stopping the daemon if you need to re-open for queries.
+ */
 export async function closeDb(): Promise<void> {
-  const db = await getDbModule();
-  return db.close();
+  if (_dbModule) {
+    await _dbModule.close();
+  }
+  // Reset module reference so next access creates a fresh connection.
+  // This is critical: after close(), the old module's internal _db/_conn
+  // are nulled, and re-using them would fail.
+  _dbModule = null;
 }
 
 export async function runMigrations(): Promise<void> {
@@ -60,6 +71,11 @@ export function getTestDbPath(): string {
   return TEST_DB_PATH;
 }
 
+/**
+ * Clean up test data by prefix. IMPORTANT: daemon must be stopped before
+ * calling this — DuckDB does not support concurrent write access from
+ * multiple processes. Call ensureDaemonStopped() first.
+ */
 export async function cleanupByPrefix(prefix: string): Promise<void> {
   const like = `${prefix}%`;
   // Clean up in dependency order

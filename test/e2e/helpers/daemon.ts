@@ -14,6 +14,8 @@ export async function stopDaemon(): Promise<void> {
   while (attempts < 30) {
     const { stdout } = await runCli(['daemon', 'status']);
     if (stdout.includes('not running')) {
+      // Wait a bit more for the port to be fully released by the OS
+      await new Promise(r => setTimeout(r, 500));
       return;
     }
     await new Promise(r => setTimeout(r, 200));
@@ -43,6 +45,8 @@ export async function ensureDaemonStopped(): Promise<void> {
   if (await isDaemonRunning()) {
     await stopDaemon();
   }
+  // Also clean up any stale lock file that might prevent daemon from starting
+  await runCli(['daemon', 'status']);
 }
 
 export async function getDaemonPort(): Promise<number | null> {

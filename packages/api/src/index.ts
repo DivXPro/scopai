@@ -39,28 +39,19 @@ function recoverWalIfNeeded(): void {
     return;
   }
 
-  // Test if DuckDB can open the database with the existing WAL
-  const duckdb = require('duckdb');
-  let canOpen = false;
+  // DuckDB INTERNAL errors from WAL replay are thrown asynchronously in worker
+  // threads and cannot be caught by try/catch. The safest approach is to delete
+  // the WAL file — migrations will recreate any missing schema on startup.
+  console.warn(
+    `WAL file found (${walSize} bytes) from unclean shutdown. ` +
+    `Deleting WAL to prevent async INTERNAL errors on replay. ` +
+    `Migrations will re-apply any missing schema.`
+  );
   try {
-    const testDb = new duckdb.Database(dbPath);
-    testDb.exec('SELECT 1');
-    testDb.close();
-    canOpen = true;
-  } catch {
-    canOpen = false;
-  }
-
-  if (!canOpen) {
-    const backupPath = dbPath + '.corrupted.' + Date.now();
-    try {
-      renameSync(dbPath, backupPath);
-      if (existsSync(walPath)) unlinkSync(walPath);
-      console.warn(`WAL recovery failed. Database backed up to ${backupPath}. Fresh database will be created.`);
-    } catch (err) {
-      console.error('Failed to backup corrupted database:', err instanceof Error ? err.message : String(err));
-      process.exit(1);
-    }
+    unlinkSync(walPath);
+  } catch (err) {
+    console.error('Failed to delete WAL file:', err instanceof Error ? err.message : String(err));
+    process.exit(1);
   }
 }
 
