@@ -150,18 +150,49 @@ export async function processCreatorProfileSyncJob(job: CreatorSyncJob, workerId
     const raw = rawItems[0] as Record<string, unknown>;
     const profile: Parameters<typeof updateCreator>[1] = {};
 
-    // Map user-info fields to creator fields
-    const rawProfile = raw as RawProfileItem;
-    if (rawProfile.name) profile.author_name = rawProfile.name;
-    if (rawProfile.avatar) profile.avatar_url = rawProfile.avatar;
-    if (rawProfile.followers !== undefined) {
-      profile.follower_count = typeof rawProfile.followers === 'string' ? parseInt(rawProfile.followers, 10) : rawProfile.followers;
+    // Use adapter's profileFieldMap to normalize, then extract known fields
+    const adapter = getPlatformAdapter(creator.platform_id);
+    const profileFieldMap = adapter?.profileFieldMap;
+    if (profileFieldMap) {
+      const normalized: Record<string, unknown> = {};
+      for (const key of Object.keys(raw)) {
+        const mapped = profileFieldMap[key] ?? key;
+        if (normalized[mapped] === undefined) {
+          normalized[mapped] = raw[key];
+        }
+      }
+      if (normalized.author_name) profile.author_name = String(normalized.author_name);
+      if (normalized.avatar_url) profile.avatar_url = String(normalized.avatar_url);
+      if (normalized.follower_count !== undefined) {
+        const v = normalized.follower_count;
+        profile.follower_count = typeof v === 'string' ? parseInt(v, 10) : Number(v);
+      }
+      if (normalized.following_count !== undefined) {
+        const v = normalized.following_count;
+        profile.following_count = typeof v === 'string' ? parseInt(v, 10) : Number(v);
+      }
+      if (normalized.bio) profile.bio = String(normalized.bio);
+      // Platform-specific homepage URL construction
+      if (creator.platform_id === 'xhs' && normalized.platform_creator_id) {
+        profile.homepage_url = `https://www.xiaohongshu.com/user/profile/${normalized.platform_creator_id}`;
+      }
+      if (creator.platform_id === 'douyin' && normalized.platform_creator_id) {
+        profile.homepage_url = `https://www.douyin.com/user/${normalized.platform_creator_id}`;
+      }
+    } else {
+      // Fallback: legacy hardcoded mapping (for platforms without profileFieldMap)
+      const rawProfile = raw as RawProfileItem;
+      if (rawProfile.name) profile.author_name = rawProfile.name;
+      if (rawProfile.avatar) profile.avatar_url = rawProfile.avatar;
+      if (rawProfile.followers !== undefined) {
+        profile.follower_count = typeof rawProfile.followers === 'string' ? parseInt(rawProfile.followers, 10) : rawProfile.followers;
+      }
+      if (rawProfile.following !== undefined) {
+        profile.following_count = typeof rawProfile.following === 'string' ? parseInt(rawProfile.following, 10) : rawProfile.following;
+      }
+      if (rawProfile.redId) profile.homepage_url = `https://www.xiaohongshu.com/user/profile/${rawProfile.redId}`;
+      if (rawProfile.bio) profile.bio = rawProfile.bio;
     }
-    if (rawProfile.following !== undefined) {
-      profile.following_count = typeof rawProfile.following === 'string' ? parseInt(rawProfile.following, 10) : rawProfile.following;
-    }
-    if (rawProfile.redId) profile.homepage_url = `https://www.xiaohongshu.com/user/profile/${rawProfile.redId}`;
-    if (rawProfile.bio) profile.bio = rawProfile.bio;
 
     if (Object.keys(profile).length > 0) {
       await updateCreator(creator.id, profile);

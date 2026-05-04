@@ -7,6 +7,10 @@ export const douyinAdapter: PlatformAdapter = {
     fetchComments: '',
     fetchMedia: 'opencli douyin download {url} --output {download_dir}/{platform} -f json',
   },
+  creatorTemplates: {
+    profileFetch: 'opencli douyin user-info {author_id} -f json',
+    postsFetch: '',
+  },
   directoryName: 'douyin',
   fieldMap: {
     aweme_id: 'platform_post_id',
@@ -20,5 +24,13 @@ export const douyinAdapter: PlatformAdapter = {
     is_image: 'post_type',
     create_time: 'published_at',
     hashtags: 'tags',
+  },
+  profileFieldMap: {
+    nickname: 'author_name',
+    avatar: 'avatar_url',
+    follower_count: 'follower_count',
+    following_count: 'following_count',
+    signature: 'bio',
+    sec_uid: 'platform_creator_id',
   },
 };

@@ -24,4 +24,12 @@ export const xhsAdapter: PlatformAdapter = {
     cover: 'cover_url',
     cover_image: 'cover_url',
   },
+  profileFieldMap: {
+    name: 'author_name',
+    avatar: 'avatar_url',
+    followers: 'follower_count',
+    following: 'following_count',
+    bio: 'bio',
+    redId: 'platform_creator_id',
+  },
 };

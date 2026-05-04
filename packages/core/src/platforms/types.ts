@@ -15,4 +15,5 @@ export interface PlatformAdapter {
   creatorTemplates?: PlatformCreatorTemplates;
   directoryName: string;
   fieldMap: Record<string, string>;
+  profileFieldMap?: Record<string, string>;
 }

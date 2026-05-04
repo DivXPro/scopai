@@ -97,10 +97,22 @@ describe('douyin adapter field map', () => {
     assert.equal(adapter!.defaultTemplates.fetchComments, '');
   });
 
-  it('should not have creatorTemplates', () => {
+  it('should have creatorTemplates with profileFetch', () => {
     const adapter = getPlatformAdapter('douyin');
     assert.ok(adapter);
-    assert.equal(adapter!.creatorTemplates, undefined);
+    assert.ok(adapter!.creatorTemplates);
+    assert.ok(adapter!.creatorTemplates!.profileFetch.includes('opencli douyin user-info'));
+    assert.equal(adapter!.creatorTemplates!.postsFetch, '');
+  });
+
+  it('should have profileFieldMap', () => {
+    const adapter = getPlatformAdapter('douyin');
+    assert.ok(adapter);
+    assert.ok(adapter!.profileFieldMap);
+    assert.equal(adapter!.profileFieldMap!.nickname, 'author_name');
+    assert.equal(adapter!.profileFieldMap!.follower_count, 'follower_count');
+    assert.equal(adapter!.profileFieldMap!.signature, 'bio');
+    assert.equal(adapter!.profileFieldMap!.sec_uid, 'platform_creator_id');
   });
 });
 
