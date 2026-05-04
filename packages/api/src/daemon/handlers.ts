@@ -969,7 +969,7 @@ function exportToCsv(rows: Record<string, unknown>[]): string {
   return lines.join('\n') + '\n';
 }
 
-async function importCommentsToDb(
+export async function importCommentsToDb(
   data: unknown[],
   postId: string,
   platformId: string,
@@ -1003,7 +1003,7 @@ async function importCommentsToDb(
   return count;
 }
 
-async function importMediaToDb(
+export async function importMediaToDb(
   data: unknown[],
   postId: string,
   platformId: string,
@@ -1084,7 +1084,7 @@ function isDuplicateError(err: unknown): boolean {
   return /duplicate|unique|constraint/i.test(msg);
 }
 
-function getDefaultFetchMediaTemplate(platformId: string): string | null {
+export function getDefaultFetchMediaTemplate(platformId: string): string | null {
   return getPlatformAdapter(platformId)?.defaultTemplates.fetchMedia || null;
 }
 

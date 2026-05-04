@@ -3,15 +3,21 @@ import { getTaskById, updateTaskStatus, updateTaskStats } from '@scopai/core';
 import { updateTargetStatus, getTargetStats } from '@scopai/core';
 import { getCommentById, listCommentsByIds } from '@scopai/core';
 import { getPlatformById } from '@scopai/core';
-import { getPostById } from '@scopai/core';
+import { getPostById, updatePost } from '@scopai/core';
 import { getStrategyById } from '@scopai/core';
 import { insertStrategyResult } from '@scopai/core';
 import { updateTaskStepStatus, listTaskSteps } from '@scopai/core';
+import { upsertTaskPostStatus, getTaskPostStatus } from '@scopai/core';
+import { normalizePostItem, getPlatformAdapter } from '@scopai/core';
+import { fetchViaOpencli } from '@scopai/core';
+import { syncWaitingMediaJobs, enqueueJobs } from '@scopai/core';
+import { importCommentsToDb, importMediaToDb, getDefaultFetchMediaTemplate } from '../daemon/handlers';
+import { buildJobsForPost } from '../daemon/scheduler';
 import { analyzeWithStrategy, analyzeBatchWithStrategy } from './anthropic';
 import { processCreatorSyncJob } from './creator-sync';
 import { parseStrategyResult, parseBatchStrategyResult } from './parser';
 import type { QueueJob, Comment } from '@scopai/core';
-import { sleep } from '@scopai/core';
+import { sleep, generateId, query } from '@scopai/core';
 import { waitForJob } from '@scopai/core';
 import {
   registerWorker,
@@ -153,6 +159,11 @@ async function processJobWithLifecycle(job: QueueJob, workerId: number): Promise
 }
 
 async function processJob(job: QueueJob, workerId: number): Promise<void> {
+  if (job.target_type === 'prepare') {
+    await processPrepareJob(job, workerId);
+    return;
+  }
+
   const task = await getTaskById(job.task_id);
   if (!task) throw new Error(`Task ${job.task_id} not found`);
 
@@ -161,6 +172,209 @@ async function processJob(job: QueueJob, workerId: number): Promise<void> {
   }
 
   await processStrategyJob(job, task, workerId);
+}
+
+async function processPrepareJob(job: QueueJob, workerId: number): Promise<void> {
+  const logger = getLogger();
+  const postId = job.target_id;
+  const taskId = job.task_id;
+
+  if (!postId) throw new Error(`Prepare job ${job.id} has no target_id`);
+
+  const task = await getTaskById(taskId);
+  if (!task) throw new Error(`Task ${taskId} not found`);
+
+  // Parse CLI templates
+  let cliTemplates: { fetch_note: string; fetch_comments?: string; fetch_media?: string };
+  try {
+    const raw = typeof task.cli_templates === 'string' ? task.cli_templates : JSON.stringify(task.cli_templates);
+    cliTemplates = JSON.parse(raw);
+  } catch {
+    throw new Error(`Task ${taskId} has invalid cli_templates`);
+  }
+
+  const postMeta = await getPostById(postId);
+  if (!postMeta) throw new Error(`Post ${postId} not found`);
+
+  const platformId = postMeta.platform_id;
+
+  // Resolve noteId and construct fetchVars
+  let metadataObj: Record<string, unknown> | null = null;
+  if (postMeta.metadata) {
+    if (typeof postMeta.metadata === 'string') {
+      try { metadataObj = JSON.parse(postMeta.metadata); } catch { /* ignore */ }
+    } else if (typeof postMeta.metadata === 'object' && postMeta.metadata !== null) {
+      metadataObj = postMeta.metadata as Record<string, unknown>;
+    }
+  }
+  const noteId = (metadataObj?.note_id as string | undefined) ?? postMeta.platform_post_id ?? undefined;
+  const postUrl = postMeta.url ?? undefined;
+  const platformDir = getPlatformAdapter(platformId)?.directoryName ?? platformId.split('_')[0];
+  const fetchVars: Record<string, string> = {
+    post_id: postId,
+    note_id: noteId ?? postUrl ?? postId,
+    url: postUrl ?? noteId ?? postId,
+    limit: '100',
+    platform: platformDir,
+    download_dir: config.paths.download_dir,
+  };
+
+  logger.info(`[Worker-${workerId}] Prepare job for post ${postId}, task ${taskId}`);
+
+  // Mark as fetching
+  await upsertTaskPostStatus(taskId, postId, { status: 'fetching' });
+
+  // Step 1: fetch_note — enrich post details
+  if (cliTemplates.fetch_note) {
+    logger.info(`[Worker-${workerId}] Post ${postId}: Step 1 fetch_note`);
+    const noteResult = await fetchViaOpencli(cliTemplates.fetch_note, fetchVars);
+    if (!noteResult.success) {
+      throw new Error(`fetch_note failed for post ${postId}: ${noteResult.error ?? 'unknown'}`);
+    }
+    if (noteResult.data && noteResult.data.length > 0) {
+      const noteData = normalizePostItem(noteResult.data, platformId);
+      const existingPost = await getPostById(postId);
+      if (existingPost) {
+        const updates: Parameters<typeof updatePost>[1] = {};
+        if (noteData.title !== existingPost.title) updates.title = noteData.title;
+        if (noteData.content !== existingPost.content) updates.content = noteData.content;
+        if (noteData.author_id !== existingPost.author_id) updates.author_id = noteData.author_id;
+        if (noteData.author_name !== existingPost.author_name) updates.author_name = noteData.author_name;
+        if (noteData.author_url !== existingPost.author_url) updates.author_url = noteData.author_url;
+        if (noteData.cover_url !== existingPost.cover_url) updates.cover_url = noteData.cover_url;
+        if (noteData.post_type !== existingPost.post_type) updates.post_type = noteData.post_type as any;
+        if (noteData.like_count !== existingPost.like_count) updates.like_count = noteData.like_count;
+        if (noteData.collect_count !== existingPost.collect_count) updates.collect_count = noteData.collect_count;
+        if (noteData.comment_count !== existingPost.comment_count) updates.comment_count = noteData.comment_count;
+        if (noteData.share_count !== existingPost.share_count) updates.share_count = noteData.share_count;
+        if (noteData.play_count !== existingPost.play_count) updates.play_count = noteData.play_count;
+        if (JSON.stringify(noteData.tags) !== JSON.stringify(existingPost.tags)) updates.tags = noteData.tags as { name: string; url?: string }[] | null;
+        if (JSON.stringify(noteData.media_files) !== JSON.stringify(existingPost.media_files)) updates.media_files = noteData.media_files as { type: 'image' | 'video' | 'audio'; url: string; local_path?: string }[] | null;
+        if (noteData.published_at?.getTime() !== existingPost.published_at?.getTime()) updates.published_at = noteData.published_at;
+        if (JSON.stringify(noteData.metadata) !== JSON.stringify(existingPost.metadata)) updates.metadata = noteData.metadata;
+        await updatePost(postId, updates);
+      }
+    }
+    logger.info(`[Worker-${workerId}] Post ${postId}: fetch_note done`);
+  } else {
+    logger.info(`[Worker-${workerId}] Post ${postId}: Step 1 fetch_note skipped (no template)`);
+  }
+
+  // Step 2: fetch_comments
+  const currentStatus = await getTaskPostStatus(taskId, postId);
+  if (cliTemplates.fetch_comments) {
+    if (!currentStatus?.comments_fetched) {
+      logger.info(`[Worker-${workerId}] Post ${postId}: Step 2 fetch_comments`);
+      const result = await fetchViaOpencli(cliTemplates.fetch_comments, fetchVars);
+      if (!result.success) {
+        throw new Error(`fetch_comments failed for post ${postId}: ${result.error ?? 'unknown'}`);
+      }
+      const commentCount = await importCommentsToDb(result.data ?? [], postId, platformId);
+      await upsertTaskPostStatus(taskId, postId, { comments_fetched: true, comments_count: commentCount });
+      logger.info(`[Worker-${workerId}] Post ${postId}: imported ${commentCount} comments`);
+    }
+  } else {
+    // No template — mark comments as done for this step
+    if (!currentStatus?.comments_fetched) {
+      await upsertTaskPostStatus(taskId, postId, { comments_fetched: true });
+    }
+    logger.info(`[Worker-${workerId}] Post ${postId}: Step 2 fetch_comments skipped (no template)`);
+  }
+
+  // Step 3: fetch_media
+  const statusAfterComments = await getTaskPostStatus(taskId, postId);
+  const fetchMediaTemplate = cliTemplates.fetch_media ?? getDefaultFetchMediaTemplate(platformId);
+  if (fetchMediaTemplate) {
+    if (!statusAfterComments?.media_fetched) {
+      logger.info(`[Worker-${workerId}] Post ${postId}: Step 3 fetch_media`);
+      const result = await fetchViaOpencli(fetchMediaTemplate, fetchVars);
+      if (!result.success) {
+        throw new Error(`fetch_media failed for post ${postId}: ${result.error ?? 'unknown'}`);
+      }
+      const mediaCount = await importMediaToDb(result.data ?? [], postId, platformId, noteId);
+      await upsertTaskPostStatus(taskId, postId, { media_fetched: true, media_count: mediaCount });
+      await syncWaitingMediaJobs(taskId, postId);
+      logger.info(`[Worker-${workerId}] Post ${postId}: imported ${mediaCount} media files`);
+    }
+  } else {
+    if (!statusAfterComments?.media_fetched) {
+      await upsertTaskPostStatus(taskId, postId, { media_fetched: true });
+    }
+    logger.info(`[Worker-${workerId}] Post ${postId}: Step 3 fetch_media skipped (no template and no default for platform ${platformId})`);
+  }
+
+  // Mark as done
+  await upsertTaskPostStatus(taskId, postId, { status: 'done' });
+  logger.info(`[Worker-${workerId}] Post ${postId}: prepare done`);
+
+  // Build analysis jobs for this post if task has strategies
+  try {
+    const { listTaskSteps } = await import('@scopai/core');
+    const { getStrategyById } = await import('@scopai/core');
+    const { listTaskTargets } = await import('@scopai/core');
+    const { getExistingJobTargets } = await import('@scopai/core');
+    const { createTaskTarget } = await import('@scopai/core');
+
+    const steps = await listTaskSteps(taskId);
+    const strategies = new Map();
+    for (const step of steps) {
+      if (step.strategy_id && !strategies.has(step.strategy_id)) {
+        const strategy = await getStrategyById(step.strategy_id);
+        if (strategy) strategies.set(step.strategy_id, strategy);
+      }
+    }
+
+    // Only proceed if there are strategies
+    if (strategies.size > 0) {
+      let taskTargets = await listTaskTargets(taskId);
+      const mediaStatus = await query<{ media_fetched: boolean }>(
+        `SELECT media_fetched FROM task_post_status WHERE task_id = ? AND post_id = ?`,
+        [taskId, postId],
+      );
+      const mediaReady = mediaStatus[0]?.media_fetched === true;
+      const comments = await query<{ id: string }>(
+        `SELECT id FROM comments WHERE post_id = ?`,
+        [postId],
+      );
+
+      // Ensure comments are task targets for comment-level strategies
+      const hasCommentStrategy = Array.from(strategies.values()).some((s: any) => s.target === 'comment');
+      if (hasCommentStrategy && comments.length > 0) {
+        const existingIds = new Set(taskTargets.map(t => t.target_id));
+        for (const c of comments) {
+          if (!existingIds.has(c.id)) {
+            await createTaskTarget(taskId, 'comment', c.id);
+            existingIds.add(c.id);
+          }
+        }
+        taskTargets = await listTaskTargets(taskId);
+      }
+
+      const { jobs: analysisJobs, stepUpdates } = buildJobsForPost(
+        taskId,
+        postId,
+        steps,
+        strategies,
+        taskTargets,
+        await getExistingJobTargets(taskId, strategies.keys().next().value ?? ''),
+        comments,
+        mediaReady,
+        generateId,
+      );
+
+      if (analysisJobs.length > 0) {
+        await enqueueJobs(analysisJobs);
+        for (const update of stepUpdates) {
+          await updateTaskStepStatus(update.stepId, update.status, update.stats);
+        }
+        logger.info(`[Worker-${workerId}] Post ${postId}: enqueued ${analysisJobs.length} analysis jobs`);
+      }
+    }
+  } catch (schedErr: unknown) {
+    const msg = schedErr instanceof Error ? schedErr.message : String(schedErr);
+    logger.error(`[Worker-${workerId}] Failed to enqueue analysis jobs for post ${postId}: ${msg}`);
+    // Non-fatal: data preparation succeeded regardless
+  }
 }
 
 async function resolveUpstreamResult(
