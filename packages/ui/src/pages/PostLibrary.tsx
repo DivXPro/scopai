@@ -736,7 +736,6 @@ export default function PostLibrary() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [analyzingPostId, setAnalyzingPostId] = useState<string | null>(null);
   const [viewingMediaPostId, setViewingMediaPostId] = useState<string | null>(null);
@@ -745,14 +744,15 @@ export default function PostLibrary() {
   const abortRef = useRef<AbortController | null>(null);
   const latestRef = useRef(0);
 
-  const fetchPosts = useCallback(async () => {
+  const fetchPosts = useCallback(async (overridePage?: number) => {
     abortRef.current?.abort();
     abortRef.current = new AbortController();
     const id = ++latestRef.current;
 
+    const effectivePage = overridePage ?? page;
     setLoading(true);
     setError('');
-    const offset = (page - 1) * PAGE_SIZE;
+    const offset = (effectivePage - 1) * PAGE_SIZE;
     const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
     if (searchQuery.trim()) params.set('query', searchQuery.trim());
     if (selectedPlatform) params.set('platform', selectedPlatform);
@@ -774,7 +774,10 @@ export default function PostLibrary() {
     }
   }, [searchQuery, selectedPlatform, starredFilter, page]);
 
-  const loadPosts = useCallback(() => setRefreshKey((k) => k + 1), []);
+  const loadPosts = useCallback(() => {
+    setPage(1);
+    fetchPosts(1);
+  }, [fetchPosts]);
 
   const toggleStar = useCallback(async (postId: string, currentStarred: boolean) => {
     await apiPost(`/api/posts/${postId}/star`, { starred: !currentStarred });
@@ -817,16 +820,11 @@ export default function PostLibrary() {
   }, []);
 
   useEffect(() => {
-    fetchPosts();
-  }, [refreshKey]);
-
-  useEffect(() => {
     const timer = setTimeout(() => {
-      setPage(1);
-      setRefreshKey((k) => k + 1);
-    }, 300);
+      fetchPosts();
+    }, searchQuery ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [searchQuery, selectedPlatform, starredFilter]);
+  }, [searchQuery, selectedPlatform, starredFilter, page, fetchPosts]);
 
   if (error && posts.length === 0) {
     return (
@@ -835,7 +833,7 @@ export default function PostLibrary() {
         <div className="rounded-lg border border-danger/50 bg-danger/10 p-4 text-danger">
           <p className="font-medium">加载失败</p>
           <p className="text-sm mt-1">{error}</p>
-          <Button variant="outline" size="sm" className="mt-2" onPress={() => setRefreshKey((k) => k + 1)}>
+          <Button variant="outline" size="sm" className="mt-2" onPress={() => fetchPosts()}>
             重试
           </Button>
         </div>
@@ -949,7 +947,7 @@ export default function PostLibrary() {
               <PostCard key={post.id} post={post} onAnalyze={setAnalyzingPostId} onViewMedia={setViewingMediaPostId} onToggleStar={toggleStar} onAddLabel={addLabel} onRemoveLabel={removeLabel} />
             ))}
           </div>
-          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={(p) => { setPage(p); setRefreshKey((k) => k + 1); }} />
+          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={(p) => { setPage(p); fetchPosts(p); }} />
         </>
       ) : (
         <>
@@ -1069,7 +1067,7 @@ export default function PostLibrary() {
               ))}
             </TableBody>
           </DataTable>
-          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={(p) => { setPage(p); setRefreshKey((k) => k + 1); }} />
+          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={(p) => { setPage(p); fetchPosts(p); }} />
         </>
       )}
 
