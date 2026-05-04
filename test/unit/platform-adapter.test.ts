@@ -72,16 +72,28 @@ describe('douyin adapter field map', () => {
     assert.equal(adapter!.fieldMap.digg_count, 'like_count');
   });
 
-  it('should have fetchMedia template', () => {
+  it('should map create_time to published_at', () => {
     const adapter = getPlatformAdapter('douyin');
     assert.ok(adapter);
+    assert.equal(adapter!.fieldMap.create_time, 'published_at');
+  });
+
+  it('should map hashtags to tags', () => {
+    const adapter = getPlatformAdapter('douyin');
+    assert.ok(adapter);
+    assert.equal(adapter!.fieldMap.hashtags, 'tags');
+  });
+
+  it('should have fetchNote and fetchMedia templates', () => {
+    const adapter = getPlatformAdapter('douyin');
+    assert.ok(adapter);
+    assert.ok(adapter!.defaultTemplates.fetchNote.includes('opencli douyin note'));
     assert.ok(adapter!.defaultTemplates.fetchMedia.includes('opencli douyin download'));
   });
 
-  it('should have empty fetchNote and fetchComments', () => {
+  it('should have empty fetchComments', () => {
     const adapter = getPlatformAdapter('douyin');
     assert.ok(adapter);
-    assert.equal(adapter!.defaultTemplates.fetchNote, '');
     assert.equal(adapter!.defaultTemplates.fetchComments, '');
   });
 

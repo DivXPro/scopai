@@ -3,7 +3,7 @@ import type { PlatformAdapter } from './types';
 export const douyinAdapter: PlatformAdapter = {
   id: 'douyin',
   defaultTemplates: {
-    fetchNote: '',
+    fetchNote: 'opencli douyin note {url} -f json',
     fetchComments: '',
     fetchMedia: 'opencli douyin download {url} --output {download_dir}/{platform} -f json',
   },
@@ -18,5 +18,7 @@ export const douyinAdapter: PlatformAdapter = {
     author_id: 'author_id',
     cover_image: 'cover_url',
     is_image: 'post_type',
+    create_time: 'published_at',
+    hashtags: 'tags',
   },
 };
