@@ -54,3 +54,6 @@ export type { LockFileData } from './shared/lock-file';
 
 // === Data Fetcher ===
 export { fetchViaOpencli } from './data-fetcher/opencli';
+
+// === Platform Adapters ===
+export * from './platforms';
