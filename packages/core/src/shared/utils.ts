@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
+import { getPlatformAdapter } from '../platforms';
 
 export function generateId(): string {
   return uuidv4();
@@ -266,12 +267,20 @@ export interface NormalizedPostItem {
   metadata: Record<string, unknown> | null;
 }
 
-export function normalizePostItem(raw: unknown): NormalizedPostItem {
-  const obj = normalizeRawItem(raw, POST_FIELD_MAP);
+export function normalizePostItem(raw: unknown, platformId?: string): NormalizedPostItem {
+  let mergedFieldMap = POST_FIELD_MAP;
+  if (platformId) {
+    const adapter = getPlatformAdapter(platformId);
+    if (adapter) {
+      mergedFieldMap = { ...POST_FIELD_MAP, ...adapter.fieldMap };
+    }
+  }
+
+  const obj = normalizeRawItem(raw, mergedFieldMap);
 
   return {
     platform_post_id:
-      pickString(obj, ['platform_post_id', 'noteId', 'id']) ?? null,
+      pickString(obj, ['platform_post_id', 'noteId', 'id', 'aweme_id']) ?? null,
     title: pickString(obj, ['title']),
     content: pickString(obj, ['content', 'text', 'desc']) ?? '',
     author_id: pickString(obj, ['author_id', 'user_id']),
