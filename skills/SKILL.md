@@ -36,7 +36,7 @@ Run these **in order** before any workflow:
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 5 | **create_task** | `scopai task create --name {name} [--cli-templates '{...}']` | Create task before adding steps. Templates: `fetch_note` (optional — enriches post content, skipped if empty), `fetch_comments` (optional), `fetch_media` (optional — has platform-aware defaults). For douyin, `fetch_note` can be empty since search results already contain full post data. **Important:** If you specify `fetch_media` manually, it MUST include `--output {download_dir}/{platform}` to ensure media files are saved to the correct directory. If omitted, the platform's default template (which includes `--output`) is used automatically. |
+| 5 | **create_task** | `scopai task create --name {name} [--cli-templates '{...}']` | Create task before adding steps. `--cli-templates` is optional — platforms (xhs, douyin) have built-in defaults for fetch_note, fetch_comments, and fetch_media. Only specify `--cli-templates` when you need to override the defaults. **Important:** If you override `fetch_media`, you MUST include `--output {download_dir}/{platform}` to ensure media files are saved to the correct directory. |
 | 6 | **add_step_to_task** | `scopai task step add --task-id {tid} --strategy-id {sid} [--name {n}] [--order {n}]` | Add each strategy the user needs. |
 | 7 | **list_strategies** | `scopai strategy list` | Check available strategy IDs before adding steps. |
 
@@ -199,10 +199,11 @@ opencli xiaohongshu search "上海美食" --limit 10 -f json > posts.json
 
 # 3. Setup
 scopai platform add --id xhs --name "小红书"
-scopai task create --name "上海美食分析" \
-  --cli-templates '{"fetch_note":"opencli xiaohongshu note {url} -f json","fetch_comments":"opencli xiaohongshu comments {url} --limit 100 -f json"}'
-# fetch_media is optional — defaults to platform-aware download template with --output {download_dir}/{platform}
-# If you specify fetch_media manually, you MUST include --output {download_dir}/{platform}, e.g.:
+scopai task create --name "上海美食分析"
+# --cli-templates is optional. Platforms have built-in defaults for fetch_note, fetch_comments, fetch_media.
+# Only override when needed, e.g. to skip fetch_note for douyin (search results already contain full data):
+#   scopai task create --name "..." --cli-templates '{"fetch_note":"","fetch_comments":"opencli douyin comments {url} -f json"}'
+# If you override fetch_media, you MUST include --output {download_dir}/{platform}:
 #   "fetch_media":"opencli xiaohongshu download {url} --output {download_dir}/{platform} -f json"
 
 # 4. Import

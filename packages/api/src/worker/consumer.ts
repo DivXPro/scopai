@@ -225,7 +225,8 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
   await upsertTaskPostStatus(taskId, postId, { status: 'fetching' });
 
   // Step 1: fetch_note — enrich post details
-  if (cliTemplates.fetch_note) {
+  const fetchNoteTemplate = cliTemplates.fetch_note || getPlatformAdapter(platformId)?.defaultTemplates.fetchNote || '';
+  if (fetchNoteTemplate) {
     logger.info(`[Worker-${workerId}] Post ${postId}: Step 1 fetch_note`);
     const noteResult = await fetchViaOpencli(cliTemplates.fetch_note, fetchVars);
     if (!noteResult.success) {
