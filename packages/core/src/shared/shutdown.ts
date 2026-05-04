@@ -2,17 +2,17 @@ export interface WorkerState {
   activeCount: number;
 }
 
-const workerStates = new Map<number, WorkerState>();
+const workerStates = new Map<number | string, WorkerState>();
 
-export function registerWorker(workerId: number): void {
+export function registerWorker(workerId: number | string): void {
   workerStates.set(workerId, { activeCount: 0 });
 }
 
-export function unregisterWorker(workerId: number): void {
+export function unregisterWorker(workerId: number | string): void {
   workerStates.delete(workerId);
 }
 
-export function setWorkerActiveCount(workerId: number, count: number): void {
+export function setWorkerActiveCount(workerId: number | string, count: number): void {
   workerStates.set(workerId, { activeCount: count });
 }
 

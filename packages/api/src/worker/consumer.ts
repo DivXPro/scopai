@@ -119,7 +119,7 @@ export async function runConsumer(workerId: number): Promise<void> {
   }
 }
 
-async function processJobWithLifecycle(job: QueueJob, workerId: number): Promise<void> {
+export async function processJobWithLifecycle(job: QueueJob, workerId: number | string): Promise<void> {
   const logger = getLogger();
   logger.info(`[Worker-${workerId}] Processing job ${job.id} for task ${job.task_id}`);
 
@@ -158,7 +158,7 @@ async function processJobWithLifecycle(job: QueueJob, workerId: number): Promise
   }
 }
 
-async function processJob(job: QueueJob, workerId: number): Promise<void> {
+async function processJob(job: QueueJob, workerId: number | string): Promise<void> {
   if (job.target_type === 'prepare') {
     await processPrepareJob(job, workerId);
     return;
@@ -174,7 +174,7 @@ async function processJob(job: QueueJob, workerId: number): Promise<void> {
   await processStrategyJob(job, task, workerId);
 }
 
-async function processPrepareJob(job: QueueJob, workerId: number): Promise<void> {
+async function processPrepareJob(job: QueueJob, workerId: number | string): Promise<void> {
   const logger = getLogger();
   const postId = job.target_id;
   const taskId = job.task_id;
@@ -399,7 +399,7 @@ async function resolveUpstreamResult(
 async function processStrategyJob(
   job: QueueJob,
   task: { id: string; name: string },
-  workerId: number,
+  workerId: number | string,
 ): Promise<void> {
   const logger = getLogger();
   if (!job.strategy_id) throw new Error('Job has no strategy_id');
@@ -504,7 +504,7 @@ async function processCommentBatch(
   strategy: { id: string; version: string; batch_config: { enabled: boolean; size: number } | null; output_schema: Record<string, unknown> },
   seedComment: Comment,
   task: { id: string; name: string },
-  workerId: number,
+  workerId: number | string,
 ): Promise<void> {
   const logger = getLogger();
   const batchSize = Math.min(strategy.batch_config!.size, 20);

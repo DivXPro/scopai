@@ -22,6 +22,7 @@ import {
 import { setupAuth } from './auth';
 import { registerRoutes } from './routes';
 import { runConsumer } from './worker/consumer';
+import { runPrepareConsumer } from './worker/prepare-consumer';
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
 const HOST = process.env.HOST ?? '127.0.0.1';
@@ -154,6 +155,16 @@ async function main() {
   // --- Start in-process workers ---
   resetShutdown();
   const workerPromises: Promise<void>[] = [];
+
+  // Start prepare consumer (1 worker, serial)
+  registerWorker('prepare');
+  workerPromises.push(
+    runPrepareConsumer('prepare').catch((err) => {
+      console.error('Prepare consumer exited with error:', err instanceof Error ? err.message : String(err));
+    })
+  );
+
+  // Start analysis workers
   for (let i = 0; i < WORKER_CONCURRENCY; i++) {
     registerWorker(i);
     workerPromises.push(
@@ -162,7 +173,7 @@ async function main() {
       })
     );
   }
-  console.log(`Started ${WORKER_CONCURRENCY} worker(s)`);
+  console.log(`Started 1 prepare worker + ${WORKER_CONCURRENCY} analysis worker(s)`);
 
   // --- Graceful shutdown ---
   let shuttingDown = false;
