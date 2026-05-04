@@ -60,22 +60,22 @@ describe('PlatformAdapter registry', () => {
 });
 
 describe('douyin adapter field map', () => {
-  it('should map aweme_id to platform_post_id', () => {
+  it('should map awemeId to platform_post_id', () => {
     const adapter = getPlatformAdapter('douyin');
     assert.ok(adapter);
-    assert.equal(adapter!.fieldMap.aweme_id, 'platform_post_id');
+    assert.equal(adapter!.fieldMap.awemeId, 'platform_post_id');
   });
 
-  it('should map digg_count to like_count', () => {
+  it('should map diggCount to like_count', () => {
     const adapter = getPlatformAdapter('douyin');
     assert.ok(adapter);
-    assert.equal(adapter!.fieldMap.digg_count, 'like_count');
+    assert.equal(adapter!.fieldMap.diggCount, 'like_count');
   });
 
-  it('should map create_time to published_at', () => {
+  it('should map createTime to published_at', () => {
     const adapter = getPlatformAdapter('douyin');
     assert.ok(adapter);
-    assert.equal(adapter!.fieldMap.create_time, 'published_at');
+    assert.equal(adapter!.fieldMap.createTime, 'published_at');
   });
 
   it('should map hashtags to tags', () => {
@@ -84,10 +84,15 @@ describe('douyin adapter field map', () => {
     assert.equal(adapter!.fieldMap.hashtags, 'tags');
   });
 
-  it('should have fetchNote and fetchMedia templates', () => {
+  it('should have empty fetchNote (search covers note data)', () => {
     const adapter = getPlatformAdapter('douyin');
     assert.ok(adapter);
-    assert.ok(adapter!.defaultTemplates.fetchNote.includes('opencli douyin note'));
+    assert.equal(adapter!.defaultTemplates.fetchNote, '');
+  });
+
+  it('should have fetchMedia template', () => {
+    const adapter = getPlatformAdapter('douyin');
+    assert.ok(adapter);
     assert.ok(adapter!.defaultTemplates.fetchMedia.includes('opencli douyin download'));
   });
 
@@ -110,9 +115,9 @@ describe('douyin adapter field map', () => {
     assert.ok(adapter);
     assert.ok(adapter!.profileFieldMap);
     assert.equal(adapter!.profileFieldMap!.nickname, 'author_name');
-    assert.equal(adapter!.profileFieldMap!.follower_count, 'follower_count');
-    assert.equal(adapter!.profileFieldMap!.signature, 'bio');
-    assert.equal(adapter!.profileFieldMap!.sec_uid, 'platform_creator_id');
+    assert.equal(adapter!.profileFieldMap!.followerCount, 'follower_count');
+    assert.equal(adapter!.profileFieldMap!.desc, 'bio');
+    assert.equal(adapter!.profileFieldMap!.secUid, 'platform_creator_id');
   });
 });
 
@@ -137,17 +142,17 @@ describe('xhs adapter', () => {
 describe('normalizePostItem with platformId', () => {
   it('should map douyin fields when platformId is provided', () => {
     const raw = {
-      aweme_id: '7597309249148046602',
-      title: '测试抖音视频',
-      digg_count: 824442,
-      comment_count: 9246,
-      share_count: 351597,
-      collect_count: 320680,
-      author: '日食记',
-      author_id: 'MS4wLjABAAAA',
-      cover_image: 'https://example.com/cover.jpg',
+      awemeId: '7597309249148046602',
+      desc: '测试抖音视频',
+      diggCount: 824442,
+      commentCount: 9246,
+      shareCount: 351597,
+      collectCount: 320680,
+      nickname: '日食记',
+      secUid: 'MS4wLjABAAAA',
+      cover: 'https://example.com/cover.jpg',
       url: 'https://www.douyin.com/video/7597309249148046602',
-      is_image: false,
+      isImage: false,
     };
 
     const result = normalizePostItem(raw, 'douyin');

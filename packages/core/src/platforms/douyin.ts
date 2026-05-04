@@ -3,7 +3,7 @@ import type { PlatformAdapter } from './types';
 export const douyinAdapter: PlatformAdapter = {
   id: 'douyin',
   defaultTemplates: {
-    fetchNote: 'opencli douyin note {url} -f json',
+    fetchNote: '',
     fetchComments: '',
     fetchMedia: 'opencli douyin download {url} --output {download_dir}/{platform} -f json',
   },
@@ -13,16 +13,7 @@ export const douyinAdapter: PlatformAdapter = {
   },
   directoryName: 'douyin',
   fieldMap: {
-    // search 命令返回下划线风格
-    aweme_id: 'platform_post_id',
-    digg_count: 'like_count',
-    collect_count: 'collect_count',
-    share_count: 'share_count',
-    comment_count: 'comment_count',
-    author_id: 'author_id',
-    is_image: 'post_type',
-    create_time: 'published_at',
-    // note 命令返回驼峰风格
+    // search / note 命令均返回驼峰风格
     awemeId: 'platform_post_id',
     diggCount: 'like_count',
     collectCount: 'collect_count',
@@ -30,18 +21,18 @@ export const douyinAdapter: PlatformAdapter = {
     commentCount: 'comment_count',
     nickname: 'author_name',
     secUid: 'author_id',
+    uid: 'author_id',
     isImage: 'post_type',
     createTime: 'published_at',
-    // 通用
     desc: 'content',
     hashtags: 'tags',
   },
   profileFieldMap: {
     nickname: 'author_name',
-    avatar: 'avatar_url',
-    follower_count: 'follower_count',
-    following_count: 'following_count',
-    signature: 'bio',
-    sec_uid: 'platform_creator_id',
+    avatarUrl: 'avatar_url',
+    followerCount: 'follower_count',
+    followingCount: 'following_count',
+    desc: 'bio',
+    secUid: 'platform_creator_id',
   },
 };
