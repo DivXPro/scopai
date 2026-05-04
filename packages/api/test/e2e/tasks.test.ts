@@ -84,6 +84,12 @@ describe('Tasks routes', () => {
 
   describe('POST /api/tasks/:id/prepare-data', () => {
     it('queues a prepare-data job', async () => {
+      // First add posts to the task so prepare-data has something to process
+      await fetchApi(ctx.baseUrl, `/api/tasks/${taskId}/add-posts`, {
+        method: 'POST',
+        body: JSON.stringify({ post_ids: ['prep-post-1'] }),
+      });
+
       const res = await fetchApi(ctx.baseUrl, `/api/tasks/${taskId}/prepare-data`, {
         method: 'POST',
       });
