@@ -1010,10 +1010,10 @@ async function importMediaToDb(
   platformId: string,
   noteId?: string,
 ): Promise<number> {
-  const platform = getPlatformAdapter(platformId)?.directoryName ?? platformId.split('_')[0];
+  // Base path without platform subdirectory — opencli downloads directly here
   const downloadBase = noteId
-    ? path.join(config.paths.download_dir, platform, noteId)
-    : path.join(config.paths.download_dir, platform);
+    ? path.join(config.paths.download_dir, noteId)
+    : config.paths.download_dir;
 
   let count = 0;
   for (const item of data) {
@@ -1024,8 +1024,10 @@ async function importMediaToDb(
     const index = obj.index ?? count + 1;
     const mediaType = (obj.media_type ?? obj.type ?? 'image') as string;
     const ext = mediaType === 'video' ? 'mp4' : mediaType === 'audio' ? 'mp3' : 'jpg';
+    // Prefer actual path from opencli response, fall back to constructed path
     const localPath = (obj.local_path as string) ?? (obj.path as string) ?? (noteId ? `${downloadBase}/${noteId}_${index}.${ext}` : null);
-    const url = (obj.url as string) || localPath || '';
+    // Keep remote URL separate — never fall back to localPath for url field
+    const url = (obj.url as string) || '';
 
     try {
       await createMediaFile({
