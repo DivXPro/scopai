@@ -9,7 +9,7 @@ import { createMediaFile, listMediaFilesByPost } from '@scopai/core';
 import { createPlatform, listPlatforms } from '@scopai/core';
 import { createFieldMapping, listFieldMappings } from '@scopai/core';
 import { createStrategy, getStrategyById, listStrategies, validateStrategyJson, updateStrategy, deleteStrategy, parseJsonSchemaToColumns, createStrategyResultTable, syncStrategyResultTable } from '@scopai/core';
-import { enqueueJobs, getQueueStats, syncWaitingMediaJobs } from '@scopai/core';
+import { enqueueJobs, getQueueStats, syncWaitingMediaJobs, notifyJobAvailable } from '@scopai/core';
 import { getDbPath, query, run, checkpoint } from '@scopai/core';
 import { getLogger } from '@scopai/core';
 import { generateId, now, parseImportFile } from '@scopai/core';
@@ -515,39 +515,38 @@ export function getHandlers(): Record<string, Handler> {
 
     async 'task.prepareData'(params) {
       const taskId = params.task_id as string;
+      if (!taskId) throw new Error('task_id is required');
+
       const task = await getTaskById(taskId);
-      if (!task) throw new Error(`Task not found: ${taskId}`);
-      if (!task.cli_templates) throw new Error('Task has no CLI templates');
-
-      if (prepareDataRunning.has(taskId)) {
-        return { started: false, reason: 'Data preparation already in progress for this task' };
+      if (!task) throw new Error(`Task ${taskId} not found`);
+      if (!task.cli_templates || (typeof task.cli_templates === 'string' && Object.keys(JSON.parse(task.cli_templates)).length === 0)) {
+        throw new Error('Task has no CLI templates configured');
       }
 
-      let cliTemplates: { fetch_note: string; fetch_comments?: string; fetch_media?: string };
-      try {
-        const parsed = JSON.parse(task.cli_templates);
-        cliTemplates = parsed;
-      } catch (err: unknown) {
-        throw new Error(`Invalid cli_templates: ${err instanceof Error ? err.message : String(err)}`);
+      const pending = await getPendingPostIds(taskId);
+      if (pending.length === 0) {
+        return { started: false, jobCount: 0, message: 'No pending posts to prepare' };
       }
 
-      const hasNotePlaceholder = (tpl: string) => tpl.includes('{post_id}') || tpl.includes('{note_id}') || tpl.includes('{url}');
-      if (cliTemplates.fetch_note && !hasNotePlaceholder(cliTemplates.fetch_note)) {
-        throw new Error('fetch_note template must contain {post_id} or {note_id} placeholder');
-      }
-      if (cliTemplates.fetch_comments && !hasNotePlaceholder(cliTemplates.fetch_comments)) {
-        throw new Error('fetch_comments template must contain {post_id} or {note_id} placeholder');
-      }
-      if (cliTemplates.fetch_media && !hasNotePlaceholder(cliTemplates.fetch_media)) {
-        throw new Error('fetch_media template must contain {post_id} or {note_id} placeholder');
-      }
+      const jobs = pending.map(item => ({
+        id: generateId(),
+        task_id: taskId,
+        strategy_id: null as string | null,
+        target_type: 'prepare' as const,
+        target_id: item.post_id,
+        status: 'pending' as const,
+        priority: 0,
+        attempts: 0,
+        max_attempts: 3,
+        error: null as string | null,
+        created_at: now(),
+        processed_at: null as Date | null,
+      }));
 
-      prepareDataRunning.add(taskId);
-      // Run data preparation asynchronously so the CLI can poll status
-      runPrepareDataAsync(taskId, cliTemplates).finally(() => {
-        prepareDataRunning.delete(taskId);
-      }).catch(() => {});
-      return { started: true };
+      await enqueueJobs(jobs);
+      notifyJobAvailable();
+
+      return { started: true, jobCount: jobs.length };
     },
 
     async 'platform.list'() {
