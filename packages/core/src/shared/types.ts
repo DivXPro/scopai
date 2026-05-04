@@ -175,7 +175,7 @@ export interface QueueJob {
   id: string;
   task_id: string;
   strategy_id: string | null;
-  target_type: 'post' | 'comment' | 'media' | null;
+  target_type: 'post' | 'comment' | 'media' | 'prepare' | null;
   target_id: string | null;
   status: QueueStatus;
   priority: number;
