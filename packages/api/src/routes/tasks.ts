@@ -207,7 +207,7 @@ export default async function tasksRoutes(app: FastifyInstance) {
     const prepareJobs = allJobs.filter(j => j.target_type === 'prepare');
     const postStatuses = await getTaskPostStatuses(id);
 
-    const jobs = prepareJobs.map(j => {
+    const jobs = await Promise.all(prepareJobs.map(async (j) => {
       const postStatus = postStatuses.find(p => p.post_id === j.target_id);
       const post = j.target_id ? await getPostById(j.target_id) : null;
       return {
@@ -224,7 +224,7 @@ export default async function tasksRoutes(app: FastifyInstance) {
           media_fetched: postStatus?.media_fetched ?? false,
         },
       };
-    });
+    }));
 
     const completed = jobs.filter(j => j.status === 'completed').length;
     const processing = jobs.filter(j => j.status === 'processing').length;
