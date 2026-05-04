@@ -280,6 +280,7 @@ export function normalizePostItem(raw: unknown, platformId?: string): Normalized
 
   return {
     platform_post_id:
+      // aweme_id: safety net for douyin data when platformId is not provided
       pickString(obj, ['platform_post_id', 'noteId', 'id', 'aweme_id']) ?? null,
     title: pickString(obj, ['title']),
     content: pickString(obj, ['content', 'text', 'desc']) ?? '',

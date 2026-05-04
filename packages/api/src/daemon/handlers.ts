@@ -41,7 +41,7 @@ export function getHandlers(): Record<string, Handler> {
       }
 
       // Support opencli xiaohongshu note field-value array format: [{field, value}, ...]
-      const items = rawItems.map((raw) => normalizePostItem(raw));
+      const items = rawItems.map((raw) => normalizePostItem(raw, platformId));
 
       let imported = 0;
       let skipped = 0;
