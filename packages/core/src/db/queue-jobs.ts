@@ -31,7 +31,19 @@ export async function getNextJob(): Promise<QueueJob | null> {
   return rows[0] ?? null;
 }
 
-export async function getNextJobs(limit: number): Promise<QueueJob[]> {
+export async function getNextJobs(limit: number, targetType?: string): Promise<QueueJob[]> {
+  if (targetType) {
+    const rows = await query<QueueJob>(
+      `UPDATE queue_jobs
+       SET status = 'processing', attempts = attempts + 1
+       WHERE id IN (
+         SELECT id FROM queue_jobs WHERE status = 'pending' AND target_type = ? ORDER BY priority DESC, created_at ASC LIMIT ?
+       )
+       RETURNING *`,
+      [targetType, limit]
+    );
+    return rows;
+  }
   const rows = await query<QueueJob>(
     `UPDATE queue_jobs
      SET status = 'processing', attempts = attempts + 1
