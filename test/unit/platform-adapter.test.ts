@@ -164,16 +164,38 @@ describe('normalizePostItem with platformId', () => {
 
   it('should work without platformId (backward compatible)', () => {
     const raw = {
-      note_id: 'note123',
-      title: '测试小红书',
-      likes: '100',
-      author: '测试用户',
+      platform_post_id: 'post123',
+      title: '测试帖子',
+      like_count: 100,
+      author_name: '测试用户',
     };
 
     const result = normalizePostItem(raw);
-    assert.equal(result.platform_post_id, 'note123');
+    assert.equal(result.platform_post_id, 'post123');
     assert.equal(result.like_count, 100);
     assert.equal(result.author_name, '测试用户');
+  });
+
+  it('should not map platform-specific fields without platformId', () => {
+    const raw = {
+      note_id: 'note123',
+      likes: '100',
+    };
+
+    const result = normalizePostItem(raw);
+    assert.equal(result.platform_post_id, null);
+    assert.equal(result.like_count, 0);
+  });
+
+  it('should map platform-specific fields with platformId', () => {
+    const raw = {
+      note_id: 'note123',
+      likes: '100',
+    };
+
+    const result = normalizePostItem(raw, 'xhs');
+    assert.equal(result.platform_post_id, 'note123');
+    assert.equal(result.like_count, 100);
   });
 
   it('should use platform fieldMap to override base map', () => {

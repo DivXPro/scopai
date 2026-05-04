@@ -173,12 +173,6 @@ export function parseImportFile(filePath: string): unknown[] {
 // ── Post / Comment field normalization ──────────────────────────────────────
 
 export const POST_FIELD_MAP: Record<string, string> = {
-  likes: 'like_count',
-  collects: 'collect_count',
-  comments: 'comment_count',
-  shares: 'share_count',
-  plays: 'play_count',
-  note_id: 'platform_post_id',
   author: 'author_name',
   user_id: 'author_id',
   cover: 'cover_url',
@@ -280,16 +274,15 @@ export function normalizePostItem(raw: unknown, platformId?: string): Normalized
 
   return {
     platform_post_id:
-      // aweme_id: safety net for douyin data when platformId is not provided
-      pickString(obj, ['platform_post_id', 'noteId', 'id', 'aweme_id']) ?? null,
+      pickString(obj, ['platform_post_id', 'id']) ?? null,
     title: pickString(obj, ['title']),
     content: pickString(obj, ['content', 'text', 'desc']) ?? '',
-    author_id: pickString(obj, ['author_id', 'user_id']),
-    author_name: pickString(obj, ['author_name', 'author']),
+    author_id: pickString(obj, ['author_id']),
+    author_name: pickString(obj, ['author_name']),
     author_url: pickString(obj, ['author_url']),
     url: pickString(obj, ['url']),
-    cover_url: pickString(obj, ['cover_url', 'cover', 'cover_image']),
-    post_type: pickString(obj, ['post_type', 'type']),
+    cover_url: pickString(obj, ['cover_url']),
+    post_type: pickString(obj, ['post_type']),
     like_count: pickNumber(obj, 'like_count'),
     collect_count: pickNumber(obj, 'collect_count'),
     comment_count: pickNumber(obj, 'comment_count'),
