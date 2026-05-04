@@ -310,8 +310,16 @@ export interface NormalizedCommentItem {
   metadata: Record<string, unknown> | null;
 }
 
-export function normalizeCommentItem(raw: unknown): NormalizedCommentItem {
-  const obj = normalizeRawItem(raw, COMMENT_FIELD_MAP);
+export function normalizeCommentItem(raw: unknown, platformId?: string): NormalizedCommentItem {
+  let mergedFieldMap = COMMENT_FIELD_MAP;
+  if (platformId) {
+    const adapter = getPlatformAdapter(platformId);
+    if (adapter?.commentFieldMap) {
+      mergedFieldMap = { ...COMMENT_FIELD_MAP, ...adapter.commentFieldMap };
+    }
+  }
+
+  const obj = normalizeRawItem(raw, mergedFieldMap);
 
   return {
     platform_comment_id: pickString(obj, ['platform_comment_id', 'id']),

@@ -4,7 +4,7 @@ export const douyinAdapter: PlatformAdapter = {
   id: 'douyin',
   defaultTemplates: {
     fetchNote: '',
-    fetchComments: '',
+    fetchComments: 'opencli douyin comment {url} --limit {limit} -f json',
     fetchMedia: 'opencli douyin download {url} --output {download_dir}/{platform} -f json',
   },
   creatorTemplates: {
@@ -35,4 +35,15 @@ export const douyinAdapter: PlatformAdapter = {
     desc: 'bio',
     secUid: 'platform_creator_id',
   },
+  commentFieldMap: {
+    cid: 'platform_comment_id',
+    text: 'content',
+    diggCount: 'like_count',
+    nickname: 'author_name',
+    secUid: 'author_id',
+    uid: 'author_id',
+    replyCommentTotal: 'reply_count',
+    createTime: 'published_at',
+  },
+  homepageUrlTemplate: 'https://www.douyin.com/user/{platform_creator_id}',
 };

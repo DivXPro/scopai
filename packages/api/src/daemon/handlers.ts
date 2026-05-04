@@ -156,7 +156,7 @@ export function getHandlers(): Record<string, Handler> {
       let skipped = 0;
       for (const rawItem of rawItems) {
         try {
-          const item = normalizeCommentItem(rawItem);
+          const item = normalizeCommentItem(rawItem, platformId);
           await createComment({
             post_id: postId,
             platform_id: platformId,
@@ -1126,7 +1126,7 @@ async function importCommentsToDb(
   let count = 0;
   for (const rawItem of data) {
     try {
-      const item = normalizeCommentItem(rawItem);
+      const item = normalizeCommentItem(rawItem, platformId);
       await createComment({
         post_id: postId,
         platform_id: platformId,

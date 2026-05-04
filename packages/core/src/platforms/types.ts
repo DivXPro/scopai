@@ -16,4 +16,6 @@ export interface PlatformAdapter {
   directoryName: string;
   fieldMap: Record<string, string>;
   profileFieldMap?: Record<string, string>;
+  commentFieldMap?: Record<string, string>;
+  homepageUrlTemplate?: string;
 }

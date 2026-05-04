@@ -29,4 +29,14 @@ export const xhsAdapter: PlatformAdapter = {
     bio: 'bio',
     redId: 'platform_creator_id',
   },
+  commentFieldMap: {
+    id: 'platform_comment_id',
+    content: 'content',
+    likes: 'like_count',
+    username: 'author_name',
+    userId: 'author_id',
+    subCommentCount: 'reply_count',
+    createTime: 'published_at',
+  },
+  homepageUrlTemplate: 'https://www.xiaohongshu.com/user/profile/{platform_creator_id}',
 };

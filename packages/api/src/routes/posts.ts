@@ -163,7 +163,7 @@ export default async function postsRoutes(app: FastifyInstance) {
     let skipped = 0;
     for (const rawItem of body.comments) {
       try {
-        const item = normalizeCommentItem(rawItem);
+        const item = normalizeCommentItem(rawItem, platformId || undefined);
         await createComment({
           post_id: postId,
           platform_id: platformId,

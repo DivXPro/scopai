@@ -83,10 +83,11 @@ async function fetchProfile(
   authorId: string,
 ): Promise<{ template: string; vars: Record<string, string> } | null> {
   const platform = await getPlatformById(platformId);
-  if (!platform) return null;
-  if (!platform.profile_fetch_template) return null;
+  const adapterDefault = getPlatformAdapter(platformId)?.creatorTemplates?.profileFetch ?? '';
+  const template = platform?.profile_fetch_template || adapterDefault;
+  if (!template) return null;
   return {
-    template: platform.profile_fetch_template,
+    template,
     vars: { author_id: authorId },
   };
 }
@@ -97,12 +98,13 @@ async function fetchPosts(
   since?: Date,
 ): Promise<{ template: string; vars: Record<string, string> } | null> {
   const platform = await getPlatformById(platformId);
-  if (!platform) return null;
-  if (!platform.posts_fetch_template) return null;
+  const adapterDefault = getPlatformAdapter(platformId)?.creatorTemplates?.postsFetch ?? '';
+  const template = platform?.posts_fetch_template || adapterDefault;
+  if (!template) return null;
   const vars: Record<string, string> = { author_id: authorId };
   if (since) vars.since = since.toISOString();
   return {
-    template: platform.posts_fetch_template,
+    template,
     vars,
   };
 }
@@ -172,12 +174,8 @@ export async function processCreatorProfileSyncJob(job: CreatorSyncJob, workerId
         profile.following_count = typeof v === 'string' ? parseInt(v, 10) : Number(v);
       }
       if (normalized.bio) profile.bio = String(normalized.bio);
-      // Platform-specific homepage URL construction
-      if (creator.platform_id === 'xhs' && normalized.platform_creator_id) {
-        profile.homepage_url = `https://www.xiaohongshu.com/user/profile/${normalized.platform_creator_id}`;
-      }
-      if (creator.platform_id === 'douyin' && normalized.platform_creator_id) {
-        profile.homepage_url = `https://www.douyin.com/user/${normalized.platform_creator_id}`;
+      if (normalized.platform_creator_id && adapter?.homepageUrlTemplate) {
+        profile.homepage_url = adapter.homepageUrlTemplate.replace('{platform_creator_id}', String(normalized.platform_creator_id));
       }
     } else {
       // Fallback: legacy hardcoded mapping (for platforms without profileFieldMap)
