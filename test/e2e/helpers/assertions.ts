@@ -19,7 +19,7 @@ export async function pollUntil<T>(
 export async function waitForDataPreparation(taskId: string, timeoutMs = 60000): Promise<void> {
   await pollUntil(
     async () => {
-      const { stdout } = await runCli(['task', 'show', '--task-id', taskId]);
+      const { stdout } = await runCli(['task', 'show', taskId]);
       return stdout;
     },
     (stdout) => stdout.includes('Status:      completed') || (stdout.includes('Data Preparation:') && stdout.includes('done')),
@@ -30,7 +30,7 @@ export async function waitForDataPreparation(taskId: string, timeoutMs = 60000):
 export async function waitForAnalysisComplete(taskId: string, timeoutMs = 120000): Promise<void> {
   await pollUntil(
     async () => {
-      const { stdout } = await runCli(['task', 'show', '--task-id', taskId]);
+      const { stdout } = await runCli(['task', 'show', taskId]);
       return stdout;
     },
     (stdout) => {

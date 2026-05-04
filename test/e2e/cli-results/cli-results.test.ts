@@ -123,7 +123,7 @@ describe('cli-results-commands', { timeout: 90000 }, () => {
   describe('task results', () => {
     it('should auto-detect strategy from task steps and show results', async () => {
       const { stdout, stderr, exitCode } = await runCli([
-        'task', 'results', '--task-id', taskId,
+        'task', 'results', taskId,
       ]);
 
       assert.equal(exitCode, 0, `task results should succeed. stderr: ${stderr}`);
@@ -136,7 +136,7 @@ describe('cli-results-commands', { timeout: 90000 }, () => {
 
     it('should work with explicit --strategy-id', async () => {
       const { stdout, stderr, exitCode } = await runCli([
-        'task', 'results', '--task-id', taskId, '--strategy-id', strategyId,
+        'task', 'results', taskId, '--strategy-id', strategyId,
       ]);
 
       assert.equal(exitCode, 0, `task results with strategy-id should succeed. stderr: ${stderr}`);
@@ -145,7 +145,7 @@ describe('cli-results-commands', { timeout: 90000 }, () => {
 
     it('should fail gracefully for nonexistent task', async () => {
       const { stderr, exitCode } = await runCli([
-        'task', 'results', '--task-id', 'nonexistent-task-id',
+        'task', 'results', 'nonexistent-task-id',
       ]);
 
       assert.notEqual(exitCode, 0, 'Should fail for nonexistent task');
