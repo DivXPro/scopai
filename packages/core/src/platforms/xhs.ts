@@ -4,7 +4,7 @@ export const xhsAdapter: PlatformAdapter = {
   id: 'xhs',
   defaultTemplates: {
     fetchNote: 'opencli xiaohongshu note {url} -f json',
-    fetchComments: 'opencli xiaohongshu comments {note_id} --limit {limit} -f json',
+    fetchComments: 'opencli xiaohongshu comments {url} --limit {limit} --with-replies true -f json',
     fetchMedia: 'opencli xiaohongshu download {url} --output {download_dir}/{platform} -f json',
   },
   creatorTemplates: {
@@ -39,4 +39,9 @@ export const xhsAdapter: PlatformAdapter = {
     createTime: 'published_at',
   },
   homepageUrlTemplate: 'https://www.xiaohongshu.com/user/profile/{platform_creator_id}',
+  extractNoteId: (url: string): string | undefined => {
+    // Match xiaohongshu note URLs: /explore/{noteId} or /search_result/{noteId} or /discovery/item/{noteId}
+    const match = url.match(/xiaohongshu\.com\/(?:explore|search_result|discovery\/item)\/([a-f0-9]{24})/i);
+    return match?.[1];
+  },
 };

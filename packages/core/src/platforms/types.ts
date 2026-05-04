@@ -18,4 +18,6 @@ export interface PlatformAdapter {
   profileFieldMap?: Record<string, string>;
   commentFieldMap?: Record<string, string>;
   homepageUrlTemplate?: string;
+  /** Extract the platform's native note/post ID from a URL or other identifier */
+  extractNoteId?: (url: string) => string | undefined;
 }

@@ -55,39 +55,15 @@ export default async function mediaRoutes(app: FastifyInstance) {
       return { error: 'Forbidden path' };
     }
 
-    let resolvedPath = abs;
-    if (!existsSync(resolvedPath)) {
-      // opencli may have downloaded directly under download_dir/{noteId}/
-      // instead of download_dir/{platform}/{noteId}/ — try without platform segment
-      for (const root of allowedRoots) {
-        if (abs.startsWith(root + path.sep)) {
-          const relative = abs.slice(root.length + 1);
-          const parts = relative.split(path.sep);
-          if (parts.length >= 2) {
-            const candidate = path.join(root, ...parts.slice(1));
-            if (existsSync(candidate)) {
-              resolvedPath = candidate;
-              break;
-            }
-          }
-        }
-      }
-    }
-
-    if (!existsSync(resolvedPath)) {
+    if (!existsSync(abs)) {
       reply.code(404);
       return { error: 'File missing on disk' };
     }
 
-    if (!allowedRoots.some((root) => isInsideRoot(resolvedPath, root))) {
-      reply.code(403);
-      return { error: 'Forbidden path' };
-    }
-
-    const stat = statSync(resolvedPath);
-    reply.header('Content-Type', guessMime(media.media_type, resolvedPath));
+    const stat = statSync(abs);
+    reply.header('Content-Type', guessMime(media.media_type, abs));
     reply.header('Content-Length', String(stat.size));
     reply.header('Cache-Control', 'private, max-age=3600');
-    return reply.send(createReadStream(resolvedPath));
+    return reply.send(createReadStream(abs));
   });
 }

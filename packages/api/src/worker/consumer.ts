@@ -185,12 +185,15 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
   if (!task) throw new Error(`Task ${taskId} not found`);
 
   // Parse CLI templates
-  let cliTemplates: { fetch_note: string; fetch_comments?: string; fetch_media?: string };
-  try {
-    const raw = typeof task.cli_templates === 'string' ? task.cli_templates : JSON.stringify(task.cli_templates);
-    cliTemplates = JSON.parse(raw);
-  } catch {
-    throw new Error(`Task ${taskId} has invalid cli_templates`);
+  let cliTemplates: { fetch_note: string; fetch_comments?: string; fetch_media?: string } = { fetch_note: '' };
+  if (task.cli_templates) {
+    try {
+      const raw = typeof task.cli_templates === 'string' ? task.cli_templates : JSON.stringify(task.cli_templates);
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') cliTemplates = parsed;
+    } catch {
+      throw new Error(`Task ${taskId} has invalid cli_templates`);
+    }
   }
 
   const postMeta = await getPostById(postId);
@@ -198,16 +201,8 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
 
   const platformId = postMeta.platform_id;
 
-  // Resolve noteId and construct fetchVars
-  let metadataObj: Record<string, unknown> | null = null;
-  if (postMeta.metadata) {
-    if (typeof postMeta.metadata === 'string') {
-      try { metadataObj = JSON.parse(postMeta.metadata); } catch { /* ignore */ }
-    } else if (typeof postMeta.metadata === 'object' && postMeta.metadata !== null) {
-      metadataObj = postMeta.metadata as Record<string, unknown>;
-    }
-  }
-  const noteId = (metadataObj?.note_id as string | undefined) ?? postMeta.platform_post_id ?? undefined;
+  // Resolve noteId (platform_post_id is set correctly at import time via extractNoteId)
+  const noteId = postMeta.platform_post_id ?? undefined;
   const postUrl = postMeta.url ?? undefined;
   const platformDir = getPlatformAdapter(platformId)?.directoryName ?? platformId.split('_')[0];
   const fetchVars: Record<string, string> = {
@@ -228,7 +223,7 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
   const fetchNoteTemplate = cliTemplates.fetch_note || getPlatformAdapter(platformId)?.defaultTemplates.fetchNote || '';
   if (fetchNoteTemplate) {
     logger.info(`[Worker-${workerId}] Post ${postId}: Step 1 fetch_note`);
-    const noteResult = await fetchViaOpencli(cliTemplates.fetch_note, fetchVars);
+    const noteResult = await fetchViaOpencli(fetchNoteTemplate, fetchVars);
     if (!noteResult.success) {
       throw new Error(`fetch_note failed for post ${postId}: ${noteResult.error ?? 'unknown'}`);
     }
@@ -263,10 +258,11 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
 
   // Step 2: fetch_comments
   const currentStatus = await getTaskPostStatus(taskId, postId);
-  if (cliTemplates.fetch_comments) {
+  const fetchCommentsTemplate = cliTemplates.fetch_comments || getPlatformAdapter(platformId)?.defaultTemplates.fetchComments || '';
+  if (fetchCommentsTemplate) {
     if (!currentStatus?.comments_fetched) {
       logger.info(`[Worker-${workerId}] Post ${postId}: Step 2 fetch_comments`);
-      const result = await fetchViaOpencli(cliTemplates.fetch_comments, fetchVars);
+      const result = await fetchViaOpencli(fetchCommentsTemplate, fetchVars);
       if (!result.success) {
         throw new Error(`fetch_comments failed for post ${postId}: ${result.error ?? 'unknown'}`);
       }

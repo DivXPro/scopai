@@ -200,6 +200,17 @@ describe('xhs adapter', () => {
     assert.equal(adapter!.commentFieldMap!.subCommentCount, 'reply_count');
     assert.equal(adapter!.commentFieldMap!.createTime, 'published_at');
   });
+
+  it('should extract noteId from xhs URLs', () => {
+    const adapter = getPlatformAdapter('xhs');
+    assert.ok(adapter);
+    assert.ok(adapter!.extractNoteId);
+    assert.equal(adapter!.extractNoteId!('https://www.xiaohongshu.com/explore/6879dfb6000000001201786a'), '6879dfb6000000001201786a');
+    assert.equal(adapter!.extractNoteId!('https://www.xiaohongshu.com/search_result/6879dfb6000000001201786a?xsec_token=abc'), '6879dfb6000000001201786a');
+    assert.equal(adapter!.extractNoteId!('https://www.xiaohongshu.com/discovery/item/6879dfb6000000001201786a'), '6879dfb6000000001201786a');
+    assert.equal(adapter!.extractNoteId!('https://www.xiaohongshu.com/user/profile/abc123'), undefined);
+    assert.equal(adapter!.extractNoteId!('not-a-url'), undefined);
+  });
 });
 
 // ── bilibili adapter ───────────────────────────────────────────────────────

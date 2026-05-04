@@ -44,7 +44,12 @@ export function getHandlers(): Record<string, Handler> {
       const postIds: string[] = [];
 
       for (const item of items) {
-        const platformPostId = item.platform_post_id ?? generateId();
+        let platformPostId = item.platform_post_id;
+        if (!platformPostId && item.url) {
+          const adapter = getPlatformAdapter(platformId);
+          if (adapter?.extractNoteId) platformPostId = adapter.extractNoteId(item.url);
+        }
+        if (!platformPostId) platformPostId = generateId();
         const existing = await query<{ id: string }>(
           'SELECT id FROM posts WHERE platform_id = ? AND platform_post_id = ?',
           [platformId, platformPostId],
@@ -1003,10 +1008,11 @@ export async function importMediaToDb(
   platformId: string,
   noteId?: string,
 ): Promise<number> {
-  // Base path without platform subdirectory — opencli downloads directly here
+  // opencli downloads to {download_dir}/{platform}/{noteId}/ when --output {download_dir}/{platform} is used
+  const platformDir = getPlatformAdapter(platformId)?.directoryName ?? platformId.split('_')[0];
   const downloadBase = noteId
-    ? path.join(config.paths.download_dir, noteId)
-    : config.paths.download_dir;
+    ? path.join(config.paths.download_dir, platformDir, noteId)
+    : path.join(config.paths.download_dir, platformDir);
 
   let count = 0;
   for (const item of data) {

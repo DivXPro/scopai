@@ -12,6 +12,7 @@ import {
   getTaskById, addTaskTargets, upsertTaskPostStatus,
   normalizePostItem, normalizeCommentItem,
   getLogger,
+  getPlatformAdapter,
 } from '@scopai/core';
 
 export default async function postsRoutes(app: FastifyInstance) {
@@ -71,7 +72,12 @@ export default async function postsRoutes(app: FastifyInstance) {
     for (const rawItem of body.posts) {
       const platformId = (rawItem as Record<string, unknown>).platform_id as string;
       const item = normalizePostItem(rawItem, platformId);
-      const platformPostId = item.platform_post_id ?? generateId();
+      let platformPostId = item.platform_post_id;
+      if (!platformPostId && item.url) {
+        const adapter = getPlatformAdapter(platformId);
+        if (adapter?.extractNoteId) platformPostId = adapter.extractNoteId(item.url);
+      }
+      if (!platformPostId) platformPostId = generateId();
 
       const existing = await query<{ id: string }>(
         'SELECT id FROM posts WHERE platform_id = ? AND platform_post_id = ?',
