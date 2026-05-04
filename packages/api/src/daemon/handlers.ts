@@ -516,9 +516,6 @@ export function getHandlers(): Record<string, Handler> {
 
       const task = await getTaskById(taskId);
       if (!task) throw new Error(`Task ${taskId} not found`);
-      if (!task.cli_templates || (typeof task.cli_templates === 'string' && Object.keys(JSON.parse(task.cli_templates)).length === 0)) {
-        throw new Error('Task has no CLI templates configured');
-      }
 
       const pending = await getPendingPostIds(taskId);
       if (pending.length === 0) {
