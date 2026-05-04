@@ -36,7 +36,7 @@ Run these **in order** before any workflow:
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 5 | **create_task** | `scopai task create --name {name} [--cli-templates '{...}']` | Create task before adding steps. **Required template**: `fetch_note` (enriches post content). Optional: `fetch_comments`, `fetch_media`. `fetch_media` has platform-aware defaults (xiaohongshu/douyin/bilibili) and can be omitted. |
+| 5 | **create_task** | `scopai task create --name {name} [--cli-templates '{...}']` | Create task before adding steps. Templates: `fetch_note` (optional — enriches post content, skipped if empty), `fetch_comments` (optional), `fetch_media` (optional — has platform-aware defaults). For douyin, `fetch_note` can be empty since search results already contain full post data. |
 | 6 | **add_step_to_task** | `scopai task step add --task-id {tid} --strategy-id {sid} [--name {n}] [--order {n}]` | Add each strategy the user needs. |
 | 7 | **list_strategies** | `scopai strategy list` | Check available strategy IDs before adding steps. |
 
@@ -44,7 +44,7 @@ Run these **in order** before any workflow:
 
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
-| 8 | **prepare_task_data** | `scopai task prepare-data {tid}` | Fetch full post details, comments, and media. Media downloads automatically use platform defaults if `fetch_media` is not configured. **Resumable** — continues from unfinished posts on retry. Fails if `cli_templates` lacks `fetch_note`. |
+| 8 | **prepare_task_data** | `scopai task prepare-data {tid}` | Fetch full post details, comments, and media. Runs 3 steps per post: fetch_note (skipped if template empty, e.g. douyin where search already covers note data), fetch_comments (skipped if empty), fetch_media (uses platform defaults if not configured). **Resumable** — continues from unfinished posts on retry. |
 
 ### Phase 4: Analysis Execution
 
@@ -111,7 +111,7 @@ Run these **in order** before any workflow:
 | 32 | **creator_pause/resume** | `scopai creator pause|resume --id {id}` | Pause/resume automatic sync. |
 | 33 | **creator_remove** | `scopai creator remove --id {id}` | Unsubscribe from a creator. |
 
-> **Creator sync pipeline**: Independent from task/queue pipeline. Worker polls `creator_sync_jobs` directly, fetches posts via `opencli` (e.g., `opencli xiaohongshu user {author_id} --format json`), normalizes via field mappings, and upserts into `posts` table.
+> **Creator sync pipeline**: Independent from task/queue pipeline. Worker polls `creator_sync_jobs` directly, fetches posts via `opencli` (e.g., `opencli xiaohongshu user {author_id} --format json`, `opencli douyin user-videos {author_id} --limit {limit} -f json`), normalizes via platform adapter fieldMap, and upserts into `posts` table. Profile sync uses adapter's profileFieldMap and homepageUrlTemplate.
 
 ### Advanced: Create Strategy
 
@@ -313,5 +313,5 @@ scopai task step run --task-id <tid> --step-id <sid> --wait
 2. **Never use direct database access** (e.g., `node -e` scripts opening DuckDB). Always use CLI commands.
 3. **Rate limit (429) recovery**: workers auto-requeue with exponential backoff. Only intervene when status becomes `failed` after all retries.
 4. **Platform check first**: always `scopai platform list` before `platform add` to avoid "already exists" errors.
-5. **Do NOT manually fetch note details before import**: let `prepare-data` handle enrichment via the `fetch_note` template.
+5. **Do NOT manually fetch note details before import** (for xhs): let `prepare-data` handle enrichment via the `fetch_note` template. For douyin, search results already contain full data so `fetch_note` can be empty.
 6. **Daemon = API server**: `scopai daemon start` launches the unified API server (Fastify + in-process workers). CLI commands communicate via HTTP, not IPC.

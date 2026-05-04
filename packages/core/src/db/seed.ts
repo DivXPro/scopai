@@ -2,6 +2,7 @@ import { upsertPlatform, updatePlatform } from './platforms';
 import { createFieldMapping } from './field-mappings';
 import { PLATFORMS } from '../shared/constants';
 import { generateId } from '../shared/utils';
+import { getAllPlatformAdapters } from '../platforms';
 
 interface FieldMapDef {
   entity_type: 'post' | 'comment';
@@ -151,18 +152,12 @@ export async function seedAll(): Promise<void> {
 }
 
 async function seedPlatformSyncTemplates(): Promise<void> {
-  const templates: Record<string, { profile?: string; posts?: string }> = {
-    xhs: {
-      profile: 'opencli xiaohongshu user-info {author_id} --format json',
-      posts: 'opencli xiaohongshu user {author_id} --format json',
-    },
-  };
-
-  for (const [platformId, tpl] of Object.entries(templates)) {
-    if (tpl.profile || tpl.posts) {
-      await updatePlatform(platformId, {
-        profile_fetch_template: tpl.profile ?? null,
-        posts_fetch_template: tpl.posts ?? null,
+  for (const adapter of getAllPlatformAdapters()) {
+    if (adapter.creatorTemplates) {
+      const { profileFetch, postsFetch } = adapter.creatorTemplates;
+      await updatePlatform(adapter.id, {
+        profile_fetch_template: profileFetch ?? null,
+        posts_fetch_template: postsFetch ?? null,
       });
     }
   }

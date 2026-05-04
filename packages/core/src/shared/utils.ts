@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
+import { getPlatformAdapter } from '../platforms';
 
 export function generateId(): string {
   return uuidv4();
@@ -171,13 +172,7 @@ export function parseImportFile(filePath: string): unknown[] {
 
 // ── Post / Comment field normalization ──────────────────────────────────────
 
-const POST_FIELD_MAP: Record<string, string> = {
-  likes: 'like_count',
-  collects: 'collect_count',
-  comments: 'comment_count',
-  shares: 'share_count',
-  plays: 'play_count',
-  note_id: 'platform_post_id',
+export const POST_FIELD_MAP: Record<string, string> = {
   author: 'author_name',
   user_id: 'author_id',
   cover: 'cover_url',
@@ -266,20 +261,28 @@ export interface NormalizedPostItem {
   metadata: Record<string, unknown> | null;
 }
 
-export function normalizePostItem(raw: unknown): NormalizedPostItem {
-  const obj = normalizeRawItem(raw, POST_FIELD_MAP);
+export function normalizePostItem(raw: unknown, platformId?: string): NormalizedPostItem {
+  let mergedFieldMap = POST_FIELD_MAP;
+  if (platformId) {
+    const adapter = getPlatformAdapter(platformId);
+    if (adapter) {
+      mergedFieldMap = { ...POST_FIELD_MAP, ...adapter.fieldMap };
+    }
+  }
+
+  const obj = normalizeRawItem(raw, mergedFieldMap);
 
   return {
     platform_post_id:
-      pickString(obj, ['platform_post_id', 'noteId', 'id']) ?? null,
+      pickString(obj, ['platform_post_id', 'id']) ?? null,
     title: pickString(obj, ['title']),
     content: pickString(obj, ['content', 'text', 'desc']) ?? '',
-    author_id: pickString(obj, ['author_id', 'user_id']),
-    author_name: pickString(obj, ['author_name', 'author']),
+    author_id: pickString(obj, ['author_id']),
+    author_name: pickString(obj, ['author_name']),
     author_url: pickString(obj, ['author_url']),
     url: pickString(obj, ['url']),
-    cover_url: pickString(obj, ['cover_url', 'cover', 'cover_image']),
-    post_type: pickString(obj, ['post_type', 'type']),
+    cover_url: pickString(obj, ['cover_url']),
+    post_type: pickString(obj, ['post_type']),
     like_count: pickNumber(obj, 'like_count'),
     collect_count: pickNumber(obj, 'collect_count'),
     comment_count: pickNumber(obj, 'comment_count'),
@@ -307,8 +310,16 @@ export interface NormalizedCommentItem {
   metadata: Record<string, unknown> | null;
 }
 
-export function normalizeCommentItem(raw: unknown): NormalizedCommentItem {
-  const obj = normalizeRawItem(raw, COMMENT_FIELD_MAP);
+export function normalizeCommentItem(raw: unknown, platformId?: string): NormalizedCommentItem {
+  let mergedFieldMap = COMMENT_FIELD_MAP;
+  if (platformId) {
+    const adapter = getPlatformAdapter(platformId);
+    if (adapter?.commentFieldMap) {
+      mergedFieldMap = { ...COMMENT_FIELD_MAP, ...adapter.commentFieldMap };
+    }
+  }
+
+  const obj = normalizeRawItem(raw, mergedFieldMap);
 
   return {
     platform_comment_id: pickString(obj, ['platform_comment_id', 'id']),

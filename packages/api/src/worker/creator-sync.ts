@@ -11,22 +11,11 @@ import {
   fetchViaOpencli,
   updateCreator,
   parseChineseNumber,
+  getPlatformAdapter,
+  POST_FIELD_MAP,
 } from '@scopai/core';
 import type { CreatorSyncJob } from '@scopai/core';
 import { getLogger } from '@scopai/core';
-
-const FIELD_NAME_MAP: Record<string, string> = {
-  likes: 'like_count',
-  collects: 'collect_count',
-  comments: 'comment_count',
-  shares: 'share_count',
-  plays: 'play_count',
-  note_id: 'platform_post_id',
-  author: 'author_name',
-  user_id: 'author_id',
-  cover: 'cover_url',
-  cover_image: 'cover_url',
-};
 
 interface RawPostItem {
   platform_post_id?: string;
@@ -76,12 +65,12 @@ function normalizeRawPost(
   for (const mapping of mappings) {
     const rawValue = raw[mapping.platform_field];
     if (rawValue !== undefined) {
-      const systemField = FIELD_NAME_MAP[mapping.system_field] ?? mapping.system_field;
+      const systemField = POST_FIELD_MAP[mapping.system_field] ?? mapping.system_field;
       result[systemField] = rawValue;
     }
   }
   for (const key of Object.keys(raw)) {
-    const mapped = FIELD_NAME_MAP[key] ?? key;
+    const mapped = POST_FIELD_MAP[key] ?? key;
     if (result[mapped] === undefined) {
       result[mapped] = raw[key];
     }
@@ -94,10 +83,11 @@ async function fetchProfile(
   authorId: string,
 ): Promise<{ template: string; vars: Record<string, string> } | null> {
   const platform = await getPlatformById(platformId);
-  if (!platform) return null;
-  if (!platform.profile_fetch_template) return null;
+  const adapterDefault = getPlatformAdapter(platformId)?.creatorTemplates?.profileFetch ?? '';
+  const template = platform?.profile_fetch_template || adapterDefault;
+  if (!template) return null;
   return {
-    template: platform.profile_fetch_template,
+    template,
     vars: { author_id: authorId },
   };
 }
@@ -108,18 +98,16 @@ async function fetchPosts(
   since?: Date,
 ): Promise<{ template: string; vars: Record<string, string> } | null> {
   const platform = await getPlatformById(platformId);
-  if (!platform) return null;
-  if (!platform.posts_fetch_template) return null;
+  const adapterDefault = getPlatformAdapter(platformId)?.creatorTemplates?.postsFetch ?? '';
+  const template = platform?.posts_fetch_template || adapterDefault;
+  if (!template) return null;
   const vars: Record<string, string> = { author_id: authorId };
   if (since) vars.since = since.toISOString();
   return {
-    template: platform.posts_fetch_template,
+    template,
     vars,
   };
 }
-
-// Fallback templates for platforms not yet configured in DB
-const FALLBACK_POSTS_TEMPLATE = 'opencli xiaohongshu user {author_id} --format json';
 
 export async function processCreatorProfileSyncJob(job: CreatorSyncJob, workerId: number): Promise<void> {
   const logger = getLogger();
@@ -164,18 +152,45 @@ export async function processCreatorProfileSyncJob(job: CreatorSyncJob, workerId
     const raw = rawItems[0] as Record<string, unknown>;
     const profile: Parameters<typeof updateCreator>[1] = {};
 
-    // Map user-info fields to creator fields
-    const rawProfile = raw as RawProfileItem;
-    if (rawProfile.name) profile.author_name = rawProfile.name;
-    if (rawProfile.avatar) profile.avatar_url = rawProfile.avatar;
-    if (rawProfile.followers !== undefined) {
-      profile.follower_count = typeof rawProfile.followers === 'string' ? parseInt(rawProfile.followers, 10) : rawProfile.followers;
+    // Use adapter's profileFieldMap to normalize, then extract known fields
+    const adapter = getPlatformAdapter(creator.platform_id);
+    const profileFieldMap = adapter?.profileFieldMap;
+    if (profileFieldMap) {
+      const normalized: Record<string, unknown> = {};
+      for (const key of Object.keys(raw)) {
+        const mapped = profileFieldMap[key] ?? key;
+        if (normalized[mapped] === undefined) {
+          normalized[mapped] = raw[key];
+        }
+      }
+      if (normalized.author_name) profile.author_name = String(normalized.author_name);
+      if (normalized.avatar_url) profile.avatar_url = String(normalized.avatar_url);
+      if (normalized.follower_count !== undefined) {
+        const v = normalized.follower_count;
+        profile.follower_count = typeof v === 'string' ? parseInt(v, 10) : Number(v);
+      }
+      if (normalized.following_count !== undefined) {
+        const v = normalized.following_count;
+        profile.following_count = typeof v === 'string' ? parseInt(v, 10) : Number(v);
+      }
+      if (normalized.bio) profile.bio = String(normalized.bio);
+      if (normalized.platform_creator_id && adapter?.homepageUrlTemplate) {
+        profile.homepage_url = adapter.homepageUrlTemplate.replace('{platform_creator_id}', String(normalized.platform_creator_id));
+      }
+    } else {
+      // Fallback: legacy hardcoded mapping (for platforms without profileFieldMap)
+      const rawProfile = raw as RawProfileItem;
+      if (rawProfile.name) profile.author_name = rawProfile.name;
+      if (rawProfile.avatar) profile.avatar_url = rawProfile.avatar;
+      if (rawProfile.followers !== undefined) {
+        profile.follower_count = typeof rawProfile.followers === 'string' ? parseInt(rawProfile.followers, 10) : rawProfile.followers;
+      }
+      if (rawProfile.following !== undefined) {
+        profile.following_count = typeof rawProfile.following === 'string' ? parseInt(rawProfile.following, 10) : rawProfile.following;
+      }
+      if (rawProfile.redId) profile.homepage_url = `https://www.xiaohongshu.com/user/profile/${rawProfile.redId}`;
+      if (rawProfile.bio) profile.bio = rawProfile.bio;
     }
-    if (rawProfile.following !== undefined) {
-      profile.following_count = typeof rawProfile.following === 'string' ? parseInt(rawProfile.following, 10) : rawProfile.following;
-    }
-    if (rawProfile.redId) profile.homepage_url = `https://www.xiaohongshu.com/user/profile/${rawProfile.redId}`;
-    if (rawProfile.bio) profile.bio = rawProfile.bio;
 
     if (Object.keys(profile).length > 0) {
       await updateCreator(creator.id, profile);
@@ -242,8 +257,9 @@ export async function processCreatorSyncJob(job: CreatorSyncJob, workerId: numbe
     const platform = await getPlatformById(creator.platform_id);
     if (!platform) throw new Error(`Platform ${creator.platform_id} not found`);
 
-    // Try to get posts_fetch_template from platform, fallback to default
-    let postsTemplate = platform.posts_fetch_template ?? FALLBACK_POSTS_TEMPLATE;
+    // Try to get posts_fetch_template from platform, fallback to adapter default
+    const adapterDefault = getPlatformAdapter(platform.id)?.creatorTemplates?.postsFetch ?? '';
+    let postsTemplate = platform.posts_fetch_template || adapterDefault;
 
     const mappings = await listCreatorFieldMappings(creator.platform_id);
 

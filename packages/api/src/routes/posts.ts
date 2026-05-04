@@ -69,8 +69,8 @@ export default async function postsRoutes(app: FastifyInstance) {
     const postIds: string[] = [];
 
     for (const rawItem of body.posts) {
-      const item = normalizePostItem(rawItem);
       const platformId = (rawItem as Record<string, unknown>).platform_id as string;
+      const item = normalizePostItem(rawItem, platformId);
       const platformPostId = item.platform_post_id ?? generateId();
 
       const existing = await query<{ id: string }>(
@@ -182,7 +182,7 @@ export default async function postsRoutes(app: FastifyInstance) {
     let skipped = 0;
     for (const rawItem of body.comments) {
       try {
-        const item = normalizeCommentItem(rawItem);
+        const item = normalizeCommentItem(rawItem, platformId || undefined);
         await createComment({
           post_id: postId,
           platform_id: platformId,

@@ -17,7 +17,7 @@ import { fetchViaOpencli } from '@scopai/core';
 import { getExistingResultIds } from '@scopai/core';
 import { getTaskPostStatus } from '@scopai/core';
 import { config } from '@scopai/core';
-import { normalizePostItem, normalizeCommentItem } from '@scopai/core';
+import { normalizePostItem, normalizeCommentItem, getPlatformAdapter } from '@scopai/core';
 import type { QueueJob } from '@scopai/core';
 
 // Track in-flight prepare-data tasks to prevent concurrent execution
@@ -40,7 +40,7 @@ export function getHandlers(): Record<string, Handler> {
       }
 
       // Support opencli xiaohongshu note field-value array format: [{field, value}, ...]
-      const items = rawItems.map((raw) => normalizePostItem(raw));
+      const items = rawItems.map((raw) => normalizePostItem(raw, platformId));
 
       let imported = 0;
       let skipped = 0;
@@ -155,7 +155,7 @@ export function getHandlers(): Record<string, Handler> {
       let skipped = 0;
       for (const rawItem of rawItems) {
         try {
-          const item = normalizeCommentItem(rawItem);
+          const item = normalizeCommentItem(rawItem, platformId);
           await createComment({
             post_id: postId,
             platform_id: platformId,
@@ -526,16 +526,13 @@ export function getHandlers(): Record<string, Handler> {
       let cliTemplates: { fetch_note: string; fetch_comments?: string; fetch_media?: string };
       try {
         const parsed = JSON.parse(task.cli_templates);
-        if (!parsed.fetch_note) {
-          throw new Error('cli_templates must contain "fetch_note" — it is required to enrich post data before analysis');
-        }
         cliTemplates = parsed;
       } catch (err: unknown) {
         throw new Error(`Invalid cli_templates: ${err instanceof Error ? err.message : String(err)}`);
       }
 
       const hasNotePlaceholder = (tpl: string) => tpl.includes('{post_id}') || tpl.includes('{note_id}') || tpl.includes('{url}');
-      if (!hasNotePlaceholder(cliTemplates.fetch_note)) {
+      if (cliTemplates.fetch_note && !hasNotePlaceholder(cliTemplates.fetch_note)) {
         throw new Error('fetch_note template must contain {post_id} or {note_id} placeholder');
       }
       if (cliTemplates.fetch_comments && !hasNotePlaceholder(cliTemplates.fetch_comments)) {
@@ -981,7 +978,7 @@ async function importCommentsToDb(
   let count = 0;
   for (const rawItem of data) {
     try {
-      const item = normalizeCommentItem(rawItem);
+      const item = normalizeCommentItem(rawItem, platformId);
       await createComment({
         post_id: postId,
         platform_id: platformId,
@@ -1013,7 +1010,7 @@ async function importMediaToDb(
   platformId: string,
   noteId?: string,
 ): Promise<number> {
-  const platform = platformId.includes('xhs') ? 'xhs' : platformId.split('_')[0];
+  const platform = getPlatformAdapter(platformId)?.directoryName ?? platformId.split('_')[0];
   const downloadBase = noteId
     ? path.join(config.paths.download_dir, platform, noteId)
     : path.join(config.paths.download_dir, platform);
@@ -1087,17 +1084,7 @@ function isDuplicateError(err: unknown): boolean {
 }
 
 function getDefaultFetchMediaTemplate(platformId: string): string | null {
-  const pid = platformId.toLowerCase();
-  if (pid.includes('xhs') || pid.includes('xiaohongshu')) {
-    return 'opencli xiaohongshu download {url} --output {download_dir}/{platform} -f json';
-  }
-  if (pid.includes('dy') || pid.includes('douyin')) {
-    return 'opencli douyin download {url} --output {download_dir}/{platform} -f json';
-  }
-  if (pid.includes('bili')) {
-    return 'opencli bilibili download {url} --output {download_dir}/{platform} -f json';
-  }
-  return null;
+  return getPlatformAdapter(platformId)?.defaultTemplates.fetchMedia || null;
 }
 
 async function runPrepareDataAsync(
@@ -1138,7 +1125,7 @@ async function runPrepareDataAsync(
       }
       const noteId = (metadataObj?.note_id as string | undefined) ?? postMeta?.platform_post_id ?? undefined;
       const postUrl = postMeta?.url ?? undefined;
-      const platformDir = platformId.includes('xhs') ? 'xhs' : platformId.includes('dy') ? 'douyin' : platformId.includes('bili') ? 'bilibili' : platformId.split('_')[0];
+      const platformDir = getPlatformAdapter(platformId)?.directoryName ?? platformId.split('_')[0];
       const fetchVars: Record<string, string> = {
         post_id: postId,
         note_id: noteId ?? postUrl ?? postId,
@@ -1151,38 +1138,42 @@ async function runPrepareDataAsync(
 
       // Step 1: fetch_note — enrich post details (content, full stats, tags, etc.)
       try {
-        logger.info(`[prepare-data] Task ${taskId} post ${postId}: Step 1 fetch_note with template "${cliTemplates.fetch_note}"`);
-        const noteResult = await fetchViaOpencli(cliTemplates.fetch_note, fetchVars);
-        logger.info(`[prepare-data] Task ${taskId} post ${postId}: fetch_note result success=${noteResult.success}`);
-        if (!noteResult.success) {
-          logger.error(`[prepare-data] fetch_note failed for post ${postId}: ${noteResult.error ?? 'unknown'}`);
-          await upsertTaskPostStatus(taskId, postId, { status: 'failed', error: noteResult.error ?? 'fetch_note failed' });
-          continue;
-        }
-        if (noteResult.data && noteResult.data.length > 0) {
-          const noteData = normalizePostItem(noteResult.data);
-          const existingPost = await getPostById(postId);
-          const updates: Parameters<typeof updatePost>[1] = {};
-          if (existingPost) {
-            if (noteData.title !== existingPost.title) updates.title = noteData.title;
-            if (noteData.content !== existingPost.content) updates.content = noteData.content;
-            if (noteData.author_id !== existingPost.author_id) updates.author_id = noteData.author_id;
-            if (noteData.author_name !== existingPost.author_name) updates.author_name = noteData.author_name;
-            if (noteData.author_url !== existingPost.author_url) updates.author_url = noteData.author_url;
-            if (noteData.cover_url !== existingPost.cover_url) updates.cover_url = noteData.cover_url;
-            if (noteData.post_type !== existingPost.post_type) updates.post_type = noteData.post_type as any;
-            if (noteData.like_count !== existingPost.like_count) updates.like_count = noteData.like_count;
-            if (noteData.collect_count !== existingPost.collect_count) updates.collect_count = noteData.collect_count;
-            if (noteData.comment_count !== existingPost.comment_count) updates.comment_count = noteData.comment_count;
-            if (noteData.share_count !== existingPost.share_count) updates.share_count = noteData.share_count;
-            if (noteData.play_count !== existingPost.play_count) updates.play_count = noteData.play_count;
-            if (JSON.stringify(noteData.tags) !== JSON.stringify(existingPost.tags)) updates.tags = noteData.tags as { name: string; url?: string }[] | null;
-            if (JSON.stringify(noteData.media_files) !== JSON.stringify(existingPost.media_files)) updates.media_files = noteData.media_files as { type: 'image' | 'video' | 'audio'; url: string; local_path?: string }[] | null;
-            if (noteData.published_at?.getTime() !== existingPost.published_at?.getTime()) updates.published_at = noteData.published_at;
-            if (JSON.stringify(noteData.metadata) !== JSON.stringify(existingPost.metadata)) updates.metadata = noteData.metadata;
+        if (cliTemplates.fetch_note) {
+          logger.info(`[prepare-data] Task ${taskId} post ${postId}: Step 1 fetch_note with template "${cliTemplates.fetch_note}"`);
+          const noteResult = await fetchViaOpencli(cliTemplates.fetch_note, fetchVars);
+          logger.info(`[prepare-data] Task ${taskId} post ${postId}: fetch_note result success=${noteResult.success}`);
+          if (!noteResult.success) {
+            logger.error(`[prepare-data] fetch_note failed for post ${postId}: ${noteResult.error ?? 'unknown'}`);
+            await upsertTaskPostStatus(taskId, postId, { status: 'failed', error: noteResult.error ?? 'fetch_note failed' });
+            continue;
           }
-          await updatePost(postId, updates);
-          logger.info(`[prepare-data] Task ${taskId} post ${postId}: post updated from fetch_note`);
+          if (noteResult.data && noteResult.data.length > 0) {
+            const noteData = normalizePostItem(noteResult.data, platformId);
+            const existingPost = await getPostById(postId);
+            const updates: Parameters<typeof updatePost>[1] = {};
+            if (existingPost) {
+              if (noteData.title !== existingPost.title) updates.title = noteData.title;
+              if (noteData.content !== existingPost.content) updates.content = noteData.content;
+              if (noteData.author_id !== existingPost.author_id) updates.author_id = noteData.author_id;
+              if (noteData.author_name !== existingPost.author_name) updates.author_name = noteData.author_name;
+              if (noteData.author_url !== existingPost.author_url) updates.author_url = noteData.author_url;
+              if (noteData.cover_url !== existingPost.cover_url) updates.cover_url = noteData.cover_url;
+              if (noteData.post_type !== existingPost.post_type) updates.post_type = noteData.post_type as any;
+              if (noteData.like_count !== existingPost.like_count) updates.like_count = noteData.like_count;
+              if (noteData.collect_count !== existingPost.collect_count) updates.collect_count = noteData.collect_count;
+              if (noteData.comment_count !== existingPost.comment_count) updates.comment_count = noteData.comment_count;
+              if (noteData.share_count !== existingPost.share_count) updates.share_count = noteData.share_count;
+              if (noteData.play_count !== existingPost.play_count) updates.play_count = noteData.play_count;
+              if (JSON.stringify(noteData.tags) !== JSON.stringify(existingPost.tags)) updates.tags = noteData.tags as { name: string; url?: string }[] | null;
+              if (JSON.stringify(noteData.media_files) !== JSON.stringify(existingPost.media_files)) updates.media_files = noteData.media_files as { type: 'image' | 'video' | 'audio'; url: string; local_path?: string }[] | null;
+              if (noteData.published_at?.getTime() !== existingPost.published_at?.getTime()) updates.published_at = noteData.published_at;
+              if (JSON.stringify(noteData.metadata) !== JSON.stringify(existingPost.metadata)) updates.metadata = noteData.metadata;
+            }
+            await updatePost(postId, updates);
+            logger.info(`[prepare-data] Task ${taskId} post ${postId}: post updated from fetch_note`);
+          }
+        } else {
+          logger.info(`[prepare-data] Task ${taskId} post ${postId}: Step 1 fetch_note skipped (no template)`);
         }
       } catch (err) {
         logger.error(`[prepare-data] fetch_note failed for post ${postId}: ${err instanceof Error ? err.message : String(err)}`);
