@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import * as icons from '@gravity-ui/icons';
-import { apiGet } from '@/api/client';
+import { apiGet, apiPost } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
@@ -33,6 +33,30 @@ interface TaskJob {
   error: string | null;
 }
 
+interface PrepareJob {
+  id: string;
+  post_id: string;
+  post_title: string;
+  status: string;
+  attempts: number;
+  max_attempts: number;
+  error: string | null;
+  steps: {
+    note: boolean | null;
+    comments_fetched: boolean;
+    media_fetched: boolean;
+  };
+}
+
+interface PrepareJobsResponse {
+  total: number;
+  completed: number;
+  processing: number;
+  pending: number;
+  failed: number;
+  jobs: PrepareJob[];
+}
+
 interface TaskDetail {
   id: string;
   name: string;
@@ -44,6 +68,15 @@ interface TaskDetail {
   completed_at: string | null;
   steps: TaskStep[];
   jobs: TaskJob[];
+  phases?: {
+    dataPreparation?: {
+      status: string;
+      totalPosts: number;
+      commentsFetched: number;
+      mediaFetched: number;
+      failedPosts: number;
+    };
+  };
 }
 
 interface AnalysisResult {
@@ -67,6 +100,128 @@ const statusVariantMap: Record<string, BadgeVariant> = {
   completed: 'default',
   failed: 'destructive',
 };
+
+const Check = icons.Check;
+const Clock = icons.Clock;
+
+function DataPrepSection({ taskId }: { taskId: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [data, setData] = useState<PrepareJobsResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const resp = await apiGet<PrepareJobsResponse>(`/api/tasks/${taskId}/prepare-jobs`);
+      setData(resp);
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleExpanded = () => {
+    if (!expanded && !data) {
+      loadData();
+    }
+    setExpanded(!expanded);
+  };
+
+  const handleRetry = async () => {
+    setRetrying(true);
+    try {
+      await apiPost<{ retried: number }>(`/api/tasks/${taskId}/prepare-jobs/retry`);
+      loadData();
+    } catch {
+      // ignore
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  return (
+    <Card>
+      <button
+        onClick={toggleExpanded}
+        className="w-full flex items-center justify-between p-4 hover:bg-default/50 transition-colors text-left"
+      >
+        <div className="flex items-center gap-4">
+          <span className="font-semibold text-foreground">数据准备</span>
+          {data && (
+            <>
+              <Badge variant="default">{data.completed}/{data.total} 完成</Badge>
+              {data.processing > 0 && <Badge variant="outline">{data.processing} 处理中</Badge>}
+              {data.failed > 0 && <Badge variant="destructive">{data.failed} 失败</Badge>}
+            </>
+          )}
+        </div>
+        {expanded ? <ArrowChevronUp className="h-4 w-4" /> : <ArrowChevronDown className="h-4 w-4" />}
+      </button>
+
+      {expanded && (
+        <CardContent className="border-t">
+          {loading ? (
+            <div className="py-4 space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          ) : !data || data.total === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">暂无数据准备任务</p>
+          ) : (
+            <div className="space-y-3">
+              {data.failed > 0 && (
+                <Button variant="outline" size="sm" onClick={handleRetry} disabled={retrying}>
+                  {retrying ? '重试中...' : `重试 ${data.failed} 个失败项`}
+                </Button>
+              )}
+              <Table aria-label="数据准备状态">
+                <TableHeader>
+                  <TableHead>帖子</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead>步骤</TableHead>
+                  <TableHead>错误</TableHead>
+                </TableHeader>
+                <TableBody>
+                  {data.jobs.map((job) => (
+                    <TableRow key={job.id}>
+                      <TableCell className="text-sm text-foreground max-w-xs truncate">
+                        {job.post_title}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={statusVariantMap[job.status] ?? 'outline'}>{job.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        <span className="inline-flex items-center gap-1">
+                          {job.steps.note ? <Check className="h-3 w-3 text-green-600" /> : <Clock className="h-3 w-3 text-muted-foreground" />}
+                          note
+                        </span>
+                        {' · '}
+                        <span className="inline-flex items-center gap-1">
+                          {job.steps.comments_fetched ? <Check className="h-3 w-3 text-green-600" /> : <Clock className="h-3 w-3 text-muted-foreground" />}
+                          comments
+                        </span>
+                        {' · '}
+                        <span className="inline-flex items-center gap-1">
+                          {job.steps.media_fetched ? <Check className="h-3 w-3 text-green-600" /> : <Clock className="h-3 w-3 text-muted-foreground" />}
+                          media
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-destructive max-w-xs truncate">
+                        {job.error ?? ''}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
 
 function StepRow({ step, taskId }: { step: TaskStep; taskId: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -272,6 +427,9 @@ export default function TaskDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 数据准备 */}
+      <DataPrepSection taskId={task.id} />
 
       {/* 步骤列表 */}
       <div className="space-y-3">
