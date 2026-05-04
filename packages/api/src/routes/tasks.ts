@@ -12,6 +12,8 @@ import {
   getTaskPostStatuses,
   insertStrategyResult,
   listMediaFilesByPost, getPostById,
+  retryFailedJobs,
+  notifyJobAvailable,
   query,
   checkpoint,
   getLogger,
@@ -191,6 +193,68 @@ export default async function tasksRoutes(app: FastifyInstance) {
     const handlers = getHandlers();
     const result = await handlers['task.prepareData']({ task_id: id });
     return { ...(result as Record<string, unknown>), status: 'queued' };
+  });
+
+  app.get('/tasks/:id/prepare-jobs', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const task = await getTaskById(id);
+    if (!task) {
+      reply.code(404);
+      throw new Error(`Task not found: ${id}`);
+    }
+
+    const allJobs = await listJobsByTask(id);
+    const prepareJobs = allJobs.filter(j => j.target_type === 'prepare');
+    const postStatuses = await getTaskPostStatuses(id);
+
+    const jobs = prepareJobs.map(j => {
+      const postStatus = postStatuses.find(p => p.post_id === j.target_id);
+      const post = j.target_id ? await getPostById(j.target_id) : null;
+      return {
+        id: j.id,
+        post_id: j.target_id,
+        post_title: post?.title ?? post?.content?.slice(0, 50) ?? '(untitled)',
+        status: j.status,
+        attempts: j.attempts,
+        max_attempts: j.max_attempts,
+        error: j.error ?? null,
+        steps: {
+          note: postStatus ? (postStatus.status !== 'pending' || j.status === 'completed') : null,
+          comments_fetched: postStatus?.comments_fetched ?? false,
+          media_fetched: postStatus?.media_fetched ?? false,
+        },
+      };
+    });
+
+    const completed = jobs.filter(j => j.status === 'completed').length;
+    const processing = jobs.filter(j => j.status === 'processing').length;
+    const pending = jobs.filter(j => j.status === 'pending').length;
+    const failed = jobs.filter(j => j.status === 'failed').length;
+
+    return {
+      total: jobs.length,
+      completed,
+      processing,
+      pending,
+      failed,
+      jobs,
+    };
+  });
+
+  app.post('/tasks/:id/prepare-jobs/retry', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const task = await getTaskById(id);
+    if (!task) {
+      reply.code(404);
+      throw new Error(`Task not found: ${id}`);
+    }
+
+    const retried = await retryFailedJobs(id);
+    if (retried > 0) {
+      notifyJobAvailable();
+    }
+
+    return { retried };
   });
 
   app.post('/tasks/:id/add-posts', async (request, reply) => {
