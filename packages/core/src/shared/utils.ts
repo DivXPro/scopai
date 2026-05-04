@@ -172,7 +172,7 @@ export function parseImportFile(filePath: string): unknown[] {
 
 // ── Post / Comment field normalization ──────────────────────────────────────
 
-const POST_FIELD_MAP: Record<string, string> = {
+export const POST_FIELD_MAP: Record<string, string> = {
   likes: 'like_count',
   collects: 'collect_count',
   comments: 'comment_count',
