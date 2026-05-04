@@ -18,7 +18,7 @@ import { createStrategy, getStrategyById, listStrategies, validateStrategyJson, 
 import { getExistingResultIds } from '@scopai/core';
 import { getTaskPostStatus } from '@scopai/core';
 import { config } from '@scopai/core';
-import { normalizePostItem, normalizeCommentItem } from '@scopai/core';
+import { normalizePostItem, normalizeCommentItem, getPlatformAdapter } from '@scopai/core';
 import type { QueueJob } from '@scopai/core';
 
 // Track in-flight prepare-data tasks to prevent concurrent execution
@@ -1161,7 +1161,7 @@ async function importMediaToDb(
   platformId: string,
   noteId?: string,
 ): Promise<number> {
-  const platform = platformId.includes('xhs') ? 'xhs' : platformId.split('_')[0];
+  const platform = getPlatformAdapter(platformId)?.directoryName ?? platformId.split('_')[0];
   const downloadBase = noteId
     ? path.join(config.paths.download_dir, platform, noteId)
     : path.join(config.paths.download_dir, platform);
@@ -1235,17 +1235,7 @@ function isDuplicateError(err: unknown): boolean {
 }
 
 function getDefaultFetchMediaTemplate(platformId: string): string | null {
-  const pid = platformId.toLowerCase();
-  if (pid.includes('xhs') || pid.includes('xiaohongshu')) {
-    return 'opencli xiaohongshu download {url} --output {download_dir}/{platform} -f json';
-  }
-  if (pid.includes('dy') || pid.includes('douyin')) {
-    return 'opencli douyin download {url} --output {download_dir}/{platform} -f json';
-  }
-  if (pid.includes('bili')) {
-    return 'opencli bilibili download {url} --output {download_dir}/{platform} -f json';
-  }
-  return null;
+  return getPlatformAdapter(platformId)?.defaultTemplates.fetchMedia || null;
 }
 
 async function runPrepareDataAsync(
@@ -1286,7 +1276,7 @@ async function runPrepareDataAsync(
       }
       const noteId = (metadataObj?.note_id as string | undefined) ?? postMeta?.platform_post_id ?? undefined;
       const postUrl = postMeta?.url ?? undefined;
-      const platformDir = platformId.includes('xhs') ? 'xhs' : platformId.includes('dy') ? 'douyin' : platformId.includes('bili') ? 'bilibili' : platformId.split('_')[0];
+      const platformDir = getPlatformAdapter(platformId)?.directoryName ?? platformId.split('_')[0];
       const fetchVars: Record<string, string> = {
         post_id: postId,
         note_id: noteId ?? postUrl ?? postId,
@@ -1308,7 +1298,7 @@ async function runPrepareDataAsync(
           continue;
         }
         if (noteResult.data && noteResult.data.length > 0) {
-          const noteData = normalizePostItem(noteResult.data);
+          const noteData = normalizePostItem(noteResult.data, platformId);
           const existingPost = await getPostById(postId);
           const updates: Parameters<typeof updatePost>[1] = {};
           if (existingPost) {
