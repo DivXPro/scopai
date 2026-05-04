@@ -58,7 +58,7 @@ describe('cli-results-commands', { timeout: 90000 }, () => {
 
     // 4. Add posts to task
     const { exitCode: addExit } = await runCli([
-      'task', 'add-posts', '--task-id', taskId, '--post-ids', 'post_001,post_002',
+      'task', 'add-posts', taskId, '--post-ids', 'post_001,post_002',
     ]);
     assert.equal(addExit, 0, 'Add posts should succeed');
 

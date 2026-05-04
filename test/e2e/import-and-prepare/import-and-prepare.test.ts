@@ -66,8 +66,7 @@ describe('import-and-prepare', { timeout: 90000 }, () => {
 
     // 4. Add posts to task
     const { exitCode: addExit, stderr: addStderr } = await runCli([
-      'task', 'add-posts',
-      '--task-id', taskId!,
+      'task', 'add-posts', taskId!,
       '--post-ids', 'post_001,post_002',
     ]);
     console.log('Add posts exitCode:', addExit, 'stderr:', addStderr.substring(0, 300));
@@ -79,8 +78,7 @@ describe('import-and-prepare', { timeout: 90000 }, () => {
 
     // 5. Run data preparation
     const { exitCode: prepExit, stderr: prepStderr } = await runCli([
-      'task', 'prepare-data',
-      '--task-id', taskId!,
+      'task', 'prepare-data', taskId!,
     ]);
     console.log('Prepare data exitCode:', prepExit, 'stderr:', prepStderr.substring(0, 300));
     assert.equal(prepExit, 0, 'Prepare data should start successfully');

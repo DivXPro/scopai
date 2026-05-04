@@ -36,8 +36,15 @@ export async function insertStrategyResult(
     result.error,
     result.analyzed_at,
   ];
+  // DuckDB requires explicit conflict target when table has multiple UNIQUE/PK constraints.
+  // The table has: PRIMARY KEY (id) + UNIQUE(target_type, target_id).
+  // We want to overwrite on UNIQUE(target_type, target_id) conflict.
   await run(
-    `INSERT OR REPLACE INTO "${tableName}" (${columns.join(',')}) VALUES (${placeholders})`,
+    `DELETE FROM "${tableName}" WHERE target_type = ? AND target_id = ?`,
+    [result.target_type, result.target_id],
+  );
+  await run(
+    `INSERT INTO "${tableName}" (${columns.join(',')}) VALUES (${placeholders})`,
     values,
   );
 }
