@@ -23,7 +23,7 @@ export async function runPrepareConsumer(workerId: string): Promise<void> {
       }
 
       try {
-        const jobs = await getNextJobs(1, 'prepare');
+        const jobs = await getNextJobs(1, ['prepare']);
         if (jobs.length > 0) {
           currentWaitMs = POLL_INTERVAL_MS;
           await processJobWithLifecycle(jobs[0], workerId);

@@ -13,6 +13,10 @@ import { fetchViaOpencli } from '@scopai/core';
 import { syncWaitingMediaJobs, enqueueJobs } from '@scopai/core';
 import { emitHook } from '@scopai/core';
 import { importCommentsToDb, importMediaToDb, getDefaultFetchMediaTemplate } from '../daemon/handlers';
+
+// Serialize browser-based opencli commands (xiaohongshu note, etc.) to prevent
+// concurrent browser requests from cross-contaminating data
+let browserFetchLock: Promise<unknown> = Promise.resolve();
 import { buildJobsForPost } from '../daemon/scheduler';
 import { analyzeWithStrategy, analyzeBatchWithStrategy } from './anthropic';
 import { processCreatorSyncJob } from './creator-sync';
@@ -60,9 +64,10 @@ export async function runConsumer(workerId: number): Promise<void> {
 
       try {
         // Fill buffer with pending jobs up to the concurrency limit
+        // Exclude 'prepare' jobs — those are handled by the dedicated prepare-consumer
         while (buffer.length === 0 && active.size < concurrency) {
           const need = concurrency - active.size;
-          const jobs = await getNextJobs(need);
+          const jobs = await getNextJobs(need, ['post', 'comment', 'media']);
           if (jobs.length === 0) break;
           buffer.push(...jobs);
           currentWaitMs = POLL_INTERVAL_MS;
@@ -219,7 +224,12 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
 
   // Resolve noteId (platform_post_id is set correctly at import time via extractNoteId)
   const noteId = postMeta.platform_post_id ?? undefined;
-  const postUrl = postMeta.url ?? undefined;
+  let postUrl = postMeta.url ?? undefined;
+  // xiaohongshu /search_result/ URLs have unreliable noteId mapping;
+  // convert to /explore/ format so opencli note fetches the correct post
+  if (postUrl && platformId === 'xhs') {
+    postUrl = postUrl.replace('/search_result/', '/explore/');
+  }
   const platformDir = getPlatformAdapter(platformId)?.directoryName ?? platformId.split('_')[0];
   const fetchVars: Record<string, string> = {
     post_id: postId,
@@ -235,18 +245,41 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
   // Mark as fetching
   await upsertTaskPostStatus(taskId, postId, { status: 'fetching' });
 
-  // Step 1: fetch_note — enrich post details
+  // Step 1: fetch_note — enrich post details (serialized to prevent browser cross-contamination)
   const fetchNoteTemplate = cliTemplates.fetch_note || getPlatformAdapter(platformId)?.defaultTemplates.fetchNote || '';
   if (fetchNoteTemplate) {
     logger.info(`[Worker-${workerId}] Post ${postId}: Step 1 fetch_note`);
-    const noteResult = await fetchViaOpencli(fetchNoteTemplate, fetchVars);
+    const noteResult = await serializeBrowserFetch(() => fetchViaOpencli(fetchNoteTemplate, fetchVars));
     if (!noteResult.success) {
       throw new Error(`fetch_note failed for post ${postId}: ${noteResult.error ?? 'unknown'}`);
     }
     if (noteResult.data && noteResult.data.length > 0) {
       const noteData = normalizePostItem(noteResult.data, platformId);
       const existingPost = await getPostById(postId);
-      if (existingPost) {
+      // Guard against opencli returning data for a different post
+      // (e.g. xiaohongshu /search_result/ URLs may redirect to a different note)
+      const returnedNoteId = noteData.platform_post_id;
+      const noteIdMismatch = returnedNoteId && returnedNoteId !== noteId;
+      const titleMismatch = existingPost && noteData.title && existingPost.title &&
+        noteData.title !== existingPost.title &&
+        !noteData.title.includes(existingPost.title.slice(0, 10)) &&
+        !existingPost.title.includes(noteData.title.slice(0, 10));
+      if (noteIdMismatch || titleMismatch) {
+        const reason = noteIdMismatch
+          ? `noteId mismatch (expected ${noteId}, got ${returnedNoteId})`
+          : `title mismatch (existing "${existingPost?.title}", got "${noteData.title}")`;
+        logger.warn(`[Worker-${workerId}] Post ${postId}: fetch_note returned data for a different post (${reason}), skipping update and fixing URL`);
+        // Fix the URL to point to the correct note using /explore/ format
+        if (existingPost?.url && noteId && platformId === 'xhs') {
+          const xsecMatch = existingPost.url.match(/[?&]xsec_token=[^&]+/);
+          const xsecParam = xsecMatch ? xsecMatch[0].replace(/^[?&]/, '&') : '';
+          const correctUrl = `https://www.xiaohongshu.com/explore/${noteId}${xsecParam ? `?${xsecParam.replace(/^&/, '')}` : ''}`;
+          if (correctUrl !== existingPost.url) {
+            await updatePost(postId, { url: correctUrl });
+            logger.info(`[Worker-${workerId}] Post ${postId}: corrected URL to ${correctUrl}`);
+          }
+        }
+      } else if (existingPost) {
         const updates: Parameters<typeof updatePost>[1] = {};
         if (noteData.title !== existingPost.title) updates.title = noteData.title;
         if (noteData.content !== existingPost.content) updates.content = noteData.content;
@@ -278,7 +311,7 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
   if (fetchCommentsTemplate) {
     if (!currentStatus?.comments_fetched) {
       logger.info(`[Worker-${workerId}] Post ${postId}: Step 2 fetch_comments`);
-      const result = await fetchViaOpencli(fetchCommentsTemplate, fetchVars);
+      const result = await serializeBrowserFetch(() => fetchViaOpencli(fetchCommentsTemplate, fetchVars));
       if (!result.success) {
         throw new Error(`fetch_comments failed for post ${postId}: ${result.error ?? 'unknown'}`);
       }
@@ -299,7 +332,7 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
   const fetchMediaTemplate = cliTemplates.fetch_media ?? getDefaultFetchMediaTemplate(platformId);
   if (fetchMediaTemplate) {
     if (!statusAfterComments?.media_fetched) {
-      const result = await fetchViaOpencli(fetchMediaTemplate, fetchVars);
+      const result = await serializeBrowserFetch(() => fetchViaOpencli(fetchMediaTemplate, fetchVars));
       if (!result.success) {
         throw new Error(`fetch_media failed for post ${postId}: ${result.error ?? 'unknown'}`);
       }
@@ -611,6 +644,12 @@ async function processCommentBatch(
     }
     throw err;
   }
+}
+
+function serializeBrowserFetch<T>(fn: () => Promise<T>): Promise<T> {
+  const next = browserFetchLock.then(() => fn(), () => fn());
+  browserFetchLock = next.then(() => {}, () => {});
+  return next;
 }
 
 async function updateTaskStatsForTask(taskId: string): Promise<void> {

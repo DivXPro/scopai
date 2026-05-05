@@ -31,16 +31,17 @@ export async function getNextJob(): Promise<QueueJob | null> {
   return rows[0] ?? null;
 }
 
-export async function getNextJobs(limit: number, targetType?: string): Promise<QueueJob[]> {
-  if (targetType) {
+export async function getNextJobs(limit: number, targetTypes?: string[]): Promise<QueueJob[]> {
+  if (targetTypes && targetTypes.length > 0) {
+    const placeholders = targetTypes.map(() => '?').join(',');
     const rows = await query<QueueJob>(
       `UPDATE queue_jobs
        SET status = 'processing', attempts = attempts + 1
        WHERE id IN (
-         SELECT id FROM queue_jobs WHERE status = 'pending' AND target_type = ? ORDER BY priority DESC, created_at ASC LIMIT ?
+         SELECT id FROM queue_jobs WHERE status = 'pending' AND target_type IN (${placeholders}) ORDER BY priority DESC, created_at ASC LIMIT ?
        )
        RETURNING *`,
-      [targetType, limit]
+      [...targetTypes, limit]
     );
     return rows;
   }
