@@ -153,8 +153,8 @@ function PostCard({ post, onAnalyze, onViewMedia, onToggleStar, onAddLabel, onRe
           </div>
         </div>
 
-        {/* Cover Image */}
-        {post.cover_url && (
+        {/* Cover Image or Text Content */}
+        {post.cover_url ? (
           <div className="relative rounded-lg overflow-hidden mb-4 aspect-[4/3]">
             <img
               src={post.cover_url}
@@ -180,18 +180,17 @@ function PostCard({ post, onAnalyze, onViewMedia, onToggleStar, onAddLabel, onRe
               </div>
             )}
           </div>
-        )}
-
-        {/* Title */}
-        <h3 className="font-semibold text-sm text-slate-900 line-clamp-2 mb-3 leading-snug">
-          {post.title || contentPreview}
-        </h3>
-
-        {/* Content preview (only if different from title) */}
-        {post.title && post.content && post.content !== post.title && (
-          <p className="text-sm text-on-surface-variant line-clamp-2 mb-3">
-            {contentPreview}
-          </p>
+        ) : (
+          <div className="relative rounded-lg overflow-hidden mb-4 aspect-[4/3] bg-slate-50 border border-slate-100 p-5 flex flex-col justify-center">
+            <h3 className="font-semibold text-sm text-slate-900 line-clamp-2 mb-2 leading-snug">
+              {post.title || contentPreview}
+            </h3>
+            {post.title && post.content && post.content !== post.title && (
+              <p className="text-sm text-slate-500 line-clamp-3">
+                {contentPreview}
+              </p>
+            )}
+          </div>
         )}
 
         {/* Labels */}
