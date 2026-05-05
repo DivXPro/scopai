@@ -3,14 +3,17 @@
 /**
  * Sync version across all packages and publish.
  *
- * Usage: node scripts/release.js <version>
+ * Usage: node scripts/release.js [version]
  *   e.g. node scripts/release.js 1.3.0
  *
  * Steps:
- * 1. Read version from argument
- * 2. Update root package.json + all workspace packages
- * 3. Build all packages
+ * 1. Build all packages (validate before any changes)
+ * 2. Read/bump version
+ * 3. Update root package.json + all workspace packages
  * 4. Publish all packages
+ * 5. Git tag (optional)
+ *
+ * Build runs first so a failed build doesn't leave a bumped version behind.
  */
 
 const fs = require('fs');
@@ -27,11 +30,18 @@ function bumpVersion(current) {
   return parts.join('.');
 }
 
+// Step 1: Build first — if this fails, no version has been touched
+console.log('Building all packages...');
+execSync('pnpm -r build', { stdio: 'inherit', cwd: rootDir });
+
+// Step 2: Determine version
 let version = process.argv[2];
 if (!version) {
   const rootPkg = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf-8'));
   version = bumpVersion(rootPkg.version);
-  console.log(`Auto-bumping version: ${rootPkg.version} → ${version}`);
+  console.log(`\nAuto-bumping version: ${rootPkg.version} → ${version}`);
+} else {
+  console.log(`\nUsing specified version: ${version}`);
 }
 
 if (!/^\d+\.\d+\.\d+/.test(version)) {
@@ -39,6 +49,7 @@ if (!/^\d+\.\d+\.\d+/.test(version)) {
   process.exit(1);
 }
 
+// Step 3: Update version in all package.json files
 const pkgFiles = [
   path.join(rootDir, 'package.json'),
   ...fs.readdirSync(packagesDir).map(d => path.join(packagesDir, d, 'package.json')),
@@ -52,9 +63,7 @@ for (const filePath of pkgFiles) {
   console.log(`  Updated ${path.relative(rootDir, filePath)} → ${version}`);
 }
 
-console.log('\nBuilding all packages...');
-execSync('pnpm -r build', { stdio: 'inherit', cwd: rootDir });
-
+// Step 4: Publish
 console.log('\nPublishing all packages...');
 execSync('pnpm -r publish --access public --no-git-checks', { stdio: 'inherit', cwd: rootDir });
 
