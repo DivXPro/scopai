@@ -118,8 +118,9 @@ export function postCommands(program: Command): void {
       if (p.post_type) console.log(`  Type:        ${p.post_type}`);
       console.log(`  Likes:       ${p.like_count ?? 0}  Collects: ${p.collect_count ?? 0}  Comments: ${p.comment_count ?? 0}  Shares: ${p.share_count ?? 0}`);
       if (p.published_at) console.log(`  Published:   ${new Date(p.published_at).toLocaleString()}`);
-      if (p.tags && (p.tags as any[]).length > 0) {
-        console.log(`  Tags:        ${(p.tags as { name: string }[]).map(t => t.name).join(', ')}`);
+      const tags = typeof p.tags === 'string' ? JSON.parse(p.tags) : p.tags;
+      if (tags && Array.isArray(tags) && tags.length > 0) {
+        console.log(`  Tags:        ${tags.map((t: { name: string }) => t.name).join(', ')}`);
       }
       if (p.content) {
         const preview = p.content.length > 200 ? p.content.slice(0, 200) + '...' : p.content;
@@ -139,7 +140,8 @@ export function postCommands(program: Command): void {
       params.set('query', opts.query);
       params.set('platform', opts.platform);
       params.set('limit', opts.limit);
-      const posts = await apiGet<any[]>('/posts?' + params.toString());
+      const result = await apiGet<ListPostsResponse>('/posts?' + params.toString());
+      const posts = result.posts ?? (result as any);
       if (posts.length === 0) {
         console.log(pc.yellow('No posts found'));
         return;

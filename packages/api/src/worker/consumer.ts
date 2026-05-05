@@ -3,7 +3,7 @@ import { getTaskById, updateTaskStatus, updateTaskStats } from '@scopai/core';
 import { updateTargetStatus, getTargetStats } from '@scopai/core';
 import { getCommentById, listCommentsByIds } from '@scopai/core';
 import { getPlatformById } from '@scopai/core';
-import { getPostById, updatePost } from '@scopai/core';
+import { getPostById, updatePost, listMediaFilesByPost } from '@scopai/core';
 import { getStrategyById } from '@scopai/core';
 import { insertStrategyResult } from '@scopai/core';
 import { updateTaskStepStatus, listTaskSteps } from '@scopai/core';
@@ -340,6 +340,21 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
       await upsertTaskPostStatus(taskId, postId, { media_fetched: true, media_count: mediaCount });
       await syncWaitingMediaJobs(taskId, postId);
       logger.info(`[Worker-${workerId}] Post ${postId}: imported ${mediaCount} media files`);
+      // Auto-set cover_url from first downloaded image if post lacks one
+      if (mediaCount > 0) {
+        const post = await getPostById(postId);
+        if (post && !post.cover_url) {
+          const mediaFiles = await listMediaFilesByPost(postId);
+          const firstImage = mediaFiles.find(m => m.media_type === 'image');
+          if (firstImage) {
+            const coverUrl = firstImage.url || firstImage.local_path || '';
+            if (coverUrl) {
+              await updatePost(postId, { cover_url: coverUrl });
+              logger.info(`[Worker-${workerId}] Post ${postId}: auto-set cover_url from first media file`);
+            }
+          }
+        }
+      }
     }
   } else {
     if (!statusAfterComments?.media_fetched) {
