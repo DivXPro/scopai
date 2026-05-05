@@ -214,7 +214,11 @@ export default async function postsRoutes(app: FastifyInstance) {
 
   app.get('/posts/:id/media', async (request) => {
     const { id } = request.params as { id: string };
-    return listMediaFilesByPost(id);
+    const files = await listMediaFilesByPost(id);
+    return files.map(f => ({
+      ...f,
+      src: f.local_path ? `/api/media/${f.id}/file` : f.url,
+    }));
   });
 
   app.get('/posts/:id/analysis', async (request) => {

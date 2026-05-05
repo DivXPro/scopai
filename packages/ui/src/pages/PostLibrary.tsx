@@ -47,14 +47,10 @@ interface MediaFile {
   id: string;
   media_type: 'image' | 'video' | 'audio';
   url: string;
-  local_path: string | null;
+  src: string;
   width: number | null;
   height: number | null;
   downloaded_at: string | null;
-}
-
-function mediaSrc(m: MediaFile): string {
-  return m.local_path ? `/api/media/${m.id}/file` : m.url;
 }
 
 interface Platform {
@@ -488,21 +484,21 @@ function MediaFilesModal({ postId, onClose }: { postId: string; onClose: () => v
 
                     {/* Media */}
                     <div className="flex-1 flex items-center justify-center px-14">
-                      {current.media_type === 'image' && current.url ? (
+                      {current.media_type === 'image' && current.src ? (
                         <img
-                          src={mediaSrc(current)}
+                          src={current.src}
                           alt={`媒体 ${currentIndex + 1}`}
                           className="max-w-full max-h-[440px] object-contain rounded-lg border shadow-sm"
                         />
                       ) : current.media_type === 'video' ? (
                         <video
-                          src={mediaSrc(current)}
+                          src={current.src}
                           controls
                           className="max-w-full max-h-[440px] rounded-lg border shadow-sm"
                         />
                       ) : current.media_type === 'audio' ? (
                         <audio
-                          src={mediaSrc(current)}
+                          src={current.src}
                           controls
                           className="w-full max-w-md"
                         />
@@ -533,7 +529,7 @@ function MediaFilesModal({ postId, onClose }: { postId: string; onClose: () => v
                     {current.width && current.height && (
                       <span>{current.width} × {current.height}</span>
                     )}
-                    {current.local_path && (
+                    {current.src.startsWith('/api/media/') && (
                       <span className="text-green-600 text-xs">已下载</span>
                     )}
                   </div>
@@ -549,8 +545,8 @@ function MediaFilesModal({ postId, onClose }: { postId: string; onClose: () => v
                             i === currentIndex ? 'ring-2 ring-secondary ring-offset-1' : 'opacity-60 hover:opacity-100'
                           }`}
                         >
-                          {m.media_type === 'image' && m.url ? (
-                            <img src={mediaSrc(m)} alt="" className="w-full h-full object-cover" />
+                          {m.media_type === 'image' && m.src ? (
+                            <img src={m.src} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-slate-100">
                               <span className="text-lg">
