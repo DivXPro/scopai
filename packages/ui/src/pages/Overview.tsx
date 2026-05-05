@@ -182,38 +182,34 @@ export default function Overview() {
             <p className="text-muted-foreground">暂无任务</p>
           </div>
         ) : (
-          <Card>
-            <CardContent className="p-0">
-              <Table aria-label="最近任务">
-                <TableHeader>
-                  <TableHead>名称</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>创建时间</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableHeader>
-                <TableBody>
-                  {recentTasks.map((task) => (
-                    <TableRow key={task.id}>
-                      <TableCell className="font-medium text-foreground">{task.name}</TableCell>
-                      <TableCell>
-                        <Badge variant={statusVariantMap[task.status] ?? 'outline'}>
-                          {statusLabelMap[task.status] ?? task.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(task.created_at).toLocaleDateString('zh-CN')}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Link to={`/tasks/${task.id}`} className="text-primary hover:underline text-sm">
-                          查看
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <Table aria-label="最近任务">
+            <TableHeader>
+              <TableHead>名称</TableHead>
+              <TableHead>状态</TableHead>
+              <TableHead>创建时间</TableHead>
+              <TableHead className="text-right">操作</TableHead>
+            </TableHeader>
+            <TableBody>
+              {recentTasks.map((task) => (
+                <TableRow key={task.id}>
+                  <TableCell className="font-medium text-foreground">{task.name}</TableCell>
+                  <TableCell>
+                    <Badge variant={statusVariantMap[task.status] ?? 'outline'}>
+                      {statusLabelMap[task.status] ?? task.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {new Date(task.created_at).toLocaleDateString('zh-CN')}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Link to={`/tasks/${task.id}`} className="text-primary hover:underline text-sm">
+                      查看
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </div>
     </div>

@@ -155,7 +155,7 @@ function PostCard({ post, onAnalyze, onViewMedia, onToggleStar, onAddLabel, onRe
 
         {/* Cover Image or Text Content */}
         {post.cover_url ? (
-          <div className="relative rounded-lg overflow-hidden mb-4 aspect-[4/3]">
+          <div className="relative rounded-lg overflow-hidden mb-4 aspect-[4/3] cursor-pointer" onClick={() => onViewMedia(post.id)}>
             <img
               src={post.cover_url}
               alt=""
@@ -181,7 +181,7 @@ function PostCard({ post, onAnalyze, onViewMedia, onToggleStar, onAddLabel, onRe
             )}
           </div>
         ) : (
-          <div className="relative rounded-lg overflow-hidden mb-4 aspect-[4/3] bg-slate-50 border border-slate-100 p-5 flex flex-col justify-center">
+          <div className="relative rounded-lg overflow-hidden mb-4 aspect-[4/3] bg-slate-50 border border-slate-100 p-5 flex flex-col justify-center cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => onViewMedia(post.id)}>
             <h3 className="font-semibold text-sm text-slate-900 line-clamp-2 mb-2 leading-snug">
               {post.title || contentPreview}
             </h3>
@@ -413,7 +413,7 @@ function SchemaRenderer({
   );
 }
 
-function MediaFilesModal({ post, onClose }: { post: Post; onClose: () => void }) {
+function MediaFilesModal({ post, onClose, onToggleStar }: { post: Post; onClose: () => void; onToggleStar: (postId: string, currentStarred: boolean) => void }) {
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -457,7 +457,6 @@ function MediaFilesModal({ post, onClose }: { post: Post; onClose: () => void })
       <Modal.Backdrop>
         <Modal.Container>
           <Modal.Dialog className="max-w-5xl max-h-[90vh] w-full p-0 overflow-hidden">
-            <Modal.CloseTrigger className="absolute top-3 right-3 z-50" />
             <div className="flex h-[80vh]">
               {/* 左侧：媒体 */}
               <div className="flex-[3] bg-black relative group">
@@ -631,6 +630,21 @@ function MediaFilesModal({ post, onClose }: { post: Post; onClose: () => void })
                       <PostAnalysisDetail postId={post.id} />
                     </div>
                   )}
+                </div>
+
+                {/* 底部操作栏 */}
+                <div className="shrink-0 border-t border-slate-200 p-3 flex items-center justify-between bg-white">
+                  <button
+                    onClick={() => onToggleStar(post.id, post.is_starred)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:bg-slate-50"
+                  >
+                    <span className={post.is_starred ? 'text-yellow-500 text-lg' : 'text-gray-400 text-lg'}>
+                      {post.is_starred ? '★' : '☆'}
+                    </span>
+                    <span className={post.is_starred ? 'text-slate-900' : 'text-slate-500'}>
+                      {post.is_starred ? '已星标' : '星标'}
+                    </span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1172,6 +1186,7 @@ export default function PostLibrary() {
         <MediaFilesModal
           post={posts.find((p) => p.id === viewingMediaPostId)!}
           onClose={() => setViewingMediaPostId(null)}
+          onToggleStar={toggleStar}
         />
       )}
     </div>
