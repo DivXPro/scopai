@@ -2,6 +2,19 @@ import { query, run } from './client';
 import { Post } from '../shared/types';
 import { generateId, now } from '../shared/utils';
 
+function parsePost(row: Record<string, unknown>): Post {
+  return {
+    ...row,
+    tags: typeof row.tags === 'string' ? JSON.parse(row.tags) : row.tags,
+    media_files: typeof row.media_files === 'string' ? JSON.parse(row.media_files) : row.media_files,
+    metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata,
+  } as Post;
+}
+
+function parsePosts(rows: Record<string, unknown>[]): Post[] {
+  return rows.map(parsePost);
+}
+
 export async function createPost(post: Omit<Post, 'id' | 'fetched_at'>): Promise<Post> {
   const id = generateId();
   const ts = now();
@@ -26,12 +39,12 @@ export async function listPosts(platformId?: string, limit = 50, offset = 0): Pr
   if (platformId) { sql += ' WHERE platform_id = ?'; params.push(platformId); }
   sql += ' ORDER BY fetched_at DESC LIMIT ? OFFSET ?';
   params.push(limit, offset);
-  return query<Post>(sql, params);
+  return parsePosts(await query<Record<string, unknown>>(sql, params));
 }
 
 export async function getPostById(id: string): Promise<Post | null> {
-  const rows = await query<Post>('SELECT * FROM posts WHERE id = ?', [id]);
-  return rows[0] ?? null;
+  const rows = await query<Record<string, unknown>>('SELECT * FROM posts WHERE id = ?', [id]);
+  return rows[0] ? parsePost(rows[0]) : null;
 }
 
 export async function getPostByPlatformPostId(platformPostId: string, platformId?: string): Promise<Post | null> {
@@ -41,35 +54,35 @@ export async function getPostByPlatformPostId(platformPostId: string, platformId
     sql += ' AND platform_id = ?';
     params.push(platformId);
   }
-  const rows = await query<Post>(sql, params);
-  return rows[0] ?? null;
+  const rows = await query<Record<string, unknown>>(sql, params);
+  return rows[0] ? parsePost(rows[0]) : null;
 }
 
 export async function searchPosts(platformId: string, queryText: string, limit = 50, offset = 0): Promise<Post[]> {
   if (platformId) {
-    return query<Post>(
+    return parsePosts(await query<Record<string, unknown>>(
       `SELECT * FROM posts WHERE platform_id = ? AND content LIKE ? ORDER BY fetched_at DESC LIMIT ? OFFSET ?`,
       [platformId, `%${queryText}%`, limit, offset]
-    );
+    ));
   }
-  return query<Post>(
+  return parsePosts(await query<Record<string, unknown>>(
     `SELECT * FROM posts WHERE content LIKE ? ORDER BY fetched_at DESC LIMIT ? OFFSET ?`,
     [`%${queryText}%`, limit, offset]
-  );
+  ));
 }
 
 export async function queryPosts(platformId: string, whereClause: string, limit = 1000): Promise<Post[]> {
-  return query<Post>(
+  return parsePosts(await query<Record<string, unknown>>(
     `SELECT * FROM posts WHERE platform_id = ? AND ${whereClause} LIMIT ?`,
     [platformId, limit]
-  );
+  ));
 }
 
 export async function listPostsByAuthor(platformId: string, authorId: string, limit = 50, offset = 0): Promise<Post[]> {
-  return query<Post>(
+  return parsePosts(await query<Record<string, unknown>>(
     `SELECT * FROM posts WHERE platform_id = ? AND author_id = ? ORDER BY fetched_at DESC LIMIT ? OFFSET ?`,
     [platformId, authorId, limit, offset]
-  );
+  ));
 }
 
 export async function countPostsByAuthor(platformId: string, authorId: string): Promise<number> {
