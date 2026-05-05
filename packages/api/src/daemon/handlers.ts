@@ -552,12 +552,16 @@ export function getHandlers(): Record<string, Handler> {
     },
 
     async 'platform.add'(params) {
+      const existing = await getPlatformById(params.id as string);
+      if (existing) {
+        return { id: existing.id, existed: true };
+      }
       await createPlatform({
         id: params.id as string,
         name: params.name as string,
         description: (params.description ?? null) as string | null,
       });
-      return { id: params.id };
+      return { id: params.id, existed: false };
     },
 
     async 'platform.mapping.list'(params) {

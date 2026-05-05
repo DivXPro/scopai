@@ -11,6 +11,7 @@ import { upsertTaskPostStatus, getTaskPostStatus } from '@scopai/core';
 import { normalizePostItem, getPlatformAdapter } from '@scopai/core';
 import { fetchViaOpencli } from '@scopai/core';
 import { syncWaitingMediaJobs, enqueueJobs } from '@scopai/core';
+import { emitHook } from '@scopai/core';
 import { importCommentsToDb, importMediaToDb, getDefaultFetchMediaTemplate } from '../daemon/handlers';
 import { buildJobsForPost } from '../daemon/scheduler';
 import { analyzeWithStrategy, analyzeBatchWithStrategy } from './anthropic';
@@ -132,6 +133,21 @@ export async function processJobWithLifecycle(job: QueueJob, workerId: number | 
     await updateTaskStatsForTask(job.task_id);
     if (job.strategy_id) {
       await syncStepStats(job.task_id, job.strategy_id);
+    }
+    if (job.target_type === 'prepare') {
+      const allJobs = await listJobsByTask(job.task_id);
+      const prepareJobs = allJobs.filter(j => j.target_type === 'prepare');
+      if (prepareJobs.every(j => j.status === 'completed' || j.status === 'failed')) {
+        const task = await getTaskById(job.task_id);
+        const doneCount = prepareJobs.filter(j => j.status === 'completed').length;
+        const failedCount = prepareJobs.filter(j => j.status === 'failed').length;
+        const hasFailed = failedCount > 0;
+        emitHook(hasFailed ? 'PrepareDataFailed' : 'PrepareDataCompleted', {
+          task_id: job.task_id,
+          task_name: task?.name ?? undefined,
+          stats: { total: prepareJobs.length, done: doneCount, failed: failedCount },
+        });
+      }
     }
     logger.info(`[Worker-${workerId}] Job ${job.id} completed`);
   } catch (err) {

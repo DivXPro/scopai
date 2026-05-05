@@ -215,6 +215,42 @@ export interface Config {
   logging: {
     level: 'debug' | 'info' | 'warn' | 'error';
   };
+  hooks?: Partial<Record<HookEvent, HookDefinition[]>>;
+}
+
+// === Hooks ===
+export type HookEvent =
+  | 'TaskCompleted'
+  | 'TaskFailed'
+  | 'StepCompleted'
+  | 'StepFailed'
+  | 'PrepareDataCompleted'
+  | 'PrepareDataFailed';
+
+export interface CommandHook {
+  type: 'command';
+  command: string;
+}
+
+export interface HttpHook {
+  type: 'http';
+  url: string;
+  headers?: Record<string, string>;
+  timeout_ms?: number;
+}
+
+export type HookDefinition = CommandHook | HttpHook;
+
+export interface HookPayload {
+  event: HookEvent;
+  timestamp: string;
+  task_id: string;
+  task_name?: string;
+  step_id?: string;
+  step_name?: string;
+  strategy_id?: string;
+  error?: string;
+  stats?: { total: number; done: number; failed: number };
 }
 
 // === IPC ===

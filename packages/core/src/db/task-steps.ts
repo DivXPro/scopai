@@ -1,6 +1,7 @@
 import { query, run } from './client';
 import { TaskStep, TaskStats } from '../shared/types';
 import { generateId, now } from '../shared/utils';
+import { emitHook } from '../shared/hooks';
 
 export async function createTaskStep(
   step: Omit<TaskStep, 'id' | 'created_at' | 'updated_at'>,
@@ -57,6 +58,18 @@ export async function updateTaskStepStatus(
     `UPDATE task_steps SET status = ?, stats = ?, error = ?, updated_at = ? WHERE id = ?`,
     [status, stats ? JSON.stringify(stats) : null, error ?? null, ts, stepId],
   );
+
+  if (status === 'completed' || status === 'failed') {
+    const step = await getTaskStepById(stepId);
+    emitHook(status === 'completed' ? 'StepCompleted' : 'StepFailed', {
+      task_id: step?.task_id ?? '',
+      step_id: stepId,
+      step_name: step?.name ?? undefined,
+      strategy_id: step?.strategy_id ?? undefined,
+      error: status === 'failed' ? error ?? undefined : undefined,
+      stats: stats ?? undefined,
+    });
+  }
 }
 
 export async function getNextStepOrder(taskId: string): Promise<number> {

@@ -47,6 +47,7 @@ export type { NormalizedPostItem, NormalizedCommentItem } from './shared/utils';
 export { registerWorker, unregisterWorker, setWorkerActiveCount, getTotalActiveJobs, getWorkerCount, requestShutdown, isShuttingDown, resetShutdown } from './shared/shutdown';
 export { VERSION as version } from './shared/version';
 export { notifyJobAvailable, waitForJob } from './shared/job-events';
+export { emitHook } from './shared/hooks';
 export { getDaemonStatus } from './shared/daemon-status';
 export type { DaemonStatus } from './shared/daemon-status';
 export { readLockFile, writeLockFile, removeLockFile, isApiAlive } from './shared/lock-file';

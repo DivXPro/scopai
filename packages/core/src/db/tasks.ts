@@ -1,6 +1,7 @@
 import { query, run } from './client';
 import { Task, TaskStats } from '../shared/types';
 import { now } from '../shared/utils';
+import { emitHook } from '../shared/hooks';
 
 export async function createTask(task: Task): Promise<void> {
   await run(
@@ -44,6 +45,15 @@ export async function updateTaskStatus(id: string, status: string): Promise<void
     `UPDATE tasks SET status = ?, updated_at = ?, completed_at = ? WHERE id = ?`,
     [status, updatedAt, completedAt, id]
   );
+
+  if (status === 'completed' || status === 'failed') {
+    const task = await getTaskById(id);
+    emitHook(status === 'completed' ? 'TaskCompleted' : 'TaskFailed', {
+      task_id: id,
+      task_name: task?.name ?? undefined,
+      stats: task?.stats ?? undefined,
+    });
+  }
 }
 
 export async function updateTaskStats(id: string, stats: TaskStats): Promise<void> {

@@ -12,8 +12,12 @@ export function platformCommands(program: Command): void {
     .requiredOption('--name <name>', 'Platform name')
     .option('--description <desc>', 'Platform description')
     .action(async (opts: { id: string; name: string; description?: string }) => {
-      await apiPost('/platforms', { id: opts.id, name: opts.name, description: opts.description ?? null });
-      console.log(pc.green(`Platform added: ${opts.id}`));
+      const result = await apiPost<{ id: string; existed?: boolean }>('/platforms', { id: opts.id, name: opts.name, description: opts.description ?? null });
+      if (result.existed) {
+        console.log(pc.yellow(`Platform already exists: ${opts.id}`));
+      } else {
+        console.log(pc.green(`Platform added: ${opts.id}`));
+      }
     });
 
   platform

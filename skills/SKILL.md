@@ -114,6 +114,53 @@ Run these **in order** before any workflow:
 
 > **Creator sync pipeline**: Independent from task/queue pipeline. Worker polls `creator_sync_jobs` directly, fetches posts via `opencli` (e.g., `opencli xiaohongshu user {author_id} --format json`, `opencli douyin user-videos {author_id} --limit {limit} -f json`), normalizes via platform adapter fieldMap, and upserts into `posts` table. Profile sync uses adapter's profileFieldMap and homepageUrlTemplate.
 
+### Hooks (Event Notifications)
+
+Configure hooks in `~/.scopai/config.json` to receive notifications on task lifecycle events. Supports **command** (shell execution) and **http** (POST webhook) hook types.
+
+**Available events:**
+
+| Event | Trigger |
+|-------|---------|
+| `TaskCompleted` | All task steps completed successfully |
+| `TaskFailed` | Task failed or cancelled |
+| `StepCompleted` | A strategy step completed |
+| `StepFailed` | A strategy step has permanently failed jobs |
+| `PrepareDataCompleted` | All prepare jobs completed (no failures) |
+| `PrepareDataFailed` | Some prepare jobs failed |
+
+**Template variables** (available in `command` hooks):
+
+| Variable | Value |
+|----------|-------|
+| `$TASK_ID` | Task ID |
+| `$STEP_ID` | Step ID (Step events only) |
+| `$EVENT` | Event name |
+| `$ERROR` | Error message (failure events only) |
+| `$STATS_TOTAL` | Total job count |
+| `$STATS_DONE` | Completed job count |
+| `$STATS_FAILED` | Failed job count |
+
+Full payload is also available via `$SCOPAI_HOOK_PAYLOAD` environment variable (JSON).
+
+**Example config:**
+
+```json
+{
+  "hooks": {
+    "TaskCompleted": [
+      { "type": "command", "command": "osascript -e 'display notification \"Done: $STATS_DONE\" with title \"scopai - Task completed\"'" }
+    ],
+    "TaskFailed": [
+      { "type": "http", "url": "https://hooks.slack.com/services/xxx" }
+    ],
+    "PrepareDataFailed": [
+      { "type": "command", "command": "osascript -e 'display notification \"Failed: $STATS_FAILED\" with title \"scopai\" sound name \"Sosumi\"'" }
+    ]
+  }
+}
+```
+
 ### Advanced: Create Strategy
 
 | # | Tool | Description |
