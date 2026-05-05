@@ -433,6 +433,21 @@ scopai task step run --task-id <tid> --step-id <sid> --wait
 }
 ```
 
+**User confirmation before import:**
+
+Before running `scopai strategy import`, present the `output_schema` to the user in a **table** for confirmation. The table must have two columns:
+
+| 字段名 | 数据类型 |
+|--------|----------|
+| `title` (Chinese) | `type` (e.g., string, number, boolean, array) |
+
+Only proceed with import after the user explicitly approves. Example presentation:
+
+| 字段名 | 数据类型 |
+|--------|----------|
+| 变现潜力评分 | number |
+| 变现类别 | string |
+
 **Error recovery for strategy import:**
 
 - Validation fails → read exact error, fix field, retry (max 2 retries)
