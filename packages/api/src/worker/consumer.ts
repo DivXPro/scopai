@@ -283,7 +283,6 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
   const fetchMediaTemplate = cliTemplates.fetch_media ?? getDefaultFetchMediaTemplate(platformId);
   if (fetchMediaTemplate) {
     if (!statusAfterComments?.media_fetched) {
-      logger.info(`[Worker-${workerId}] Post ${postId}: Step 3 fetch_media`);
       const result = await fetchViaOpencli(fetchMediaTemplate, fetchVars);
       if (!result.success) {
         throw new Error(`fetch_media failed for post ${postId}: ${result.error ?? 'unknown'}`);

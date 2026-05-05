@@ -11,7 +11,6 @@ import { createFieldMapping, listFieldMappings } from '@scopai/core';
 import { createStrategy, getStrategyById, listStrategies, validateStrategyJson, updateStrategy, deleteStrategy, parseJsonSchemaToColumns, createStrategyResultTable, syncStrategyResultTable } from '@scopai/core';
 import { enqueueJobs, getQueueStats, syncWaitingMediaJobs, notifyJobAvailable } from '@scopai/core';
 import { getDbPath, query, run, checkpoint } from '@scopai/core';
-import { getLogger } from '@scopai/core';
 import { generateId, now, parseImportFile } from '@scopai/core';
 import { fetchViaOpencli } from '@scopai/core';
 import { getExistingResultIds } from '@scopai/core';
@@ -1008,7 +1007,6 @@ export async function importMediaToDb(
   platformId: string,
   noteId?: string,
 ): Promise<number> {
-  // opencli downloads to {download_dir}/{platform}/{noteId}/ when --output {download_dir}/{platform} is used
   const platformDir = getPlatformAdapter(platformId)?.directoryName ?? platformId.split('_')[0];
   const downloadBase = noteId
     ? path.join(config.paths.download_dir, platformDir, noteId)
@@ -1023,9 +1021,7 @@ export async function importMediaToDb(
     const index = obj.index ?? count + 1;
     const mediaType = (obj.media_type ?? obj.type ?? 'image') as string;
     const ext = mediaType === 'video' ? 'mp4' : mediaType === 'audio' ? 'mp3' : 'jpg';
-    // Prefer actual path from opencli response, fall back to constructed path
     const localPath = (obj.local_path as string) ?? (obj.path as string) ?? (noteId ? `${downloadBase}/${noteId}_${index}.${ext}` : null);
-    // Keep remote URL separate — never fall back to localPath for url field
     const url = (obj.url as string) || '';
 
     try {
