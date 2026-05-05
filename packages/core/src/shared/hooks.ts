@@ -6,7 +6,10 @@ import type { HookEvent, HookDefinition, HookPayload, CommandHook, HttpHook } fr
 function interpolateTemplate(template: string, payload: HookPayload): string {
   return template
     .replace(/\$TASK_ID/g, payload.task_id)
+    .replace(/\$TASK_NAME/g, payload.task_name ?? '')
     .replace(/\$STEP_ID/g, payload.step_id ?? '')
+    .replace(/\$STEP_NAME/g, payload.step_name ?? '')
+    .replace(/\$STRATEGY_ID/g, payload.strategy_id ?? '')
     .replace(/\$EVENT/g, payload.event)
     .replace(/\$ERROR/g, payload.error ?? '')
     .replace(/\$STATS_DONE/g, String(payload.stats?.done ?? 0))

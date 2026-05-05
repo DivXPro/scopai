@@ -2,6 +2,7 @@ import { query, run } from './client';
 import { TaskStep, TaskStats } from '../shared/types';
 import { generateId, now } from '../shared/utils';
 import { emitHook } from '../shared/hooks';
+import { getTaskById } from './tasks';
 
 export async function createTaskStep(
   step: Omit<TaskStep, 'id' | 'created_at' | 'updated_at'>,
@@ -61,8 +62,10 @@ export async function updateTaskStepStatus(
 
   if (status === 'completed' || status === 'failed') {
     const step = await getTaskStepById(stepId);
+    const task = step ? await getTaskById(step.task_id) : null;
     emitHook(status === 'completed' ? 'StepCompleted' : 'StepFailed', {
       task_id: step?.task_id ?? '',
+      task_name: task?.name ?? undefined,
       step_id: stepId,
       step_name: step?.name ?? undefined,
       strategy_id: step?.strategy_id ?? undefined,

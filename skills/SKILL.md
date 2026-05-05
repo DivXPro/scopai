@@ -123,7 +123,12 @@ Run these **in order** before any workflow:
 
 ### Hooks (Event Notifications)
 
-Configure hooks in `~/.scopai/config.json` to receive notifications on task lifecycle events. Supports **command** (shell execution) and **http** (POST webhook) hook types.
+Configure hooks in `~/.scopai/config.json` to receive notifications on task lifecycle events. Supports two hook types:
+
+| Type | Description | Use When |
+|------|-------------|----------|
+| `command` | Executes a shell command with template variable substitution | Local notifications (osascript, terminal bell, custom scripts) |
+| `http` | Sends a POST request with JSON payload to a URL | Remote notifications (Slack, Discord, Telegram, custom webhooks, n8n, Zapier) |
 
 **Available events:**
 
@@ -141,32 +146,103 @@ Configure hooks in `~/.scopai/config.json` to receive notifications on task life
 | Variable | Value |
 |----------|-------|
 | `$TASK_ID` | Task ID |
+| `$TASK_NAME` | Task name |
 | `$STEP_ID` | Step ID (Step events only) |
+| `$STEP_NAME` | Step name (Step events only) |
+| `$STRATEGY_ID` | Strategy ID (Step events only) |
 | `$EVENT` | Event name |
 | `$ERROR` | Error message (failure events only) |
 | `$STATS_TOTAL` | Total job count |
 | `$STATS_DONE` | Completed job count |
 | `$STATS_FAILED` | Failed job count |
 
-Full payload is also available via `$SCOPAI_HOOK_PAYLOAD` environment variable (JSON).
+For `command` hooks, the full payload is also available via `$SCOPAI_HOOK_PAYLOAD` environment variable (JSON).
 
-**Example config:**
+**HTTP webhook payload structure:**
+
+Every `http` hook sends a `POST` request with `Content-Type: application/json`. The body is a `HookPayload` object:
+
+```json
+{
+  "event": "TaskCompleted",
+  "timestamp": "2026-05-05T12:30:00.000Z",
+  "task_id": "abc123",
+  "task_name": "上海美食分析",
+  "step_id": null,
+  "step_name": null,
+  "strategy_id": null,
+  "error": null,
+  "stats": { "total": 10, "done": 10, "failed": 0 }
+}
+```
+
+Fields vary by event:
+
+| Field | TaskCompleted / TaskFailed | StepCompleted / StepFailed | PrepareDataCompleted / PrepareDataFailed |
+|-------|---------------------------|---------------------------|------------------------------------------|
+| `event` | ✅ | ✅ | ✅ |
+| `timestamp` | ✅ | ✅ | ✅ |
+| `task_id` | ✅ | ✅ | ✅ |
+| `task_name` | ✅ | ✅ | ✅ |
+| `step_id` | ❌ | ✅ | ❌ |
+| `step_name` | ❌ | ✅ | ❌ |
+| `strategy_id` | ❌ | ✅ | ❌ |
+| `error` | ❌ (TaskCompleted) / ✅ (TaskFailed) | ❌ (StepCompleted) / ✅ (StepFailed) | ❌ (PrepareDataCompleted) / ✅ (PrepareDataFailed) |
+| `stats` | ✅ | ✅ | ✅ |
+
+**HTTP hook configuration:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `type` | `"http"` | — | Hook type identifier |
+| `url` | `string` | — | Target URL for POST request |
+| `headers` | `object` | `{}` | Custom HTTP headers merged with `Content-Type: application/json` |
+| `timeout_ms` | `number` | `5000` | Request timeout in milliseconds |
+
+**Example config (macOS notifications + Slack webhook):**
 
 ```json
 {
   "hooks": {
     "TaskCompleted": [
-      { "type": "command", "command": "osascript -e 'display notification \"Done: $STATS_DONE\" with title \"scopai - Task completed\"'" }
+      { "type": "command", "command": "osascript -e 'display notification \"$TASK_NAME completed ($STATS_DONE/$STATS_TOTAL)\" with title \"scopai\"'" },
+      { "type": "http", "url": "https://hooks.slack.com/services/T00/B00/xxx", "headers": {} }
     ],
     "TaskFailed": [
-      { "type": "http", "url": "https://hooks.slack.com/services/xxx" }
+      { "type": "command", "command": "osascript -e 'display notification \"$TASK_NAME failed: $ERROR\" with title \"scopai\" sound name \"Sosumi\"'" }
+    ],
+    "StepCompleted": [
+      { "type": "command", "command": "osascript -e 'display notification \"$STEP_NAME completed\" with title \"scopai\" subtitle \"$TASK_NAME\"'" }
+    ],
+    "StepFailed": [
+      { "type": "command", "command": "osascript -e 'display notification \"$STEP_NAME failed\" with title \"scopai\" subtitle \"$TASK_NAME\" sound name \"Sosumi\"'" }
+    ],
+    "PrepareDataCompleted": [
+      { "type": "command", "command": "osascript -e 'display notification \"$TASK_NAME data ready ($STATS_DONE/$STATS_TOTAL)\" with title \"scopai\"'" }
     ],
     "PrepareDataFailed": [
-      { "type": "command", "command": "osascript -e 'display notification \"Failed: $STATS_FAILED\" with title \"scopai\" sound name \"Sosumi\"'" }
+      { "type": "command", "command": "osascript -e 'display notification \"$TASK_NAME data prep failed ($STATS_FAILED)\" with title \"scopai\" sound name \"Sosumi\"'" }
     ]
   }
 }
 ```
+
+**Slack webhook example payload transformation:**
+
+Slack expects a specific format. Use a middleware (n8n, Zapier) or write a small adapter script that receives the scopai payload and reformats it:
+
+```bash
+# Adapter script approach: command hook that calls curl with reformatted payload
+{ "type": "command", "command": "curl -s -X POST https://hooks.slack.com/services/T00/B00/xxx -H 'Content-Type: application/json' -d '{\"text\":\"[$EVENT] $TASK_NAME — $STATS_DONE/$STATS_TOTAL done\"}'" }
+```
+
+**Discord webhook example:**
+
+```json
+{ "type": "http", "url": "https://discord.com/api/webhooks/123456/abcdef", "headers": {} }
+```
+
+Discord accepts the scopai payload directly — use the `content` field by wrapping with an adapter or middleware that maps `event` + `task_name` into a Discord message format.
 
 ### Advanced: Create Strategy
 
