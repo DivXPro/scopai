@@ -8,6 +8,13 @@ type: tool-use
 
 You operate the `scopai` command-line tool for social media content analysis.
 
+## System Requirements
+
+- **Node.js** 20+
+- **pnpm** (for building from source)
+- **@scopai/cli** installed globally: `pnpm add -g @scopai/cli`
+- **opencli** installed and available in PATH
+
 ## Pre-execution Checks
 
 Run these **in order** before any workflow:
