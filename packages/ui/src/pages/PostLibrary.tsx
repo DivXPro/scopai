@@ -413,16 +413,17 @@ function SchemaRenderer({
   );
 }
 
-function MediaFilesModal({ postId, onClose }: { postId: string; onClose: () => void }) {
+function MediaFilesModal({ post, onClose }: { post: Post; onClose: () => void }) {
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [activeTab, setActiveTab] = useState<'content' | 'analysis'>('content');
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setCurrentIndex(0);
-    apiGet<MediaFile[]>(`/api/posts/${postId}/media`)
+    apiGet<MediaFile[]>(`/api/posts/${post.id}/media`)
       .then((data) => {
         if (cancelled) return;
         setMediaFiles(data);
@@ -434,7 +435,7 @@ function MediaFilesModal({ postId, onClose }: { postId: string; onClose: () => v
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [postId]);
+  }, [post.id]);
 
   const goPrev = () => setCurrentIndex((i) => (i > 0 ? i - 1 : mediaFiles.length - 1));
   const goNext = () => setCurrentIndex((i) => (i < mediaFiles.length - 1 ? i + 1 : 0));
@@ -455,111 +456,184 @@ function MediaFilesModal({ postId, onClose }: { postId: string; onClose: () => v
     <Modal isOpen={true} onOpenChange={(open) => { if (!open) onClose(); }}>
       <Modal.Backdrop>
         <Modal.Container>
-          <Modal.Dialog className="max-w-3xl max-h-[85vh]">
-            <Modal.CloseTrigger />
-            <Modal.Header>
-              <Modal.Heading>媒体文件</Modal.Heading>
-            </Modal.Header>
-            <Modal.Body>
-              {loading ? (
-                <div className="flex items-center justify-center py-16">
-                  <CirclePlay className="h-4 w-4 animate-spin text-muted-foreground" />
-                  <span className="ml-2 text-xs text-muted-foreground">加载中...</span>
-                </div>
-              ) : mediaFiles.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-16 text-center">暂无媒体文件</p>
-              ) : (
-                <div className="flex flex-col items-center">
-                  {/* Viewer */}
-                  <div className="relative w-full flex items-center justify-center min-h-[320px] max-h-[480px]">
-                    {/* Prev */}
-                    <button
-                      onClick={goPrev}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 shadow-md flex items-center justify-center hover:bg-white transition-colors border border-slate-200"
-                      aria-label="上一张"
-                    >
-                      <icons.ArrowChevronLeft className="h-5 w-5 text-slate-600" />
-                    </button>
-
-                    {/* Media */}
-                    <div className="flex-1 flex items-center justify-center px-14">
+          <Modal.Dialog className="max-w-5xl max-h-[90vh] w-full p-0 overflow-hidden">
+            <Modal.CloseTrigger className="absolute top-3 right-3 z-50" />
+            <div className="flex h-[80vh]">
+              {/* 左侧：媒体 */}
+              <div className="flex-[3] bg-black relative group">
+                {loading ? (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <CirclePlay className="h-4 w-4 animate-spin text-white/60" />
+                    <span className="ml-2 text-xs text-white/60">加载中...</span>
+                  </div>
+                ) : mediaFiles.length === 0 ? (
+                  <div className="absolute inset-0 flex items-center justify-center text-white/40">
+                    <span className="text-sm">暂无媒体文件</span>
+                  </div>
+                ) : (
+                  <>
+                    {/* 媒体内容 - absolute 撑满 */}
+                    <div className="absolute inset-0 flex items-center justify-center">
                       {current.media_type === 'image' && current.src ? (
                         <img
                           src={current.src}
                           alt={`媒体 ${currentIndex + 1}`}
-                          className="max-w-full max-h-[440px] object-contain rounded-lg border shadow-sm"
+                          className="max-w-full max-h-full object-contain"
                         />
                       ) : current.media_type === 'video' ? (
                         <video
                           src={current.src}
                           controls
-                          className="max-w-full max-h-[440px] rounded-lg border shadow-sm"
+                          className="max-w-full max-h-full"
                         />
                       ) : current.media_type === 'audio' ? (
-                        <audio
-                          src={current.src}
-                          controls
-                          className="w-full max-w-md"
-                        />
+                        <audio src={current.src} controls className="w-full max-w-md" />
                       ) : (
-                        <div className="flex flex-col items-center justify-center w-full min-h-[320px] rounded-lg border bg-slate-50">
+                        <div className="flex flex-col items-center justify-center text-white/40">
                           <span className="text-3xl mb-3">📏</span>
-                          <span className="text-sm text-muted-foreground capitalize">{current.media_type}</span>
+                          <span className="text-sm capitalize">{current.media_type}</span>
                         </div>
                       )}
                     </div>
 
-                    {/* Next */}
-                    <button
-                      onClick={goNext}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 shadow-md flex items-center justify-center hover:bg-white transition-colors border border-slate-200"
-                      aria-label="下一张"
-                    >
-                      <icons.ArrowChevronRight className="h-5 w-5 text-slate-600" />
-                    </button>
-                  </div>
-
-                  {/* Info bar */}
-                  <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">
-                      {currentIndex + 1} / {mediaFiles.length}
-                    </span>
-                    <span className="capitalize">{current.media_type}</span>
-                    {current.width && current.height && (
-                      <span>{current.width} × {current.height}</span>
-                    )}
-                    {current.src.startsWith('/api/media/') && (
-                      <span className="text-green-600 text-xs">已下载</span>
-                    )}
-                  </div>
-
-                  {/* Thumbnail strip */}
-                  {mediaFiles.length > 1 && (
-                    <div className="mt-4 flex gap-2 overflow-x-auto max-w-full pb-1">
-                      {mediaFiles.map((m, i) => (
+                    {/* 左右切换 */}
+                    {mediaFiles.length > 1 && (
+                      <>
                         <button
-                          key={m.id}
-                          onClick={() => setCurrentIndex(i)}
-                          className={`shrink-0 w-14 h-14 rounded-lg border overflow-hidden transition-all ${
-                            i === currentIndex ? 'ring-2 ring-secondary ring-offset-1' : 'opacity-60 hover:opacity-100'
-                          }`}
+                          onClick={goPrev}
+                          className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-all opacity-0 group-hover:opacity-100"
+                          aria-label="上一张"
                         >
-                          {m.media_type === 'image' && m.src ? (
-                            <img src={m.src} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-slate-100">
-                              <span className="text-lg">
-                                {m.media_type === 'video' ? '▶' : m.media_type === 'audio' ? '🎧' : '📏'}
-                              </span>
-                            </div>
-                          )}
+                          <icons.ArrowChevronLeft className="h-5 w-5 text-white" />
                         </button>
-                      ))}
+                        <button
+                          onClick={goNext}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-all opacity-0 group-hover:opacity-100"
+                          aria-label="下一张"
+                        >
+                          <icons.ArrowChevronRight className="h-5 w-5 text-white" />
+                        </button>
+                      </>
+                    )}
+
+                    {/* 左上角索引浮层 */}
+                    {mediaFiles.length > 1 && (
+                      <span className="absolute top-4 left-4 bg-black/50 text-white text-xs font-medium px-2.5 py-1 rounded-full backdrop-blur-sm z-10">
+                        {currentIndex + 1} / {mediaFiles.length}
+                      </span>
+                    )}
+
+                    {/* 底部缩略图条 */}
+                    {mediaFiles.length > 1 && (
+                      <div className="absolute bottom-0 left-0 right-0 flex gap-2 overflow-x-auto px-4 py-2 bg-black/40 opacity-0 group-hover:opacity-100 transition-all justify-center">
+                        {mediaFiles.map((m, i) => (
+                          <button
+                            key={m.id}
+                            onClick={() => setCurrentIndex(i)}
+                            className={`shrink-0 w-12 h-12 rounded border overflow-hidden transition-all ${
+                              i === currentIndex ? 'ring-2 ring-white' : 'opacity-50 hover:opacity-80'
+                            }`}
+                          >
+                            {m.media_type === 'image' && m.src ? (
+                              <img src={m.src} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-slate-800 text-white text-xs">
+                                {m.media_type === 'video' ? '▶' : m.media_type === 'audio' ? '🎧' : '📏'}
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* 右侧：信息 */}
+              <div className="flex-[2] flex flex-col bg-white min-w-0">
+                <div className="flex border-b border-slate-200 shrink-0">
+                  <button
+                    className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                      activeTab === 'content'
+                        ? 'text-secondary border-b-2 border-secondary'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                    onClick={() => setActiveTab('content')}
+                  >
+                    文字内容
+                  </button>
+                  <button
+                    className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                      activeTab === 'analysis'
+                        ? 'text-secondary border-b-2 border-secondary'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                    onClick={() => setActiveTab('analysis')}
+                  >
+                    分析结果
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {activeTab === 'content' ? (
+                    <div className="p-4">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <PlatformBadge platformId={post.platform_id} />
+                          <span className="text-xs text-slate-400">{timeAgo(post.published_at || post.fetched_at)}</span>
+                        </div>
+
+                        {post.title && (
+                          <h3 className="font-semibold text-sm text-slate-900">{post.title}</h3>
+                        )}
+
+                        {post.content && (
+                          <p className="text-sm text-slate-600 whitespace-pre-wrap">{post.content}</p>
+                        )}
+
+                        <div className="flex items-center gap-4 text-xs text-slate-500 pt-2 border-t border-slate-100">
+                          <span className="flex items-center gap-1">
+                            <Heart className="h-3.5 w-3.5" />
+                            {formatCount(post.like_count ?? 0)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Comment className="h-3.5 w-3.5" />
+                            {formatCount(post.comment_count ?? 0)}
+                          </span>
+                          {post.collect_count > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Bookmark className="h-3.5 w-3.5" />
+                              {formatCount(post.collect_count)}
+                            </span>
+                          )}
+                          {post.share_count > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Eye className="h-3.5 w-3.5" />
+                              {formatCount(post.share_count)}
+                            </span>
+                          )}
+                        </div>
+
+                        {post.url && (
+                          <a
+                            href={post.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            查看原文
+                            <icons.ArrowChevronRight className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4">
+                      <PostAnalysisDetail postId={post.id} />
                     </div>
                   )}
                 </div>
-              )}
-            </Modal.Body>
+              </div>
+            </div>
           </Modal.Dialog>
         </Modal.Container>
       </Modal.Backdrop>
@@ -1093,10 +1167,10 @@ export default function PostLibrary() {
         </Modal>
       )}
 
-      {/* Media Files Modal */}
+      {/* Post Detail Modal */}
       {viewingMediaPostId && (
         <MediaFilesModal
-          postId={viewingMediaPostId}
+          post={posts.find((p) => p.id === viewingMediaPostId)!}
           onClose={() => setViewingMediaPostId(null)}
         />
       )}
