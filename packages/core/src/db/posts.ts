@@ -178,33 +178,31 @@ export async function deletePostById(postId: string): Promise<void> {
 
   const strategies = await listStrategies();
 
-  // Transaction-based cascade delete (child tables first)
-  await run('BEGIN TRANSACTION');
-  try {
-    await run('DELETE FROM post_labels WHERE post_id = ?', [postId]);
-    await run('DELETE FROM comments WHERE post_id = ?', [postId]);
-    await run('DELETE FROM media_files WHERE post_id = ?', [postId]);
-    await run('DELETE FROM task_post_status WHERE post_id = ?', [postId]);
-    await run(`DELETE FROM task_targets WHERE target_type = 'post' AND target_id = ?`, [postId]);
-    await run(`DELETE FROM queue_jobs WHERE target_type = 'post' AND target_id = ?`, [postId]);
+  // DuckDB has a known FK limitation: within a transaction, deleting a parent
+  // row fails even when child rows were deleted in the same transaction.
+  // Since our db client serializes all writes via withLock on a single
+  // connection, we can safely cascade without an explicit transaction.
+  // Delete child tables first (media_files before comments because
+  // media_files.comment_id references comments.id).
+  await run('DELETE FROM post_labels WHERE post_id = ?', [postId]);
+  await run('DELETE FROM media_files WHERE post_id = ?', [postId]);
+  await run('DELETE FROM comments WHERE post_id = ?', [postId]);
+  await run('DELETE FROM task_post_status WHERE post_id = ?', [postId]);
+  await run(`DELETE FROM task_targets WHERE target_type = 'post' AND target_id = ?`, [postId]);
+  await run(`DELETE FROM queue_jobs WHERE target_type = 'post' AND target_id = ?`, [postId]);
 
-    for (const strategy of strategies) {
-      const tableName = getStrategyResultTableName(strategy.id);
-      try {
-        await run(`DELETE FROM "${tableName}" WHERE post_id = ?`, [postId]);
-      } catch {
-        // Strategy result table may not exist yet, ignore
-      }
+  for (const strategy of strategies) {
+    const tableName = getStrategyResultTableName(strategy.id);
+    try {
+      await run(`DELETE FROM "${tableName}" WHERE post_id = ?`, [postId]);
+    } catch {
+      // Strategy result table may not exist yet, ignore
     }
-
-    await run('DELETE FROM posts WHERE id = ?', [postId]);
-    await run('COMMIT');
-  } catch (err) {
-    await run('ROLLBACK').catch(() => {});
-    throw err;
   }
 
-  // Clean up disk files after successful transaction
+  await run('DELETE FROM posts WHERE id = ?', [postId]);
+
+  // Clean up disk files after successful DB deletion
   const allowedRoots = [config.paths.media_dir, config.paths.download_dir]
     .filter((r): r is string => Boolean(r))
     .map((r) => path.resolve(r));
