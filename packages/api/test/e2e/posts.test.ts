@@ -165,5 +165,60 @@ describe('Posts routes', () => {
       });
       assert.equal(res.status, 404);
     });
+
+    it('cascades deletion to comments and media', async () => {
+      const importRes = await fetchApi(ctx.baseUrl, '/api/posts/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          posts: [
+            {
+              platform_id: 'xhs',
+              platform_post_id: 'post-with-comments',
+              title: 'Post With Comments',
+              content: 'Content',
+            },
+          ],
+        }),
+      });
+      const importBody = await importRes.json();
+      const postId = importBody.postIds[0];
+
+      // Import a comment
+      await fetchApi(ctx.baseUrl, `/api/posts/${postId}/comments/import`, {
+        method: 'POST',
+        body: JSON.stringify({
+          platform: 'xhs',
+          comments: [
+            {
+              platform_comment_id: 'comment-1',
+              content: 'Nice post',
+              author_name: 'user1',
+            },
+          ],
+        }),
+      });
+
+      // Delete the post
+      const deleteRes = await fetchApi(ctx.baseUrl, `/api/posts/${postId}`, {
+        method: 'DELETE',
+      });
+      assert.equal(deleteRes.status, 200);
+
+      // Post should be gone
+      const getRes = await fetchApi(ctx.baseUrl, `/api/posts/${postId}`);
+      assert.equal(getRes.status, 404);
+
+      // Comments should be gone
+      const commentsRes = await fetchApi(ctx.baseUrl, `/api/posts/${postId}/comments`);
+      assert.equal(commentsRes.status, 200);
+      const commentsBody = await commentsRes.json();
+      assert.equal(Array.isArray(commentsBody) ? commentsBody.length : commentsBody.comments?.length, 0);
+
+      // Media should be empty
+      const mediaRes = await fetchApi(ctx.baseUrl, `/api/posts/${postId}/media`);
+      assert.equal(mediaRes.status, 200);
+      const mediaBody = await mediaRes.json();
+      assert.equal(Array.isArray(mediaBody) ? mediaBody.length : mediaBody.length, 0);
+    });
   });
 });

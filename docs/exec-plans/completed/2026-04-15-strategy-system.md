@@ -1339,7 +1339,7 @@ git commit -m "test(strategy): add e2e integration test"
 
 ## Execution Handoff
 
-**Plan complete and saved to `docs/superpowers/plans/2026-04-15-strategy-system.md`.**
+**Plan complete and saved to `docs/exec-plans/completed/2026-04-15-strategy-system.md`.**
 
 Two execution options:
 

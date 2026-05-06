@@ -1076,7 +1076,7 @@ export default function CreatorDetail() {
 
 ---
 
-**Plan complete and saved to `docs/superpowers/plans/2026-04-29-creator-ui.md`. Two execution options:**
+**Plan complete and saved to `docs/exec-plans/completed/2026-04-29-creator-ui.md`. Two execution options:**
 
 **1. Subagent-Driven (recommended)** - I dispatch a fresh subagent per task, review between tasks, fast iteration
 

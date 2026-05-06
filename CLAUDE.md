@@ -124,7 +124,7 @@ API e2e 测试使用 child process 启动真实服务器，每个 suite 独立 D
 
 1. **需求澄清**：`orchestrator` 判断需求类型和涉及模块
 2. **架构设计**：`project-architect` 产出设计文档（如需）
-3. **计划编写**：`orchestrator` 或 `project-architect` 产出 `docs/superpowers/plans/`
+3. **计划编写**：`orchestrator` 或 `project-architect` 产出 `docs/exec-plans/active/`
 4. **任务实现**：派发 `feature-developer`、`cli-developer`、`db-developer` 或 `integration-developer`
 5. **测试验证**：`test-engineer` 补充测试并执行
 6. **代码审查**：`code-reviewer` 检查架构一致性、代码质量、逻辑正确性、安全性、可测试性
@@ -236,3 +236,4 @@ API e2e 测试使用 child process 启动真实服务器，每个 suite 独立 D
 - 新功能必须伴随测试
 - 如果需求含糊，先给用户方案选择，再继续执行
 - 涉及安装依赖、执行脚本或补充命令示例时，默认优先使用 `pnpm`
+- **生成新文档时必须遵守 `docs/index.md` 的存放规范**：设计类 → `docs/design-docs/`，执行计划 → `docs/exec-plans/active/`，产品规格 → `docs/product-specs/`，禁止新建 `docs/superpowers/` 等旁路目录
