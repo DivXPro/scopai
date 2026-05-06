@@ -58,36 +58,31 @@ export function getHandlers(): Record<string, Handler> {
         try {
           if (existing.length > 0) {
             postId = existing[0].id;
-            await run(
-              `UPDATE posts SET
-                title = ?, content = ?, author_id = ?, author_name = ?, author_url = ?,
-                url = ?, cover_url = ?, post_type = ?, like_count = ?, collect_count = ?,
-                comment_count = ?, share_count = ?, play_count = ?, score = ?, tags = ?,
-                media_files = ?, published_at = ?, metadata = ?, fetched_at = ?
-              WHERE id = ?`,
-              [
-                item.title,
-                item.content,
-                item.author_id,
-                item.author_name,
-                item.author_url,
-                item.url,
-                item.cover_url,
-                item.post_type as any,
-                item.like_count,
-                item.collect_count,
-                item.comment_count,
-                item.share_count,
-                item.play_count,
-                item.score,
-                item.tags ? JSON.stringify(item.tags) : null,
-                item.media_files ? JSON.stringify(item.media_files) : null,
-                item.published_at,
-                item.metadata ? JSON.stringify(item.metadata) : null,
-                now(),
-                postId,
-              ],
-            );
+            // Incremental update: only touch fields where new data is non-null and changed.
+            // Prevents sparse opencli responses from clearing fields like cover_url.
+            const existingPost = await getPostById(postId);
+            const updates: Parameters<typeof updatePost>[1] = {};
+            if (existingPost) {
+              if (item.title != null && item.title !== existingPost.title) updates.title = item.title;
+              if (item.content != null && item.content !== existingPost.content) updates.content = item.content;
+              if (item.author_id != null && item.author_id !== existingPost.author_id) updates.author_id = item.author_id;
+              if (item.author_name != null && item.author_name !== existingPost.author_name) updates.author_name = item.author_name;
+              if (item.author_url != null && item.author_url !== existingPost.author_url) updates.author_url = item.author_url;
+              if (item.url != null && item.url !== existingPost.url) updates.url = item.url;
+              if (item.cover_url != null && item.cover_url !== existingPost.cover_url) updates.cover_url = item.cover_url;
+              if (item.post_type != null && item.post_type !== existingPost.post_type) updates.post_type = item.post_type as any;
+              if (item.like_count != null && item.like_count !== existingPost.like_count) updates.like_count = item.like_count;
+              if (item.collect_count != null && item.collect_count !== existingPost.collect_count) updates.collect_count = item.collect_count;
+              if (item.comment_count != null && item.comment_count !== existingPost.comment_count) updates.comment_count = item.comment_count;
+              if (item.share_count != null && item.share_count !== existingPost.share_count) updates.share_count = item.share_count;
+              if (item.play_count != null && item.play_count !== existingPost.play_count) updates.play_count = item.play_count;
+              if (item.score != null && item.score !== existingPost.score) updates.score = item.score;
+              if (item.tags != null && JSON.stringify(item.tags) !== JSON.stringify(existingPost.tags)) updates.tags = item.tags as { name: string; url?: string }[] | null;
+              if (item.media_files != null && JSON.stringify(item.media_files) !== JSON.stringify(existingPost.media_files)) updates.media_files = item.media_files as { type: 'image' | 'video' | 'audio'; url: string; local_path?: string }[] | null;
+              if (item.published_at != null && item.published_at.getTime() !== existingPost.published_at?.getTime()) updates.published_at = item.published_at;
+              if (item.metadata != null && JSON.stringify(item.metadata) !== JSON.stringify(existingPost.metadata)) updates.metadata = item.metadata;
+            }
+            await updatePost(postId, updates);
             skipped++;
           } else {
             const post = await createPost({

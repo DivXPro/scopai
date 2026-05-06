@@ -281,22 +281,25 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
         }
       } else if (existingPost) {
         const updates: Parameters<typeof updatePost>[1] = {};
-        if (noteData.title !== existingPost.title) updates.title = noteData.title;
-        if (noteData.content !== existingPost.content) updates.content = noteData.content;
-        if (noteData.author_id !== existingPost.author_id) updates.author_id = noteData.author_id;
-        if (noteData.author_name !== existingPost.author_name) updates.author_name = noteData.author_name;
-        if (noteData.author_url !== existingPost.author_url) updates.author_url = noteData.author_url;
-        if (noteData.cover_url !== existingPost.cover_url) updates.cover_url = noteData.cover_url;
-        if (noteData.post_type !== existingPost.post_type) updates.post_type = noteData.post_type as any;
-        if (noteData.like_count !== existingPost.like_count) updates.like_count = noteData.like_count;
-        if (noteData.collect_count !== existingPost.collect_count) updates.collect_count = noteData.collect_count;
-        if (noteData.comment_count !== existingPost.comment_count) updates.comment_count = noteData.comment_count;
-        if (noteData.share_count !== existingPost.share_count) updates.share_count = noteData.share_count;
-        if (noteData.play_count !== existingPost.play_count) updates.play_count = noteData.play_count;
-        if (JSON.stringify(noteData.tags) !== JSON.stringify(existingPost.tags)) updates.tags = noteData.tags as { name: string; url?: string }[] | null;
-        if (JSON.stringify(noteData.media_files) !== JSON.stringify(existingPost.media_files)) updates.media_files = noteData.media_files as { type: 'image' | 'video' | 'audio'; url: string; local_path?: string }[] | null;
-        if (noteData.published_at?.getTime() !== existingPost.published_at?.getTime()) updates.published_at = noteData.published_at;
-        if (JSON.stringify(noteData.metadata) !== JSON.stringify(existingPost.metadata)) updates.metadata = noteData.metadata;
+        // Only update when new data has a non-null value or the field genuinely changed.
+        // Prevents opencli sparse responses from clearing fields like cover_url
+        // that were set during initial import.
+        if (noteData.title != null && noteData.title !== existingPost.title) updates.title = noteData.title;
+        if (noteData.content != null && noteData.content !== existingPost.content) updates.content = noteData.content;
+        if (noteData.author_id != null && noteData.author_id !== existingPost.author_id) updates.author_id = noteData.author_id;
+        if (noteData.author_name != null && noteData.author_name !== existingPost.author_name) updates.author_name = noteData.author_name;
+        if (noteData.author_url != null && noteData.author_url !== existingPost.author_url) updates.author_url = noteData.author_url;
+        if (noteData.cover_url != null && noteData.cover_url !== existingPost.cover_url) updates.cover_url = noteData.cover_url;
+        if (noteData.post_type != null && noteData.post_type !== existingPost.post_type) updates.post_type = noteData.post_type as any;
+        if (noteData.like_count != null && noteData.like_count !== existingPost.like_count) updates.like_count = noteData.like_count;
+        if (noteData.collect_count != null && noteData.collect_count !== existingPost.collect_count) updates.collect_count = noteData.collect_count;
+        if (noteData.comment_count != null && noteData.comment_count !== existingPost.comment_count) updates.comment_count = noteData.comment_count;
+        if (noteData.share_count != null && noteData.share_count !== existingPost.share_count) updates.share_count = noteData.share_count;
+        if (noteData.play_count != null && noteData.play_count !== existingPost.play_count) updates.play_count = noteData.play_count;
+        if (noteData.tags != null && JSON.stringify(noteData.tags) !== JSON.stringify(existingPost.tags)) updates.tags = noteData.tags as { name: string; url?: string }[] | null;
+        if (noteData.media_files != null && JSON.stringify(noteData.media_files) !== JSON.stringify(existingPost.media_files)) updates.media_files = noteData.media_files as { type: 'image' | 'video' | 'audio'; url: string; local_path?: string }[] | null;
+        if (noteData.published_at != null && noteData.published_at?.getTime() !== existingPost.published_at?.getTime()) updates.published_at = noteData.published_at;
+        if (noteData.metadata != null && JSON.stringify(noteData.metadata) !== JSON.stringify(existingPost.metadata)) updates.metadata = noteData.metadata;
         await updatePost(postId, updates);
       }
     }
