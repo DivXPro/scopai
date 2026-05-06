@@ -1,6 +1,10 @@
 import { query, run } from './client';
 import { Post } from '../shared/types';
 import { generateId, now } from '../shared/utils';
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
+import { config } from '../config';
+import { listStrategies, getStrategyResultTableName } from './strategies';
 
 function parsePost(row: Record<string, unknown>): Post {
   return {
@@ -147,5 +151,72 @@ export async function updatePost(id: string, updates: Partial<Omit<Post, 'id' | 
     params.push(now());
     params.push(id);
     await run(`UPDATE posts SET ${fields.join(', ')} WHERE id = ?`, params);
+  }
+}
+
+function isInsideAllowedRoots(absPath: string, roots: string[]): boolean {
+  for (const rootAbs of roots) {
+    if (!rootAbs) continue;
+    const root = rootAbs.endsWith(path.sep) ? rootAbs : rootAbs + path.sep;
+    if (absPath === rootAbs || absPath.startsWith(root)) return true;
+  }
+  return false;
+}
+
+export async function deletePostById(postId: string): Promise<void> {
+  const post = await getPostById(postId);
+  if (!post) {
+    throw new Error(`Post ${postId} not found`);
+  }
+
+  // Pre-collect media file paths and strategies outside transaction
+  const mediaRows = await query<{ local_path: string | null }>(
+    'SELECT local_path FROM media_files WHERE post_id = ?',
+    [postId],
+  );
+  const mediaPaths = mediaRows.map((r) => r.local_path).filter((p): p is string => Boolean(p));
+
+  const strategies = await listStrategies();
+
+  // Transaction-based cascade delete (child tables first)
+  await run('BEGIN TRANSACTION');
+  try {
+    await run('DELETE FROM post_labels WHERE post_id = ?', [postId]);
+    await run('DELETE FROM comments WHERE post_id = ?', [postId]);
+    await run('DELETE FROM media_files WHERE post_id = ?', [postId]);
+    await run('DELETE FROM task_post_status WHERE post_id = ?', [postId]);
+    await run(`DELETE FROM task_targets WHERE target_type = 'post' AND target_id = ?`, [postId]);
+    await run(`DELETE FROM queue_jobs WHERE target_type = 'post' AND target_id = ?`, [postId]);
+
+    for (const strategy of strategies) {
+      const tableName = getStrategyResultTableName(strategy.id);
+      try {
+        await run(`DELETE FROM "${tableName}" WHERE post_id = ?`, [postId]);
+      } catch {
+        // Strategy result table may not exist yet, ignore
+      }
+    }
+
+    await run('DELETE FROM posts WHERE id = ?', [postId]);
+    await run('COMMIT');
+  } catch (err) {
+    await run('ROLLBACK').catch(() => {});
+    throw err;
+  }
+
+  // Clean up disk files after successful transaction
+  const allowedRoots = [config.paths.media_dir, config.paths.download_dir]
+    .filter((r): r is string => Boolean(r))
+    .map((r) => path.resolve(r));
+
+  for (const filePath of mediaPaths) {
+    const absPath = path.resolve(filePath);
+    if (isInsideAllowedRoots(absPath, allowedRoots)) {
+      try {
+        await fs.unlink(absPath);
+      } catch {
+        // File may not exist or may be already deleted, ignore
+      }
+    }
   }
 }
