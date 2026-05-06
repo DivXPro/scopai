@@ -418,6 +418,7 @@ function MediaFilesModal({ post, onClose, onToggleStar, onDelete }: { post: Post
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'content' | 'analysis'>('content');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -453,7 +454,8 @@ function MediaFilesModal({ post, onClose, onToggleStar, onDelete }: { post: Post
   const current = mediaFiles[currentIndex];
 
   return (
-    <Modal isOpen={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+    <>
+      <Modal isOpen={true} onOpenChange={(open) => { if (!open) onClose(); }}>
       <Modal.Backdrop>
         <Modal.Container>
           <Modal.Dialog className="max-w-5xl max-h-[90vh] w-full p-0 overflow-hidden">
@@ -648,10 +650,7 @@ function MediaFilesModal({ post, onClose, onToggleStar, onDelete }: { post: Post
                   <Button
                     variant="danger"
                     size="sm"
-                    onPress={() => {
-                      if (!confirm('确认删除帖子？此操作不可恢复，将同时删除评论、媒体文件和分析数据。')) return;
-                      onDelete(post.id);
-                    }}
+                    onPress={() => setShowDeleteConfirm(true)}
                   >
                     删除帖子
                   </Button>
@@ -662,6 +661,40 @@ function MediaFilesModal({ post, onClose, onToggleStar, onDelete }: { post: Post
         </Modal.Container>
       </Modal.Backdrop>
     </Modal>
+
+    {/* Delete Confirm Modal */}
+    <Modal isOpen={showDeleteConfirm} onOpenChange={(open) => setShowDeleteConfirm(open)}>
+      <Modal.Backdrop>
+        <Modal.Container>
+          <Modal.Dialog className="max-w-sm">
+            <Modal.Header>
+              <Modal.Heading>确认删除</Modal.Heading>
+            </Modal.Header>
+            <Modal.Body>
+              <p className="text-sm text-slate-600">
+                此操作不可恢复，将同时删除该帖子的评论、媒体文件和分析数据。
+              </p>
+            </Modal.Body>
+            <Modal.Footer className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onPress={() => setShowDeleteConfirm(false)}>
+                取消
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onPress={() => {
+                  setShowDeleteConfirm(false);
+                  onDelete(post.id);
+                }}
+              >
+                确认删除
+              </Button>
+            </Modal.Footer>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal>
+    </>
   );
 }
 
