@@ -3,6 +3,7 @@ import {
   listPosts, searchPosts, listCommentsByPost, listMediaFilesByPost,
   getPostAnalysisResults, getPostById, countPosts, createComment,
   countPostAnalysisResults, countMediaFilesByPost,
+  deletePostById,
   getOrCreateLabel, addPostLabel, removePostLabel, getPostLabels,
   setPostStarred, listPostsByLabel, listStarredPostIds, getLabelByName,
 } from '@scopai/core';
@@ -169,6 +170,17 @@ export default async function postsRoutes(app: FastifyInstance) {
       throw new Error(`Post not found: ${id}`);
     }
     return post;
+  });
+
+  app.delete('/posts/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const post = await getPostById(id);
+    if (!post) {
+      reply.code(404);
+      throw new Error(`Post not found: ${id}`);
+    }
+    await deletePostById(id);
+    return { success: true, deleted: id };
   });
 
   app.get('/posts/:id/comments', async (request) => {
