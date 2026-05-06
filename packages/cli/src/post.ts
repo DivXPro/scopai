@@ -194,4 +194,26 @@ export function postCommands(program: Command): void {
       await apiDelete(`/posts/${opts.id}/labels/${opts.labelId}`);
       console.log('Label removed from post.');
     });
+
+  post
+    .command('delete')
+    .description('Delete a post and all associated data')
+    .requiredOption('--id <id>', 'Post ID')
+    .action(async (opts: { id: string }) => {
+      process.stdout.write(pc.yellow(`Are you sure you want to delete post ${opts.id}? (y/N) `));
+      const answer = await new Promise<string>((resolve) => {
+        process.stdin.once('data', (data) => resolve(data.toString().trim().toLowerCase()));
+      });
+      if (answer !== 'y') {
+        console.log(pc.gray('Cancelled.'));
+        return;
+      }
+      try {
+        await apiDelete<{ success: boolean; deleted: string }>(`/posts/${opts.id}`);
+        console.log(pc.green(`Post ${opts.id} deleted.`));
+      } catch (err: unknown) {
+        console.error(pc.red(`Failed: ${(err as Error).message}`));
+        process.exit(1);
+      }
+    });
 }
