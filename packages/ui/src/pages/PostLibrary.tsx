@@ -413,7 +413,7 @@ function SchemaRenderer({
   );
 }
 
-function MediaFilesModal({ post, onClose, onToggleStar }: { post: Post; onClose: () => void; onToggleStar: (postId: string, currentStarred: boolean) => void }) {
+function MediaFilesModal({ post, onClose, onToggleStar, onDelete }: { post: Post; onClose: () => void; onToggleStar: (postId: string, currentStarred: boolean) => void; onDelete: (postId: string) => void }) {
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -645,6 +645,16 @@ function MediaFilesModal({ post, onClose, onToggleStar }: { post: Post; onClose:
                       {post.is_starred ? '已星标' : '星标'}
                     </span>
                   </button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onPress={() => {
+                      if (!confirm('确认删除帖子？此操作不可恢复，将同时删除评论、媒体文件和分析数据。')) return;
+                      onDelete(post.id);
+                    }}
+                  >
+                    删除帖子
+                  </Button>
                 </div>
               </div>
             </div>
@@ -866,6 +876,17 @@ export default function PostLibrary() {
     await apiPost(`/api/posts/${postId}/star`, { starred: !currentStarred });
     await loadPosts();
   }, [loadPosts]);
+
+  const handleDeletePost = useCallback(async (postId: string) => {
+    try {
+      await apiDelete(`/api/posts/${postId}`);
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      setTotal((prev) => Math.max(0, prev - 1));
+      setViewingMediaPostId(null);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '删除失败');
+    }
+  }, []);
 
   const addLabel = useCallback(async (postId: string, labelName: string) => {
     await apiPost(`/api/posts/${postId}/labels`, { label_name: labelName });
@@ -1187,6 +1208,7 @@ export default function PostLibrary() {
           post={posts.find((p) => p.id === viewingMediaPostId)!}
           onClose={() => setViewingMediaPostId(null)}
           onToggleStar={toggleStar}
+          onDelete={handleDeletePost}
         />
       )}
     </div>
