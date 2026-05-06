@@ -128,4 +128,42 @@ describe('Posts routes', () => {
       assert.equal(res.status, 200);
     });
   });
+
+  describe('DELETE /api/posts/:id', () => {
+    it('deletes a post and returns 200', async () => {
+      const importRes = await fetchApi(ctx.baseUrl, '/api/posts/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          posts: [
+            {
+              platform_id: 'xhs',
+              platform_post_id: 'post-to-delete',
+              title: 'Post To Delete',
+              content: 'Will be deleted',
+            },
+          ],
+        }),
+      });
+      const importBody = await importRes.json();
+      const postId = importBody.postIds[0];
+
+      const deleteRes = await fetchApi(ctx.baseUrl, `/api/posts/${postId}`, {
+        method: 'DELETE',
+      });
+      assert.equal(deleteRes.status, 200);
+      const deleteBody = await deleteRes.json();
+      assert.equal(deleteBody.success, true);
+      assert.equal(deleteBody.deleted, postId);
+
+      const getRes = await fetchApi(ctx.baseUrl, `/api/posts/${postId}`);
+      assert.equal(getRes.status, 404);
+    });
+
+    it('returns 404 for non-existent post', async () => {
+      const res = await fetchApi(ctx.baseUrl, '/api/posts/non-existent-id', {
+        method: 'DELETE',
+      });
+      assert.equal(res.status, 404);
+    });
+  });
 });
