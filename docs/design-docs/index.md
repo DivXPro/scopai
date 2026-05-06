@@ -19,6 +19,7 @@
 - `2026-04-20-strategy-aggregation-design.md` — 策略结果聚合查询：自动识别并展开 Array/JSON 字段，支持跨帖子聚合分析
 - `2026-04-21-secondary-strategy-design.md` — 二次分析策略：基于上游策略结果做进一步分析，支持运行时动态绑定依赖
 - `2026-04-21-ui-monorepo-architecture.md` — UI + Monorepo 架构设计：Web Dashboard + Fastify API + pnpm workspace，将 CLI 重构为 monorepo 结构以支持小团队共享和 AI Agent 客户端嵌入
+- `2026-05-06-post-delete-design.md` — 帖子级联删除设计：事务包裹删除关联数据（评论、媒体文件、标签、分析结果），同步清理磁盘媒体文件
 
 ## 如何使用
 
