@@ -42,6 +42,7 @@ export { loadClaudeConfig } from './config/claude-config';
 export * from './shared/types';
 export * from './shared/constants';
 export * from './shared/utils';
+export { downloadImage } from './shared/media-download';
 export { getLogger, initLogger } from './shared/logger';
 export type { NormalizedPostItem, NormalizedCommentItem } from './shared/utils';
 export { registerWorker, unregisterWorker, setWorkerActiveCount, getTotalActiveJobs, getWorkerCount, requestShutdown, isShuttingDown, resetShutdown } from './shared/shutdown';
