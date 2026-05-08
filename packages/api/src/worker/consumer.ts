@@ -4,6 +4,7 @@ import { updateTargetStatus, getTargetStats } from '@scopai/core';
 import { getCommentById, listCommentsByIds } from '@scopai/core';
 import { getPlatformById } from '@scopai/core';
 import { getPostById, updatePost, listMediaFilesByPost } from '@scopai/core';
+import { downloadImage } from '@scopai/core';
 import { getStrategyById } from '@scopai/core';
 import { insertStrategyResult } from '@scopai/core';
 import { updateTaskStepStatus, listTaskSteps } from '@scopai/core';
@@ -33,6 +34,7 @@ import {
 import { config } from '@scopai/core';
 import { getLogger } from '@scopai/core';
 import { getPendingCreatorSyncJobs, checkpoint } from '@scopai/core';
+import * as path from 'node:path';
 
 const POLL_INTERVAL_MS = 2000;
 const MAX_WAIT_MS = 30000;
@@ -356,6 +358,21 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
               logger.info(`[Worker-${workerId}] Post ${postId}: auto-set cover_url from first media file`);
             }
           }
+        }
+      }
+      // Download cover image to local storage if post has cover_url but no local backup
+      const postAfterMedia = await getPostById(postId);
+      if (postAfterMedia?.cover_url && !postAfterMedia.cover_local_path) {
+        try {
+          const coverDir = path.join(config.paths.download_dir, platformDir, noteId ?? postId);
+          const coverPath = path.join(coverDir, 'cover.jpg');
+          await downloadImage(postAfterMedia.cover_url, coverPath);
+          await updatePost(postId, { cover_local_path: coverPath });
+          logger.info(`[Worker-${workerId}] Post ${postId}: downloaded cover image to ${coverPath}`);
+        } catch (coverErr: unknown) {
+          const msg = coverErr instanceof Error ? coverErr.message : String(coverErr);
+          logger.warn(`[Worker-${workerId}] Post ${postId}: failed to download cover image: ${msg}`);
+          // Non-fatal: cover download failure should not block the prepare job
         }
       }
     }
