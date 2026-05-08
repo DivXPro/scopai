@@ -29,7 +29,7 @@ export async function createPost(post: Omit<Post, 'id' | 'fetched_at'>): Promise
      share_count, play_count, score, tags, media_files, published_at, fetched_at, metadata)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, post.platform_id, post.platform_post_id, post.title, post.content, post.author_id,
-     post.author_name, post.author_url, post.url, post.cover_url, post.cover_local_path, post.post_type, post.like_count,
+     post.author_name, post.author_url, post.url, post.cover_url, post.cover_local_path ?? null, post.post_type, post.like_count,
      post.collect_count, post.comment_count, post.share_count, post.play_count, post.score,
      post.tags ? JSON.stringify(post.tags) : null,
      post.media_files ? JSON.stringify(post.media_files) : null,
