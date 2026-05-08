@@ -15,6 +15,56 @@ You operate the `scopai` command-line tool for social media content analysis.
 - **@scopai/cli** installed globally: `pnpm add -g @scopai/cli`
 - **opencli** installed and available in PATH
 
+## OpenCLI Plugin Installation
+
+scopai ships with custom OpenCLI adapters for social media platforms (xiaohongshu, douyin, etc.) under `opencli-extensions/`. These must be installed into opencli before use.
+
+### Automated Installation
+
+Run from the repository root after `pnpm install`:
+
+```bash
+# Production copy (runs automatically via postinstall)
+node scripts/install-opencli.js
+
+# Development symlink (reflects local changes without re-copying)
+node scripts/install-opencli.js --symlink
+```
+
+The installer:
+1. Checks if `opencli` is installed (`opencli --version`). If not, exits with install instructions.
+2. Copies `opencli-extensions/{platform}/*.js` to `~/.opencli/clis/{platform}/`.
+3. **Skips files that already exist** — never overwrites user-modified adapters.
+
+### Manual Installation
+
+If you prefer to install manually or need to add a single platform:
+
+```bash
+# 1. Verify opencli is installed
+opencli --version
+
+# 2. If not installed, install it first
+npm install -g @jackwener/opencli
+
+# 3. Copy platform adapters (example: xiaohongshu)
+mkdir -p ~/.opencli/clis/xiaohongshu
+cp -n opencli-extensions/xiaohongshu/*.js ~/.opencli/clis/xiaohongshu/
+
+# 4. Verify
+opencli list
+```
+
+### Updating Adapters
+
+To force-update an adapter when the repo version is newer:
+
+```bash
+# Remove the specific platform adapter, then re-run installer
+rm -rf ~/.opencli/clis/xiaohongshu
+node scripts/install-opencli.js
+```
+
 ## Pre-execution Checks
 
 Run these **in order** before any workflow:
