@@ -115,6 +115,7 @@ const EXTRACT_JS = `
 `;
 
 cli({
+    access: 'read',
   site: 'douyin',
   name: 'search',
   description: '搜索抖音视频/用户/话题',
@@ -133,7 +134,67 @@ cli({
     const keyword = kwargs.keyword;
     const targetLimit = Number(kwargs.limit) || 10;
 
-    await page.goto(`https://www.douyin.com/search/${encodeURIComponent(keyword)}`);
+    // Step 1: open homepage first to avoid anti-scrap detection from direct search URL
+    await page.goto('https://www.douyin.com/');
+    await page.wait(5000);
+
+    // Step 2: fill search input and submit
+    // Use Object.getOwnPropertyDescriptor to trigger React's reactive system
+    await page.evaluate(`
+      (() => {
+        const kw = ${JSON.stringify(keyword)};
+        const selectors = [
+          'input[placeholder*="搜索"]',
+          'input[placeholder*="感兴趣"]',
+          'input[type="text"]',
+        ];
+        let input = null;
+        for (const sel of selectors) {
+          const el = document.querySelector(sel);
+          if (el) { input = el; break; }
+        }
+        if (!input) {
+          const inputs = document.querySelectorAll('input');
+          for (const inp of inputs) {
+            if (inp.type === 'text' || inp.type === 'search') {
+              input = inp;
+              break;
+            }
+          }
+        }
+        if (!input) throw new Error('Search input not found on Douyin homepage');
+        input.focus();
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        setter.call(input, kw);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      })()
+    `);
+    // Ensure input is focused before pressing Enter (pressKey targets document.activeElement)
+    await page.evaluate(`
+      (() => {
+        const selectors = [
+          'input[placeholder*="搜索"]',
+          'input[placeholder*="感兴趣"]',
+          'input[type="text"]',
+        ];
+        let input = null;
+        for (const sel of selectors) {
+          const el = document.querySelector(sel);
+          if (el) { input = el; break; }
+        }
+        if (!input) {
+          const inputs = document.querySelectorAll('input');
+          for (const inp of inputs) {
+            if (inp.type === 'text' || inp.type === 'search') { input = inp; break; }
+          }
+        }
+        if (input) input.focus();
+      })()
+    `);
+    await page.pressKey('Enter');
+
+    // Step 3: wait for navigation to search results page
+    await page.wait(5000);
 
     // Wait for search results to render (or login wall to appear)
     const waitResult = await page.evaluate(WAIT_FOR_CONTENT_JS);
@@ -186,9 +247,6 @@ cli({
     const payload = await page.evaluate(EXTRACT_JS);
     const data = Array.isArray(payload) ? payload : [];
 
-    return data.slice(0, targetLimit).map((item, i) => ({
-      rank: i + 1,
-      ...item,
-    }));
+    return data.slice(0, targetLimit);
   },
 });

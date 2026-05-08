@@ -44,6 +44,7 @@ const FETCH_COMMENTS_JS = (awemeId, count, cursor) => `
 `;
 
 cli({
+    access: 'read',
   site: 'douyin',
   name: 'comment',
   description: '获取抖音帖子评论',

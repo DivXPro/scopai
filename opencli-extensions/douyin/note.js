@@ -94,6 +94,7 @@ const EXTRACT_JS = `
 `;
 
 cli({
+    access: 'read',
   site: 'douyin',
   name: 'note',
   description: '获取抖音帖子正文和互动数据',

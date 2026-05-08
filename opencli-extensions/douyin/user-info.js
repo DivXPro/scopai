@@ -89,6 +89,7 @@ const EXTRACT_USER_JS = `
 `;
 
 cli({
+    access: 'read',
   site: 'douyin',
   name: 'user-info',
   description: '获取抖音用户信息',

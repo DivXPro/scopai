@@ -108,6 +108,7 @@ const EXTRACT_JS = `
 `;
 
 cli({
+    access: 'read',
   site: 'douyin',
   name: 'user-videos',
   description: '获取抖音用户的作品列表',

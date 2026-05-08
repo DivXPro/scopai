@@ -20,6 +20,7 @@ async function readUserSnapshot(page) {
   `);
 }
 cli({
+    access: 'read',
     site: 'xiaohongshu',
     name: 'user',
     description: 'Get public notes from a Xiaohongshu user profile',

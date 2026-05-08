@@ -1,6 +1,7 @@
 import { cli, Strategy } from '@jackwener/opencli/registry';
 import { CliError } from '@jackwener/opencli/errors';
 cli({
+    access: 'read',
     site: 'xiaohongshu',
     name: 'user-info',
     description: '获取小红书博主信息（名字、粉丝数、头像、IP属地等）',

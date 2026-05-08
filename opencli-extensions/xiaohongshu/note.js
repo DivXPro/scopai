@@ -10,6 +10,7 @@ import { cli, Strategy } from '@jackwener/opencli/registry';
 import { AuthRequiredError, CliError, EmptyResultError } from '@jackwener/opencli/errors';
 import { parseNoteId, buildNoteUrl } from './note-helpers.js';
 cli({
+    access: 'read',
     site: 'xiaohongshu',
     name: 'note',
     description: '获取小红书笔记正文和互动数据',

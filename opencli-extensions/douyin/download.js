@@ -116,6 +116,7 @@ const EXTRACT_MEDIA_JS = `
 `;
 
 cli({
+    access: 'read',
   site: 'douyin',
   name: 'download',
   description: '下载抖音视频或图文中的图片',

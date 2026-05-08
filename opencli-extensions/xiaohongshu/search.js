@@ -53,6 +53,7 @@ export function stripXhsAuthorDateSuffix(value) {
     return stripped || text;
 }
 cli({
+    access: 'read',
     site: 'xiaohongshu',
     name: 'search',
     description: '搜索小红书笔记',
