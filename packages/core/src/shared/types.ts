@@ -34,6 +34,7 @@ export interface Post {
   author_url: string | null;
   url: string | null;
   cover_url: string | null;
+  cover_local_path: string | null;
   post_type: PostType | null;
   like_count: number;
   collect_count: number;

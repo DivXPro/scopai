@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS posts (
     author_url          TEXT,
     url                 TEXT,
     cover_url           TEXT,
+    cover_local_path    TEXT,
     post_type           TEXT,
     like_count          INTEGER DEFAULT 0,
     collect_count       INTEGER DEFAULT 0,

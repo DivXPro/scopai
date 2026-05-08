@@ -9,6 +9,7 @@ import { listStrategies, getStrategyResultTableName } from './strategies';
 function parsePost(row: Record<string, unknown>): Post {
   return {
     ...row,
+    cover_local_path: (row.cover_local_path as string | null) ?? null,
     tags: typeof row.tags === 'string' ? JSON.parse(row.tags) : row.tags,
     media_files: typeof row.media_files === 'string' ? JSON.parse(row.media_files) : row.media_files,
     metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata,
@@ -24,11 +25,11 @@ export async function createPost(post: Omit<Post, 'id' | 'fetched_at'>): Promise
   const ts = now();
   await run(
     `INSERT INTO posts (id, platform_id, platform_post_id, title, content, author_id, author_name,
-     author_url, url, cover_url, post_type, like_count, collect_count, comment_count,
+     author_url, url, cover_url, cover_local_path, post_type, like_count, collect_count, comment_count,
      share_count, play_count, score, tags, media_files, published_at, fetched_at, metadata)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, post.platform_id, post.platform_post_id, post.title, post.content, post.author_id,
-     post.author_name, post.author_url, post.url, post.cover_url, post.post_type, post.like_count,
+     post.author_name, post.author_url, post.url, post.cover_url, post.cover_local_path, post.post_type, post.like_count,
      post.collect_count, post.comment_count, post.share_count, post.play_count, post.score,
      post.tags ? JSON.stringify(post.tags) : null,
      post.media_files ? JSON.stringify(post.media_files) : null,
@@ -119,6 +120,7 @@ export async function updatePost(id: string, updates: Partial<Omit<Post, 'id' | 
   if (updates.author_url !== undefined) { fields.push('author_url = ?'); params.push(updates.author_url); }
   if (updates.url !== undefined) { fields.push('url = ?'); params.push(updates.url); }
   if (updates.cover_url !== undefined) { fields.push('cover_url = ?'); params.push(updates.cover_url); }
+  if (updates.cover_local_path !== undefined) { fields.push('cover_local_path = ?'); params.push(updates.cover_local_path); }
   if (updates.post_type !== undefined) { fields.push('post_type = ?'); params.push(updates.post_type); }
   if (updates.like_count !== undefined) { fields.push('like_count = ?'); params.push(updates.like_count); }
   if (updates.collect_count !== undefined) { fields.push('collect_count = ?'); params.push(updates.collect_count); }

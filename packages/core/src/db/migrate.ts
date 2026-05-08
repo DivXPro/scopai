@@ -172,6 +172,15 @@ async function migrateIsStarredColumn(): Promise<void> {
   }
 }
 
+async function migrateCoverLocalPathColumn(): Promise<void> {
+  const columns = await query<{ name: string }>(
+    "SELECT column_name as name FROM information_schema.columns WHERE table_name = 'posts'"
+  );
+  if (!columns.some(c => c.name === 'cover_local_path')) {
+    await exec('ALTER TABLE posts ADD COLUMN cover_local_path TEXT');
+  }
+}
+
 async function migrateLabelsTables(): Promise<void> {
   const hasLabels = await query<{ name: string }>(
     "SELECT table_name as name FROM information_schema.tables WHERE table_name = 'labels'"
@@ -207,6 +216,7 @@ export async function runMigrations(): Promise<void> {
   await migratePlatformSyncTemplates();
   await migrateCreatorSyncJobType();
   await migrateIsStarredColumn();
+  await migrateCoverLocalPathColumn();
   await migrateLabelsTables();
 
   // Migration: drop legacy analysis_results table if present
