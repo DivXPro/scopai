@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import * as path from 'node:path';
 import {
   listPosts, searchPosts, listCommentsByPost, listMediaFilesByPost,
   getPostAnalysisResults, getPostById, countPosts, createComment,
@@ -15,6 +16,7 @@ import {
   getLogger,
   getPlatformAdapter,
 } from '@scopai/core';
+import { config } from '@scopai/core';
 
 export default async function postsRoutes(app: FastifyInstance) {
   app.get('/posts', async (request) => {
@@ -170,6 +172,47 @@ export default async function postsRoutes(app: FastifyInstance) {
       throw new Error(`Post not found: ${id}`);
     }
     return post;
+  });
+
+  app.get('/posts/:id/cover', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const post = await getPostById(id);
+    if (!post || !post.cover_local_path) {
+      reply.code(404);
+      return { error: 'Cover not found' };
+    }
+
+    const abs = path.resolve(post.cover_local_path);
+    const allowedRoots = [config.paths.media_dir, config.paths.download_dir]
+      .filter((r): r is string => Boolean(r))
+      .map((r) => path.resolve(r));
+
+    if (!allowedRoots.some((root) => {
+      const rootPrefixed = root.endsWith(path.sep) ? root : root + path.sep;
+      return abs === root || abs.startsWith(rootPrefixed);
+    })) {
+      reply.code(403);
+      return { error: 'Forbidden path' };
+    }
+
+    const { existsSync, createReadStream, statSync } = await import('node:fs');
+    if (!existsSync(abs)) {
+      reply.code(404);
+      return { error: 'Cover file missing on disk' };
+    }
+
+    const stat = statSync(abs);
+    const mimeByExt: Record<string, string> = {
+      '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+      '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp',
+    };
+    const ext = path.extname(abs).toLowerCase();
+    const mime = mimeByExt[ext] ?? 'image/jpeg';
+
+    reply.header('Content-Type', mime);
+    reply.header('Content-Length', String(stat.size));
+    reply.header('Cache-Control', 'private, max-age=3600');
+    return reply.send(createReadStream(abs));
   });
 
   app.delete('/posts/:id', async (request, reply) => {
