@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import * as icons from '@gravity-ui/icons';
-import { apiGet, apiPost } from '@/api/client';
+import { apiGet, apiPost, apiDelete } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { PostDetailModal } from '@/pages/PostLibrary';
+import type { Post } from '@/pages/PostLibrary';
 
 const ArrowChevronLeft = icons.ArrowChevronLeft;
 const ArrowChevronDown = icons.ArrowChevronDown;
@@ -108,6 +110,8 @@ function DataPrepSection({ taskId }: { taskId: string }) {
   const [data, setData] = useState<PrepareJobsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [viewingPost, setViewingPost] = useState<Post | null>(null);
+  const [postLoading, setPostLoading] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -137,6 +141,31 @@ function DataPrepSection({ taskId }: { taskId: string }) {
     }
   };
 
+  const handleViewPost = async (postId: string) => {
+    setPostLoading(true);
+    try {
+      const post = await apiGet<Post>(`/api/posts/${postId}`);
+      setViewingPost(post);
+    } catch {
+      // ignore
+    } finally {
+      setPostLoading(false);
+    }
+  };
+
+  const handleToggleStar = async (postId: string, currentStarred: boolean) => {
+    await apiPost(`/api/posts/${postId}/star`, { starred: !currentStarred });
+    if (viewingPost) {
+      setViewingPost({ ...viewingPost, is_starred: !currentStarred });
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    await apiDelete(`/api/posts/${postId}`);
+    setViewingPost(null);
+    loadData();
+  };
+
   return (
     <div className="space-y-3">
       <h3 className="text-lg font-semibold text-foreground">相关帖子</h3>
@@ -164,7 +193,16 @@ function DataPrepSection({ taskId }: { taskId: string }) {
               {data.jobs.map((job) => (
                 <TableRow key={job.id}>
                   <TableCell className="text-sm text-foreground max-w-xs truncate">
-                    {job.post_title}
+                    {postLoading ? (
+                      <span className="text-muted-foreground">加载中...</span>
+                    ) : (
+                      <button
+                        className="text-left hover:text-primary transition-colors cursor-pointer"
+                        onClick={() => handleViewPost(job.post_id)}
+                      >
+                        {job.post_title}
+                      </button>
+                    )}
                   </TableCell>
                   <TableCell className="text-xs">
                     <span className="inline-flex items-center gap-1">
@@ -190,6 +228,15 @@ function DataPrepSection({ taskId }: { taskId: string }) {
             </TableBody>
           </Table>
         </div>
+      )}
+
+      {viewingPost && (
+        <PostDetailModal
+          post={viewingPost}
+          onClose={() => setViewingPost(null)}
+          onToggleStar={handleToggleStar}
+          onDelete={handleDeletePost}
+        />
       )}
     </div>
   );

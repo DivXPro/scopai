@@ -3,7 +3,7 @@ import * as icons from '@gravity-ui/icons';
 import { apiGet, apiPost, apiDelete } from '@/api/client';
 import { Card, Skeleton, Button, Select, ListBox, Modal } from '@heroui/react';
 import Pagination from '@/components/Pagination';
-import { PlatformIcon } from '@/components/PlatformIcon';
+import { getPlatformMeta, PlatformBadge } from '@/components/PlatformIcon';
 import {
   Table as DataTable, TableHeader, TableHead, TableBody, TableRow, TableCell,
 } from '@/components/ui/table';
@@ -21,7 +21,7 @@ const ListUl = icons.ListUl;
 const Picture = icons.Picture;
 const Play = icons.Play;
 
-interface Post {
+export interface Post {
   id: string;
   title: string | null;
   content: string;
@@ -73,35 +73,6 @@ interface Strategy {
   id: string;
   name: string;
   output_schema: Record<string, unknown>;
-}
-
-function getPlatformMeta(platformId: string) {
-  if (platformId.includes('xhs')) {
-    return { name: '小红书', color: 'bg-red-50 text-red-600 border-red-100' };
-  }
-  if (platformId.includes('douyin')) {
-    return { name: '抖音', color: 'bg-gray-900 text-white border-gray-900' };
-  }
-  if (platformId.includes('twitter')) {
-    return { name: 'Twitter', color: 'bg-slate-900 text-white border-slate-900' };
-  }
-  if (platformId.includes('bilibili')) {
-    return { name: 'B站', color: 'bg-blue-50 text-blue-600 border-blue-100' };
-  }
-  if (platformId.includes('weibo')) {
-    return { name: '微博', color: 'bg-yellow-50 text-orange-600 border-orange-100' };
-  }
-  return { name: platformId, color: 'bg-gray-50 text-gray-700 border-gray-200' };
-}
-
-function PlatformBadge({ platformId, showLabel }: { platformId: string; showLabel?: boolean }) {
-  const meta = getPlatformMeta(platformId);
-  return (
-    <span className="inline-flex items-center gap-1 shrink-0" title={meta.name}>
-      <PlatformIcon platformId={platformId} size={18} />
-      {showLabel && <span className="text-xs text-muted-foreground">{meta.name}</span>}
-    </span>
-  );
 }
 
 function formatCount(n: number): string {
@@ -398,7 +369,7 @@ function SchemaRenderer({
   );
 }
 
-function PostDetailModal({ post, onClose, onToggleStar, onDelete }: { post: Post; onClose: () => void; onToggleStar: (postId: string, currentStarred: boolean) => void; onDelete: (postId: string) => void }) {
+export function PostDetailModal({ post, onClose, onToggleStar, onDelete }: { post: Post; onClose: () => void; onToggleStar: (postId: string, currentStarred: boolean) => void; onDelete: (postId: string) => void }) {
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -1018,7 +989,6 @@ export default function PostLibrary() {
           排序: 互动量
         </button>
         <div className="ml-auto flex items-center gap-2">
-          <span className="text-xs text-on-surface-variant uppercase tracking-wider font-semibold">视图:</span>
           <div className="flex bg-surface-container rounded-lg p-1">
             <button
               className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-secondary' : 'text-on-surface-variant hover:text-on-surface'}`}

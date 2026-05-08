@@ -3,6 +3,35 @@ interface PlatformIconProps {
   size?: number;
 }
 
+export function getPlatformMeta(platformId: string) {
+  if (platformId.includes('xhs')) {
+    return { name: '小红书', color: 'bg-red-50 text-red-600 border-red-100' };
+  }
+  if (platformId.includes('douyin')) {
+    return { name: '抖音', color: 'bg-gray-900 text-white border-gray-900' };
+  }
+  if (platformId.includes('twitter')) {
+    return { name: 'Twitter', color: 'bg-slate-900 text-white border-slate-900' };
+  }
+  if (platformId.includes('bilibili')) {
+    return { name: 'B站', color: 'bg-blue-50 text-blue-600 border-blue-100' };
+  }
+  if (platformId.includes('weibo')) {
+    return { name: '微博', color: 'bg-yellow-50 text-orange-600 border-orange-100' };
+  }
+  return { name: platformId, color: 'bg-gray-50 text-gray-700 border-gray-200' };
+}
+
+export function PlatformBadge({ platformId, showLabel }: { platformId: string; showLabel?: boolean }) {
+  const meta = getPlatformMeta(platformId);
+  return (
+    <span className="inline-flex items-center gap-1 shrink-0" title={meta.name}>
+      <PlatformIcon platformId={platformId} size={18} />
+      {showLabel && <span className="text-xs text-muted-foreground">{meta.name}</span>}
+    </span>
+  );
+}
+
 function IconSvg({ size, bg, children }: { size: number; bg: string; children: React.ReactNode }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="none" xmlns="http://www.w3.org/2000/svg">
