@@ -35,6 +35,7 @@ interface Post {
   play_count: number;
   url: string | null;
   cover_url: string | null;
+  cover_local_path: string | null;
   published_at: string | null;
   fetched_at: string;
   analysis_count?: number;
@@ -154,10 +155,10 @@ function PostCard({ post, onAnalyze, onViewMedia, onToggleStar, onAddLabel, onRe
         </div>
 
         {/* Cover Image or Text Content */}
-        {post.cover_url ? (
+        {post.cover_url || post.cover_local_path ? (
           <div className="relative rounded-lg overflow-hidden mb-4 aspect-[4/3] cursor-pointer" onClick={() => onViewMedia(post.id)}>
             <img
-              src={post.cover_url}
+              src={post.cover_local_path ? `/api/posts/${post.id}/cover` : post.cover_url!}
               alt=""
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
