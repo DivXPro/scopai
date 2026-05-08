@@ -105,7 +105,6 @@ const Check = icons.Check;
 const Clock = icons.Clock;
 
 function DataPrepSection({ taskId }: { taskId: string }) {
-  const [expanded, setExpanded] = useState(false);
   const [data, setData] = useState<PrepareJobsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [retrying, setRetrying] = useState(false);
@@ -122,12 +121,9 @@ function DataPrepSection({ taskId }: { taskId: string }) {
     }
   };
 
-  const toggleExpanded = () => {
-    if (!expanded && !data) {
-      loadData();
-    }
-    setExpanded(!expanded);
-  };
+  useEffect(() => {
+    loadData();
+  }, [taskId]);
 
   const handleRetry = async () => {
     setRetrying(true);
@@ -142,84 +138,60 @@ function DataPrepSection({ taskId }: { taskId: string }) {
   };
 
   return (
-    <Card>
-      <button
-        onClick={toggleExpanded}
-        className="w-full flex items-center justify-between p-4 hover:bg-default/50 transition-colors text-left"
-      >
-        <div className="flex items-center gap-4">
-          <span className="font-semibold text-foreground">数据准备</span>
-          {data && (
-            <>
-              <Badge variant="default">{data.completed}/{data.total} 完成</Badge>
-              {data.processing > 0 && <Badge variant="outline">{data.processing} 处理中</Badge>}
-              {data.failed > 0 && <Badge variant="destructive">{data.failed} 失败</Badge>}
-            </>
-          )}
+    <div className="space-y-3">
+      <h3 className="text-lg font-semibold text-foreground">相关帖子</h3>
+      {loading ? (
+        <div className="py-4 space-y-2">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
         </div>
-        {expanded ? <ArrowChevronUp className="h-4 w-4" /> : <ArrowChevronDown className="h-4 w-4" />}
-      </button>
-
-      {expanded && (
-        <CardContent className="border-t">
-          {loading ? (
-            <div className="py-4 space-y-2">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
-            </div>
-          ) : !data || data.total === 0 ? (
-            <p className="text-sm text-muted-foreground py-4">暂无数据准备任务</p>
-          ) : (
-            <div className="space-y-3">
-              {data.failed > 0 && (
-                <Button variant="outline" size="sm" onClick={handleRetry} disabled={retrying}>
-                  {retrying ? '重试中...' : `重试 ${data.failed} 个失败项`}
-                </Button>
-              )}
-              <Table aria-label="数据准备状态">
-                <TableHeader>
-                  <TableHead>帖子</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>步骤</TableHead>
-                  <TableHead>错误</TableHead>
-                </TableHeader>
-                <TableBody>
-                  {data.jobs.map((job) => (
-                    <TableRow key={job.id}>
-                      <TableCell className="text-sm text-foreground max-w-xs truncate">
-                        {job.post_title}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={statusVariantMap[job.status] ?? 'outline'}>{job.status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        <span className="inline-flex items-center gap-1">
-                          {job.steps.note ? <Check className="h-3 w-3 text-green-600" /> : <Clock className="h-3 w-3 text-muted-foreground" />}
-                          note
-                        </span>
-                        {' · '}
-                        <span className="inline-flex items-center gap-1">
-                          {job.steps.comments_fetched ? <Check className="h-3 w-3 text-green-600" /> : <Clock className="h-3 w-3 text-muted-foreground" />}
-                          comments
-                        </span>
-                        {' · '}
-                        <span className="inline-flex items-center gap-1">
-                          {job.steps.media_fetched ? <Check className="h-3 w-3 text-green-600" /> : <Clock className="h-3 w-3 text-muted-foreground" />}
-                          media
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-xs text-destructive max-w-xs truncate">
-                        {job.error ?? ''}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+      ) : !data || data.total === 0 ? (
+        <p className="text-sm text-muted-foreground py-4">暂无相关帖子</p>
+      ) : (
+        <div className="space-y-3">
+          {data.failed > 0 && (
+            <Button variant="outline" size="sm" onClick={handleRetry} disabled={retrying}>
+              {retrying ? '重试中...' : `重试 ${data.failed} 个失败项`}
+            </Button>
           )}
-        </CardContent>
+          <Table aria-label="相关帖子">
+            <TableHeader>
+              <TableHead>帖子</TableHead>
+              <TableHead>数据准备</TableHead>
+              <TableHead>错误</TableHead>
+            </TableHeader>
+            <TableBody>
+              {data.jobs.map((job) => (
+                <TableRow key={job.id}>
+                  <TableCell className="text-sm text-foreground max-w-xs truncate">
+                    {job.post_title}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    <span className="inline-flex items-center gap-1">
+                      {job.steps.note ? <Check className="h-3 w-3 text-green-600" /> : <Clock className="h-3 w-3 text-muted-foreground" />}
+                      note
+                    </span>
+                    {' · '}
+                    <span className="inline-flex items-center gap-1">
+                      {job.steps.comments_fetched ? <Check className="h-3 w-3 text-green-600" /> : <Clock className="h-3 w-3 text-muted-foreground" />}
+                      comments
+                    </span>
+                    {' · '}
+                    <span className="inline-flex items-center gap-1">
+                      {job.steps.media_fetched ? <Check className="h-3 w-3 text-green-600" /> : <Clock className="h-3 w-3 text-muted-foreground" />}
+                      media
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-xs text-destructive max-w-xs truncate">
+                    {job.error ?? ''}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -338,6 +310,7 @@ export default function TaskDetail() {
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [rawExpanded, setRawExpanded] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -428,7 +401,7 @@ export default function TaskDetail() {
         </Card>
       </div>
 
-      {/* 数据准备 */}
+      {/* 相关帖子 */}
       <DataPrepSection taskId={task.id} />
 
       {/* 步骤列表 */}
@@ -443,14 +416,22 @@ export default function TaskDetail() {
 
       {/* 原始数据（折叠） */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-sm text-foreground">原始数据</CardTitle>
+        <CardHeader
+          className="cursor-pointer hover:bg-default/50 transition-colors"
+          onClick={() => setRawExpanded(!rawExpanded)}
+        >
+          <CardTitle className="text-sm text-foreground flex items-center gap-2">
+            原始数据
+            {rawExpanded ? <ArrowChevronUp className="h-4 w-4" /> : <ArrowChevronDown className="h-4 w-4" />}
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <pre className="rounded-lg bg-default p-4 overflow-auto text-xs text-foreground">
-            {JSON.stringify(task, null, 2)}
-          </pre>
-        </CardContent>
+        {rawExpanded && (
+          <CardContent>
+            <pre className="rounded-lg bg-default p-4 overflow-auto text-xs text-foreground">
+              {JSON.stringify(task, null, 2)}
+            </pre>
+          </CardContent>
+        )}
       </Card>
     </div>
   );
