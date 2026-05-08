@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { SyncSchedule } from '@/components/SyncSchedule';
 import Pagination from '@/components/Pagination';
 import {
@@ -75,14 +76,6 @@ const statusLabelMap: Record<string, string> = {
   paused: '已暂停',
   unsubscribed: '已取消',
 };
-
-function getPlatformLabel(platformId: string): string {
-  if (platformId.includes('xhs')) return '小红书';
-  if (platformId.includes('twitter')) return 'Twitter';
-  if (platformId.includes('bilibili')) return 'B站';
-  if (platformId.includes('weibo')) return '微博';
-  return platformId;
-}
 
 function formatDateTime(dateStr: string | null): string {
   if (!dateStr) return '-';
@@ -234,7 +227,7 @@ export default function CreatorDetail() {
             <div className="flex-1 space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">@{creator.author_name || '-'}</span>
-                <Badge variant="outline" size="sm">{getPlatformLabel(creator.platform_id)}</Badge>
+                <PlatformIcon platformId={creator.platform_id} size={22} />
               </div>
               {creator.bio && (
                 <p className="text-sm text-muted-foreground line-clamp-2">{creator.bio}</p>

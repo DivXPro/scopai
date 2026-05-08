@@ -3,6 +3,7 @@ import * as icons from '@gravity-ui/icons';
 import { apiGet, apiPost, apiDelete } from '@/api/client';
 import { Card, Skeleton, Button, Select, ListBox, Modal } from '@heroui/react';
 import Pagination from '@/components/Pagination';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import {
   Table as DataTable, TableHeader, TableHead, TableBody, TableRow, TableCell,
 } from '@/components/ui/table';
@@ -78,6 +79,9 @@ function getPlatformMeta(platformId: string) {
   if (platformId.includes('xhs')) {
     return { name: '小红书', color: 'bg-red-50 text-red-600 border-red-100' };
   }
+  if (platformId.includes('douyin')) {
+    return { name: '抖音', color: 'bg-gray-900 text-white border-gray-900' };
+  }
   if (platformId.includes('twitter')) {
     return { name: 'Twitter', color: 'bg-slate-900 text-white border-slate-900' };
   }
@@ -90,11 +94,12 @@ function getPlatformMeta(platformId: string) {
   return { name: platformId, color: 'bg-gray-50 text-gray-700 border-gray-200' };
 }
 
-function PlatformBadge({ platformId }: { platformId: string }) {
+function PlatformBadge({ platformId, showLabel }: { platformId: string; showLabel?: boolean }) {
   const meta = getPlatformMeta(platformId);
   return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase shrink-0 ${meta.color}`}>
-      {meta.name}
+    <span className="inline-flex items-center gap-1 shrink-0" title={meta.name}>
+      <PlatformIcon platformId={platformId} size={18} />
+      {showLabel && <span className="text-xs text-muted-foreground">{meta.name}</span>}
     </span>
   );
 }
@@ -393,7 +398,7 @@ function SchemaRenderer({
   );
 }
 
-function MediaFilesModal({ post, onClose, onToggleStar, onDelete }: { post: Post; onClose: () => void; onToggleStar: (postId: string, currentStarred: boolean) => void; onDelete: (postId: string) => void }) {
+function PostDetailModal({ post, onClose, onToggleStar, onDelete }: { post: Post; onClose: () => void; onToggleStar: (postId: string, currentStarred: boolean) => void; onDelete: (postId: string) => void }) {
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -1097,7 +1102,12 @@ export default function PostLibrary() {
                     {post.author_name || '匿名'}
                   </TableCell>
                   <TableCell className="text-sm text-foreground max-w-xs truncate">
-                    {post.title || post.content?.slice(0, 60)}
+                    <button
+                      className="text-left hover:text-primary transition-colors cursor-pointer"
+                      onClick={() => setViewingMediaPostId(post.id)}
+                    >
+                      {post.title || post.content?.slice(0, 60)}
+                    </button>
                   </TableCell>
                   <TableCell className="text-sm">
                     <div className="flex flex-wrap items-center gap-1">
@@ -1197,7 +1207,7 @@ export default function PostLibrary() {
 
       {/* Post Detail Modal */}
       {viewingMediaPostId && (
-        <MediaFilesModal
+        <PostDetailModal
           post={posts.find((p) => p.id === viewingMediaPostId)!}
           onClose={() => setViewingMediaPostId(null)}
           onToggleStar={toggleStar}
