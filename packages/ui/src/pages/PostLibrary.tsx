@@ -13,7 +13,6 @@ const Comment = icons.Comment;
 const Eye = icons.Eye;
 const Sliders = icons.Sliders;
 const ArrowUpArrowDown = icons.ArrowUpArrowDown;
-const ChartBar = icons.ChartBar;
 const CirclePlay = icons.CirclePlay;
 const CircleArrowRight = icons.CircleArrowRight;
 const LayoutCellsLarge = icons.LayoutCellsLarge;
@@ -120,7 +119,7 @@ function timeAgo(dateStr: string | null): string {
   return date.toLocaleDateString('zh-CN');
 }
 
-function PostCard({ post, onAnalyze, onViewMedia, onToggleStar, onAddLabel, onRemoveLabel }: { post: Post; onAnalyze: (postId: string) => void; onViewMedia: (postId: string) => void; onToggleStar: (postId: string, currentStarred: boolean) => void; onAddLabel: (postId: string, labelName: string) => void; onRemoveLabel: (postId: string, labelId: string) => void }) {
+function PostCard({ post, onViewMedia, onToggleStar, onAddLabel, onRemoveLabel }: { post: Post; onViewMedia: (postId: string) => void; onToggleStar: (postId: string, currentStarred: boolean) => void; onAddLabel: (postId: string, labelName: string) => void; onRemoveLabel: (postId: string, labelId: string) => void }) {
   const contentPreview = post.content?.slice(0, 120) + (post.content?.length > 120 ? '...' : '') || '无内容';
   const isVideo = post.post_type === 'video' || post.platform_id.includes('bilibili');
   const initials = (post.author_name || '匿名').slice(0, 2).toUpperCase();
@@ -263,30 +262,10 @@ function PostCard({ post, onAnalyze, onViewMedia, onToggleStar, onAddLabel, onRe
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-50">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs"
-            onPress={() => onAnalyze(post.id)}
-            isDisabled={!post.analysis_count}
-          >
-            <ChartBar className="h-3.5 w-3.5 mr-1" />
-            分析{post.analysis_count ? ` (${post.analysis_count})` : ''}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs"
-            onPress={() => onViewMedia(post.id)}
-            isDisabled={!post.media_count}
-          >
-            <Picture className="h-3.5 w-3.5 mr-1" />
-            媒体{post.media_count ? ` (${post.media_count})` : ''}
-          </Button>
           <a href={post.url ?? '#'} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground ml-auto">
             <Button variant="ghost" size="sm" className="h-7 text-xs">
               <CircleArrowRight className="h-3.5 w-3.5 mr-1" />
-              查看
+              原帖
             </Button>
           </a>
         </div>
@@ -1082,7 +1061,7 @@ export default function PostLibrary() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {posts.map((post) => (
-              <PostCard key={post.id} post={post} onAnalyze={setAnalyzingPostId} onViewMedia={setViewingMediaPostId} onToggleStar={toggleStar} onAddLabel={addLabel} onRemoveLabel={removeLabel} />
+              <PostCard key={post.id} post={post} onViewMedia={setViewingMediaPostId} onToggleStar={toggleStar} onAddLabel={addLabel} onRemoveLabel={removeLabel} />
             ))}
           </div>
           <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={(p) => { setPage(p); fetchPosts(p); }} />
@@ -1171,33 +1150,13 @@ export default function PostLibrary() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onPress={() => setAnalyzingPostId(post.id)}
-                        isDisabled={!post.analysis_count}
-                      >
-                        <ChartBar className="h-3.5 w-3.5 mr-1" />
-                        分析{post.analysis_count ? ` (${post.analysis_count})` : ''}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onPress={() => setViewingMediaPostId(post.id)}
-                        isDisabled={!post.media_count}
-                      >
-                        <Picture className="h-3.5 w-3.5 mr-1" />
-                        媒体{post.media_count ? ` (${post.media_count})` : ''}
-                      </Button>
                       <a
                         href={post.url ?? '#'}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm text-primary hover:underline"
                       >
-                        查看
+                        原帖
                       </a>
                     </div>
                   </TableCell>
