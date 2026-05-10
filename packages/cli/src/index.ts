@@ -13,6 +13,7 @@ import { queueCommands } from './queue';
 import { logsCommands } from './logs';
 import { creatorCommands } from './creator';
 import { registerLabelCommands } from './label';
+import { mcpCommands } from './mcp';
 import { version } from '@scopai/core';
 
 const program = new Command();
@@ -51,6 +52,8 @@ logsCommands(program);
 creatorCommands(program);
 
 registerLabelCommands(program);
+
+mcpCommands(program);
 
 program.parse(process.argv);
 
