@@ -37,10 +37,12 @@ export function creatorCommands(program: Command): void {
     .description('List subscribed creators')
     .option('--platform <id>', 'Filter by platform')
     .option('--status <status>', 'Filter by status (active/paused/unsubscribed)')
-    .action(async (opts: { platform?: string; status?: string }) => {
+    .option('--name <text>', 'Filter by author name (partial match)')
+    .action(async (opts: { platform?: string; status?: string; name?: string }) => {
       const params = new URLSearchParams();
       if (opts.platform) params.set('platform', opts.platform);
       if (opts.status) params.set('status', opts.status);
+      if (opts.name) params.set('name', opts.name);
       const result = await apiGet<ListCreatorsResponse>('/creators?' + params.toString());
       const creators = result.items ?? [];
       if (creators.length === 0) {

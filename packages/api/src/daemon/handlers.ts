@@ -130,11 +130,11 @@ export function getHandlers(): Record<string, Handler> {
 
     async 'post.list'(params) {
       return listPosts(params.platform as string | undefined,
-        Number(params.limit ?? 50), Number(params.offset ?? 0));
+        Number(params.limit ?? 50), Number(params.offset ?? 0), params.author_id as string | undefined);
     },
 
     async 'post.search'(params) {
-      return searchPosts(params.platform as string, params.query as string, Number(params.limit ?? 50));
+      return searchPosts(params.platform as string, params.query as string, Number(params.limit ?? 50), 0, params.author_id as string | undefined);
     },
 
     async 'comment.import'(params) {

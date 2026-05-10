@@ -27,6 +27,105 @@ describe('Posts routes', () => {
       const res = await fetchApi(ctx.baseUrl, '/api/posts?limit=5');
       assert.equal(res.status, 200);
     });
+
+    it('filters by author_id', async () => {
+      await fetchApi(ctx.baseUrl, '/api/posts/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          posts: [
+            { platform_id: 'xhs', platform_post_id: 'post-a1', title: 'Post A1', content: 'Content A1', author_id: 'author-a' },
+            { platform_id: 'xhs', platform_post_id: 'post-a2', title: 'Post A2', content: 'Content A2', author_id: 'author-a' },
+            { platform_id: 'xhs', platform_post_id: 'post-b1', title: 'Post B1', content: 'Content B1', author_id: 'author-b' },
+          ],
+        }),
+      });
+
+      const res = await fetchApi(ctx.baseUrl, '/api/posts?author_id=author-a');
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.posts.length, 2);
+      assert.ok(body.posts.every((p: any) => p.author_id === 'author-a'));
+    });
+
+    it('filters by starred', async () => {
+      const importRes = await fetchApi(ctx.baseUrl, '/api/posts/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          posts: [
+            { platform_id: 'xhs', platform_post_id: 'post-starred', title: 'Starred Post', content: 'Content' },
+          ],
+        }),
+      });
+      const importBody = await importRes.json();
+      const postId = importBody.postIds[0];
+
+      await fetchApi(ctx.baseUrl, `/api/posts/${postId}/star`, { method: 'POST', body: JSON.stringify({ starred: true }) });
+
+      const res = await fetchApi(ctx.baseUrl, '/api/posts?starred=true');
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.posts.length, 1);
+      assert.equal(body.posts[0].id, postId);
+    });
+
+    it('filters by label', async () => {
+      const importRes = await fetchApi(ctx.baseUrl, '/api/posts/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          posts: [
+            { platform_id: 'xhs', platform_post_id: 'post-labeled', title: 'Labeled Post', content: 'Content' },
+          ],
+        }),
+      });
+      const importBody = await importRes.json();
+      const postId = importBody.postIds[0];
+
+      await fetchApi(ctx.baseUrl, `/api/posts/${postId}/labels`, { method: 'POST', body: JSON.stringify({ label_name: 'test-label' }) });
+
+      const res = await fetchApi(ctx.baseUrl, '/api/posts?label=test-label');
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.posts.length, 1);
+      assert.equal(body.posts[0].id, postId);
+    });
+
+    it('searches posts by query', async () => {
+      await fetchApi(ctx.baseUrl, '/api/posts/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          posts: [
+            { platform_id: 'xhs', platform_post_id: 'post-search-1', title: 'Searchable', content: 'Hello search world' },
+            { platform_id: 'xhs', platform_post_id: 'post-search-2', title: 'Not matched', content: 'Goodbye moon' },
+          ],
+        }),
+      });
+
+      const res = await fetchApi(ctx.baseUrl, '/api/posts?platform=xhs&query=search');
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.posts.length, 1);
+      assert.ok(body.posts[0].content.includes('search'));
+    });
+
+    it('searches by query and author_id together', async () => {
+      await fetchApi(ctx.baseUrl, '/api/posts/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          posts: [
+            { platform_id: 'xhs', platform_post_id: 'post-sa1', title: 'SA1', content: 'alpha content', author_id: 'author-alpha' },
+            { platform_id: 'xhs', platform_post_id: 'post-sa2', title: 'SA2', content: 'beta content', author_id: 'author-alpha' },
+            { platform_id: 'xhs', platform_post_id: 'post-sb1', title: 'SB1', content: 'alpha content', author_id: 'author-beta' },
+          ],
+        }),
+      });
+
+      const res = await fetchApi(ctx.baseUrl, '/api/posts?platform=xhs&query=alpha&author_id=author-alpha');
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.posts.length, 1);
+      assert.equal(body.posts[0].author_id, 'author-alpha');
+      assert.ok(body.posts[0].content.includes('alpha'));
+    });
   });
 
   describe('POST /api/posts/import', () => {

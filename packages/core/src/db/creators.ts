@@ -54,6 +54,7 @@ export async function listCreators(
   status?: string,
   limit = 50,
   offset = 0,
+  nameQuery?: string,
 ): Promise<Creator[]> {
   const conditions: string[] = [];
   const params: unknown[] = [];
@@ -65,6 +66,10 @@ export async function listCreators(
     conditions.push('status = ?');
     params.push(status);
   }
+  if (nameQuery) {
+    conditions.push('author_name LIKE ?');
+    params.push(`%${nameQuery}%`);
+  }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   params.push(limit, offset);
   return query<Creator>(
@@ -73,7 +78,7 @@ export async function listCreators(
   );
 }
 
-export async function countCreators(platformId?: string, status?: string): Promise<number> {
+export async function countCreators(platformId?: string, status?: string, nameQuery?: string): Promise<number> {
   const conditions: string[] = [];
   const params: unknown[] = [];
   if (platformId) {
@@ -83,6 +88,10 @@ export async function countCreators(platformId?: string, status?: string): Promi
   if (status) {
     conditions.push('status = ?');
     params.push(status);
+  }
+  if (nameQuery) {
+    conditions.push('author_name LIKE ?');
+    params.push(`%${nameQuery}%`);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   const rows = await query<{ cnt: bigint }>(`SELECT COUNT(*) as cnt FROM creators ${where}`, params);

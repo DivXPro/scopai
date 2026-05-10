@@ -20,7 +20,7 @@ import { config } from '@scopai/core';
 
 export default async function postsRoutes(app: FastifyInstance) {
   app.get('/posts', async (request) => {
-    const { platform, limit = '50', offset = '0', query: searchQuery, starred, label } = request.query as Record<string, string>;
+    const { platform, limit = '50', offset = '0', query: searchQuery, starred, label, author_id: authorId } = request.query as Record<string, string>;
     const parsedLimit = parseInt(limit, 10);
     const parsedOffset = parseInt(offset, 10);
 
@@ -37,9 +37,9 @@ export default async function postsRoutes(app: FastifyInstance) {
         items = await Promise.all(ids.map(id => getPostById(id))).then(r => r.filter(Boolean) as Post[]);
       }
     } else if (searchQuery) {
-      items = await searchPosts(platform || '', searchQuery, parsedLimit, parsedOffset);
+      items = await searchPosts(platform || '', searchQuery, parsedLimit, parsedOffset, authorId || undefined);
     } else {
-      items = await listPosts(platform || undefined, parsedLimit, parsedOffset);
+      items = await listPosts(platform || undefined, parsedLimit, parsedOffset, authorId || undefined);
     }
 
     const itemsWithExtras = await Promise.all(

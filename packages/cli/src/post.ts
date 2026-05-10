@@ -79,11 +79,17 @@ export function postCommands(program: Command): void {
     .alias('ls')
     .description('List posts')
     .option('--platform <id>', 'Filter by platform')
+    .option('--author-id <id>', 'Filter by author ID')
+    .option('--starred', 'Only show starred posts')
+    .option('--label <name>', 'Filter by label name')
     .option('--limit <n>', 'Max results', '50')
     .option('--offset <n>', 'Offset', '0')
-    .action(async (opts: { platform?: string; limit: string; offset: string }) => {
+    .action(async (opts: { platform?: string; authorId?: string; starred?: boolean; label?: string; limit: string; offset: string }) => {
       const params = new URLSearchParams();
       if (opts.platform) params.set('platform', opts.platform);
+      if (opts.authorId) params.set('author_id', opts.authorId);
+      if (opts.starred) params.set('starred', 'true');
+      if (opts.label) params.set('label', opts.label);
       params.set('limit', opts.limit);
       params.set('offset', opts.offset);
       const result = await apiGet<ListPostsResponse>('/posts?' + params.toString());
@@ -134,11 +140,17 @@ export function postCommands(program: Command): void {
     .description('Search posts by keyword')
     .requiredOption('--platform <id>', 'Platform ID')
     .requiredOption('--query <text>', 'Search query')
+    .option('--author-id <id>', 'Filter by author ID')
+    .option('--starred', 'Only show starred posts')
+    .option('--label <name>', 'Filter by label name')
     .option('--limit <n>', 'Max results', '50')
-    .action(async (opts: { platform: string; query: string; limit: string }) => {
+    .action(async (opts: { platform: string; query: string; authorId?: string; starred?: boolean; label?: string; limit: string }) => {
       const params = new URLSearchParams();
       params.set('query', opts.query);
       params.set('platform', opts.platform);
+      if (opts.authorId) params.set('author_id', opts.authorId);
+      if (opts.starred) params.set('starred', 'true');
+      if (opts.label) params.set('label', opts.label);
       params.set('limit', opts.limit);
       const result = await apiGet<ListPostsResponse>('/posts?' + params.toString());
       const posts = result.posts ?? (result as any);

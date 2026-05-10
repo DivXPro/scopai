@@ -65,11 +65,11 @@ export default async function creatorsRoutes(app: FastifyInstance) {
   });
 
   app.get('/creators', async (request) => {
-    const { platform, status, limit = '50', offset = '0' } = request.query as Record<string, string>;
+    const { platform, status, name, limit = '50', offset = '0' } = request.query as Record<string, string>;
     const parsedLimit = parseInt(limit, 10);
     const parsedOffset = parseInt(offset, 10);
-    const creators = await listCreators(platform || undefined, status || undefined, parsedLimit, parsedOffset);
-    const total = await countCreators(platform || undefined, status || undefined);
+    const creators = await listCreators(platform || undefined, status || undefined, parsedLimit, parsedOffset, name || undefined);
+    const total = await countCreators(platform || undefined, status || undefined, name || undefined);
     return { items: creators, total };
   });
 

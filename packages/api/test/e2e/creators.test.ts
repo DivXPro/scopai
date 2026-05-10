@@ -70,6 +70,23 @@ describe('Creators routes', () => {
       const body = await res.json();
       assert.ok(body.items.every((c: any) => c.status === 'active'));
     });
+
+    it('filters by name (partial match)', async () => {
+      await fetchApi(ctx.baseUrl, '/api/creators', {
+        method: 'POST',
+        body: JSON.stringify({ platform_id: 'test-platform', platform_author_id: 'author-name-1', author_name: 'Alice Wonderland' }),
+      });
+      await fetchApi(ctx.baseUrl, '/api/creators', {
+        method: 'POST',
+        body: JSON.stringify({ platform_id: 'test-platform', platform_author_id: 'author-name-2', author_name: 'Bob Builder' }),
+      });
+
+      const res = await fetchApi(ctx.baseUrl, '/api/creators?name=Alice');
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.ok(body.items.length >= 1);
+      assert.ok(body.items.every((c: any) => c.author_name.includes('Alice')));
+    });
   });
 
   describe('POST /api/creators/:id/sync', () => {

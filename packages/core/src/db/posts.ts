@@ -38,10 +38,13 @@ export async function createPost(post: Omit<Post, 'id' | 'fetched_at'>): Promise
   return { ...post, id, fetched_at: ts };
 }
 
-export async function listPosts(platformId?: string, limit = 50, offset = 0): Promise<Post[]> {
+export async function listPosts(platformId?: string, limit = 50, offset = 0, authorId?: string): Promise<Post[]> {
   let sql = 'SELECT * FROM posts';
+  const conditions: string[] = [];
   const params: unknown[] = [];
-  if (platformId) { sql += ' WHERE platform_id = ?'; params.push(platformId); }
+  if (platformId) { conditions.push('platform_id = ?'); params.push(platformId); }
+  if (authorId) { conditions.push('author_id = ?'); params.push(authorId); }
+  if (conditions.length > 0) sql += ' WHERE ' + conditions.join(' AND ');
   sql += ' ORDER BY fetched_at DESC LIMIT ? OFFSET ?';
   params.push(limit, offset);
   return parsePosts(await query<Record<string, unknown>>(sql, params));
@@ -63,17 +66,14 @@ export async function getPostByPlatformPostId(platformPostId: string, platformId
   return rows[0] ? parsePost(rows[0]) : null;
 }
 
-export async function searchPosts(platformId: string, queryText: string, limit = 50, offset = 0): Promise<Post[]> {
-  if (platformId) {
-    return parsePosts(await query<Record<string, unknown>>(
-      `SELECT * FROM posts WHERE platform_id = ? AND content LIKE ? ORDER BY fetched_at DESC LIMIT ? OFFSET ?`,
-      [platformId, `%${queryText}%`, limit, offset]
-    ));
-  }
-  return parsePosts(await query<Record<string, unknown>>(
-    `SELECT * FROM posts WHERE content LIKE ? ORDER BY fetched_at DESC LIMIT ? OFFSET ?`,
-    [`%${queryText}%`, limit, offset]
-  ));
+export async function searchPosts(platformId: string, queryText: string, limit = 50, offset = 0, authorId?: string): Promise<Post[]> {
+  const conditions: string[] = ['content LIKE ?'];
+  const params: unknown[] = [`%${queryText}%`];
+  if (platformId) { conditions.push('platform_id = ?'); params.push(platformId); }
+  if (authorId) { conditions.push('author_id = ?'); params.push(authorId); }
+  const sql = `SELECT * FROM posts WHERE ${conditions.join(' AND ')} ORDER BY fetched_at DESC LIMIT ? OFFSET ?`;
+  params.push(limit, offset);
+  return parsePosts(await query<Record<string, unknown>>(sql, params));
 }
 
 export async function queryPosts(platformId: string, whereClause: string, limit = 1000): Promise<Post[]> {
