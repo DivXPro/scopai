@@ -57,9 +57,14 @@ export function strategyCommands(program: Command): void {
     .command('list')
     .alias('ls')
     .description('List all imported strategies')
-    .action(async () => {
+    .option('--json', 'Output raw JSON')
+    .action(async (opts: { json?: boolean }) => {
       try {
         const strategies = await apiGet<any[]>('/strategies');
+        if (opts.json) {
+          console.log(JSON.stringify(strategies, null, 2));
+          return;
+        }
         if (strategies.length === 0) {
           console.log(pc.yellow('No strategies found'));
           return;
@@ -130,12 +135,17 @@ export function strategyCommands(program: Command): void {
     .command('show')
     .description('Show strategy details')
     .requiredOption('--id <id>', 'Strategy ID')
-    .action(async (opts: { id: string }) => {
+    .option('--json', 'Output raw JSON')
+    .action(async (opts: { id: string; json?: boolean }) => {
       try {
         const s = await apiGet<any>('/strategies/' + opts.id);
         if (!s) {
           console.log(pc.red('Strategy not found'));
           process.exit(1);
+        }
+        if (opts.json) {
+          console.log(JSON.stringify(s, null, 2));
+          return;
         }
         console.log(pc.bold(`\nStrategy: ${s.name}`));
         console.log(`  ID:       ${s.id}`);
@@ -178,9 +188,14 @@ export function strategyCommands(program: Command): void {
     .requiredOption('--task-id <id>', 'Task ID')
     .requiredOption('--strategy <id>', 'Strategy ID')
     .option('--limit <n>', 'Max results', '50')
-    .action(async (opts: { taskId: string; strategy: string; limit: string }) => {
+    .option('--json', 'Output raw JSON')
+    .action(async (opts: { taskId: string; strategy: string; limit: string; json?: boolean }) => {
       try {
         const response = await apiGet<{ results: any[]; stats: Record<string, unknown> }>('/tasks/' + opts.taskId + '/results?strategy_id=' + opts.strategy + '&limit=' + (opts.limit ?? '50'));
+        if (opts.json) {
+          console.log(JSON.stringify(response, null, 2));
+          return;
+        }
         const rows = response.results ?? [];
         if (rows.length === 0) {
           console.log(pc.yellow('No results found'));
@@ -208,9 +223,14 @@ export function strategyCommands(program: Command): void {
     .description('Show statistics for a task and strategy')
     .requiredOption('--task-id <id>', 'Task ID')
     .requiredOption('--strategy <id>', 'Strategy ID')
-    .action(async (opts: { taskId: string; strategy: string }) => {
+    .option('--json', 'Output raw JSON')
+    .action(async (opts: { taskId: string; strategy: string; json?: boolean }) => {
       try {
         const stats = await apiGet<Record<string, unknown>>('/strategies/' + opts.strategy + '/stats?task_id=' + opts.taskId);
+        if (opts.json) {
+          console.log(JSON.stringify(stats, null, 2));
+          return;
+        }
         console.log(pc.bold(`\nStatistics:`));
         console.log(pc.dim('─'.repeat(40)));
         console.log(`  Total: ${stats.total ?? 0}`);

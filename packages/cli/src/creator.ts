@@ -38,12 +38,17 @@ export function creatorCommands(program: Command): void {
     .option('--platform <id>', 'Filter by platform')
     .option('--status <status>', 'Filter by status (active/paused/unsubscribed)')
     .option('--name <text>', 'Filter by author name (partial match)')
-    .action(async (opts: { platform?: string; status?: string; name?: string }) => {
+    .option('--json', 'Output raw JSON')
+    .action(async (opts: { platform?: string; status?: string; name?: string; json?: boolean }) => {
       const params = new URLSearchParams();
       if (opts.platform) params.set('platform', opts.platform);
       if (opts.status) params.set('status', opts.status);
       if (opts.name) params.set('name', opts.name);
       const result = await apiGet<ListCreatorsResponse>('/creators?' + params.toString());
+      if (opts.json) {
+        console.log(JSON.stringify(result, null, 2));
+        return;
+      }
       const creators = result.items ?? [];
       if (creators.length === 0) {
         console.log(pc.yellow('No creators found'));
@@ -65,8 +70,13 @@ export function creatorCommands(program: Command): void {
     .command('show')
     .description('Show creator details')
     .requiredOption('--id <id>', 'Creator ID')
-    .action(async (opts: { id: string }) => {
+    .option('--json', 'Output raw JSON')
+    .action(async (opts: { id: string; json?: boolean }) => {
       const c = await apiGet<any>(`/creators/${opts.id}`);
+      if (opts.json) {
+        console.log(JSON.stringify(c, null, 2));
+        return;
+      }
       console.log(pc.bold(`\nCreator: ${c.author_name ?? 'Unknown'}`));
       console.log(`  ID:        ${c.id}`);
       console.log(`  Platform:  ${c.platform_id}`);

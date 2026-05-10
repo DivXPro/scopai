@@ -84,7 +84,8 @@ export function postCommands(program: Command): void {
     .option('--label <name>', 'Filter by label name')
     .option('--limit <n>', 'Max results', '50')
     .option('--offset <n>', 'Offset', '0')
-    .action(async (opts: { platform?: string; authorId?: string; starred?: boolean; label?: string; limit: string; offset: string }) => {
+    .option('--json', 'Output raw JSON')
+    .action(async (opts: { platform?: string; authorId?: string; starred?: boolean; label?: string; limit: string; offset: string; json?: boolean }) => {
       const params = new URLSearchParams();
       if (opts.platform) params.set('platform', opts.platform);
       if (opts.authorId) params.set('author_id', opts.authorId);
@@ -93,6 +94,10 @@ export function postCommands(program: Command): void {
       params.set('limit', opts.limit);
       params.set('offset', opts.offset);
       const result = await apiGet<ListPostsResponse>('/posts?' + params.toString());
+      if (opts.json) {
+        console.log(JSON.stringify(result, null, 2));
+        return;
+      }
       const posts = result.posts ?? (result as any);
       const total = (result as any).total ?? posts.length;
       if (posts.length === 0) {
@@ -114,8 +119,13 @@ export function postCommands(program: Command): void {
     .command('show')
     .description('Show post details')
     .argument('<id>', 'Post ID')
-    .action(async (id: string) => {
+    .option('--json', 'Output raw JSON')
+    .action(async (id: string, options: { json?: boolean }) => {
       const p = await apiGet<any>(`/posts/${id}`);
+      if (options.json) {
+        console.log(JSON.stringify(p, null, 2));
+        return;
+      }
       console.log(pc.bold(`\nPost: ${p.title ?? '(untitled)'}`));
       console.log(`  ID:          ${p.id}`);
       console.log(`  Platform:    ${p.platform_id}`);
@@ -144,7 +154,8 @@ export function postCommands(program: Command): void {
     .option('--starred', 'Only show starred posts')
     .option('--label <name>', 'Filter by label name')
     .option('--limit <n>', 'Max results', '50')
-    .action(async (opts: { platform: string; query: string; authorId?: string; starred?: boolean; label?: string; limit: string }) => {
+    .option('--json', 'Output raw JSON')
+    .action(async (opts: { platform: string; query: string; authorId?: string; starred?: boolean; label?: string; limit: string; json?: boolean }) => {
       const params = new URLSearchParams();
       params.set('query', opts.query);
       params.set('platform', opts.platform);
@@ -153,6 +164,10 @@ export function postCommands(program: Command): void {
       if (opts.label) params.set('label', opts.label);
       params.set('limit', opts.limit);
       const result = await apiGet<ListPostsResponse>('/posts?' + params.toString());
+      if (opts.json) {
+        console.log(JSON.stringify(result, null, 2));
+        return;
+      }
       const posts = result.posts ?? (result as any);
       if (posts.length === 0) {
         console.log(pc.yellow('No posts found'));

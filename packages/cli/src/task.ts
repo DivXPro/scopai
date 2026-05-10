@@ -84,11 +84,16 @@ export function taskCommands(program: Command): void {
     .description('List tasks')
     .option('--status <status>', 'Filter by status')
     .option('--query <text>', 'Search by task name')
-    .action(async (opts: { status?: string; query?: string }) => {
+    .option('--json', 'Output raw JSON')
+    .action(async (opts: { status?: string; query?: string; json?: boolean }) => {
       const params = new URLSearchParams();
       if (opts.status) params.set('status', opts.status);
       if (opts.query) params.set('query', opts.query);
       const response = await apiGet<ListTasksResponse>('/tasks?' + params.toString());
+      if (opts.json) {
+        console.log(JSON.stringify(response, null, 2));
+        return;
+      }
       const tasks = response.items ?? [];
       if (tasks.length === 0) {
         console.log(pc.yellow('No tasks found'));
@@ -120,11 +125,16 @@ export function taskCommands(program: Command): void {
     .command('show <id>')
     .alias('status')
     .description('Show task status and progress')
-    .action(async (taskId: string) => {
+    .option('--json', 'Output raw JSON')
+    .action(async (taskId: string, options: { json?: boolean }) => {
       const full = await apiGet<TaskDetailResponse>('/tasks/' + taskId);
       if (!full.id) {
         console.log(pc.red(`Task not found: ${taskId}`));
         process.exit(1);
+      }
+      if (options.json) {
+        console.log(JSON.stringify(full, null, 2));
+        return;
       }
       console.log(pc.bold(`\nTask: ${full.name}`));
       console.log(`  ID:          ${full.id}`);
@@ -199,8 +209,13 @@ export function taskCommands(program: Command): void {
     .command('list <id>')
     .alias('ls')
     .description('List steps for a task')
-    .action(async (taskId: string) => {
+    .option('--json', 'Output raw JSON')
+    .action(async (taskId: string, options: { json?: boolean }) => {
       const steps = await apiGet<any[]>('/tasks/' + taskId + '/steps');
+      if (options.json) {
+        console.log(JSON.stringify(steps, null, 2));
+        return;
+      }
       if (steps.length === 0) {
         console.log(pc.yellow('No steps found'));
         return;
@@ -333,7 +348,8 @@ export function taskCommands(program: Command): void {
     .command('results <id>')
     .description('Show analysis results for a completed task')
     .option('--strategy-id <id>', 'Strategy ID (auto-detected from task steps if omitted)')
-    .action(async (taskId: string, opts: { strategyId?: string }) => {
+    .option('--json', 'Output raw JSON')
+    .action(async (taskId: string, opts: { strategyId?: string; json?: boolean }) => {
       const full = await apiGet<TaskDetailResponse>('/tasks/' + taskId);
       if (!full.id) {
         console.log(pc.red(`Task not found: ${taskId}`));
@@ -358,8 +374,13 @@ export function taskCommands(program: Command): void {
         }
       }
 
+      const allResults: Record<string, any> = {};
       for (const strategyId of strategyIds) {
         const response = await apiGet<{ results: any[]; stats: Record<string, unknown> }>('/tasks/' + taskId + '/results?strategy_id=' + strategyId);
+        if (opts.json) {
+          allResults[strategyId] = response;
+          continue;
+        }
         const results = response.results ?? [];
         const allSteps = [...(full.phases?.steps ?? []), ...((full as any).steps ?? [])];
         const stepName = allSteps.find((s: any) => (s.strategyId ?? s.strategy_id) === strategyId)?.name ?? strategyId;
@@ -374,6 +395,9 @@ export function taskCommands(program: Command): void {
           console.log(pc.dim(`  ... and ${results.length - 5} more`));
         }
         console.log(pc.dim('─'.repeat(80)));
+      }
+      if (opts.json) {
+        console.log(JSON.stringify(allResults, null, 2));
       }
       console.log();
     });

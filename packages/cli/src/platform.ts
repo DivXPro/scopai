@@ -24,8 +24,13 @@ export function platformCommands(program: Command): void {
     .command('list')
     .alias('ls')
     .description('List all registered platforms')
-    .action(async () => {
+    .option('--json', 'Output raw JSON')
+    .action(async (opts: { json?: boolean }) => {
       const platforms = await apiGet<any[]>('/platforms');
+      if (opts.json) {
+        console.log(JSON.stringify(platforms, null, 2));
+        return;
+      }
       if (platforms.length === 0) {
         console.log(pc.yellow('No platforms registered. Run daemon first.'));
         return;
@@ -47,10 +52,15 @@ export function platformCommands(program: Command): void {
     .description('List field mappings for a platform')
     .requiredOption('--platform <id>', 'Platform ID')
     .option('--entity <type>', 'Entity type (post/comment)')
-    .action(async (opts: { platform: string; entity?: string }) => {
+    .option('--json', 'Output raw JSON')
+    .action(async (opts: { platform: string; entity?: string; json?: boolean }) => {
       const params = new URLSearchParams();
       if (opts.entity) params.set('entity', opts.entity);
       const mappings = await apiGet<any[]>('/platforms/' + opts.platform + '/mappings?' + params.toString());
+      if (opts.json) {
+        console.log(JSON.stringify(mappings, null, 2));
+        return;
+      }
       if (mappings.length === 0) {
         console.log(pc.yellow(`No mappings found for platform: ${opts.platform}`));
         return;

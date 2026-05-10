@@ -12,10 +12,15 @@ export function resultCommands(program: Command): void {
     .requiredOption('--task-id <id>', 'Task ID')
     .requiredOption('--strategy-id <id>', 'Strategy ID')
     .option('--limit <n>', 'Max results', '50')
-    .action(async (opts: { taskId: string; strategyId: string; limit: string }) => {
+    .option('--json', 'Output raw JSON')
+    .action(async (opts: { taskId: string; strategyId: string; limit: string; json?: boolean }) => {
       const response = await apiGet<{ results: any[]; stats: Record<string, unknown> }>(
         '/tasks/' + opts.taskId + '/results?strategy_id=' + opts.strategyId + '&limit=' + opts.limit,
       );
+      if (opts.json) {
+        console.log(JSON.stringify(response, null, 2));
+        return;
+      }
       const results = response.results ?? [];
       if (results.length === 0) {
         console.log(pc.yellow('No results found'));

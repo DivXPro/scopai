@@ -65,8 +65,13 @@ export function commentCommands(program: Command): void {
     .description('List comments for a post')
     .requiredOption('--post-id <id>', 'Post ID')
     .option('--limit <n>', 'Max results', '100')
-    .action(async (opts: { postId: string; limit: string }) => {
+    .option('--json', 'Output raw JSON')
+    .action(async (opts: { postId: string; limit: string; json?: boolean }) => {
       const result = await apiGet<ListCommentsResponse>('/posts/' + opts.postId + '/comments?limit=' + opts.limit);
+      if (opts.json) {
+        console.log(JSON.stringify(result, null, 2));
+        return;
+      }
       const comments = result.comments ?? result;
       const total = (result as any).total ?? comments.length;
       if (comments.length === 0) {

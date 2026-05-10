@@ -7,8 +7,13 @@ export function registerLabelCommands(program: Command) {
   label
     .command('list')
     .description('List all labels')
-    .action(async () => {
+    .option('--json', 'Output raw JSON')
+    .action(async (opts: { json?: boolean }) => {
       const labels = await apiGet('/labels');
+      if (opts.json) {
+        console.log(JSON.stringify(labels, null, 2));
+        return;
+      }
       if (!Array.isArray(labels) || labels.length === 0) {
         console.log('No labels found.');
         return;
