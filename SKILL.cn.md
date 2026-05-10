@@ -79,7 +79,7 @@ type: tool-use
 | 19 | **retry_failed_queue_jobs** | `scopai queue retry [--task-id {tid}]` | 只重试失败的作业。 |
 | 20 | **reset_queue_jobs** | `scopai queue reset [--task-id {tid}]` | **粗旷工具**：强制重置所有非待处理作业。优先使用 `queue retry`。 |
 | 21 | **pause_task / resume_task / cancel_task** | `scopai task pause|resume|cancel --task-id {tid}` | 控制正在运行的任务。 |
-| 22 | **list_posts / search_posts_db** | `scopai post list [--platform {id}]` / `scopai post search --platform {id} --query {text}` | 浏览已导入的数据。 |
+| 22 | **list_posts / search_posts_db** | `scopai post list [--platform {id}] [--author-id {aid}] [--starred] [--label {name}]` / `scopai post search --platform {id} --query {text} [--author-id {aid}]` | 浏览已导入的数据。`--author-id` 按博主筛选；`--starred` 只看收藏；`--label` 按标签筛选。 |
 | 23 | **daemon management** | `scopai daemon start [--fg]` / `stop` / `restart` / `status` | 管理守护进程生命周期。版本不匹配时 CLI 会自动重启守护进程。 |
 
 ### 高级：创建策略
@@ -261,6 +261,19 @@ scopai task step run --task-id <tid> --step-id <sid> --wait
 - 验证失败 → 读取确切错误，修复字段，重试（最多 2 次）
 - 相同版本已存在 → 询问是增加版本号还是更改 ID
 - 用户批准后：`scopai strategy import --json '<json>'`，然后 `scopai strategy show --id <id>`
+
+### 博主订阅与同步
+
+| # | 工具 | 命令 | 使用场景 |
+|---|------|------|----------|
+| 29 | **creator_add** | `scopai creator add --platform {id} --author-id {aid} [--name {name}]` | 订阅博主。会自动创建同步调度。 |
+| 30 | **creator_list** | `scopai creator list [--platform {id}] [--status {s}] [--name {text}]` | 列出已订阅博主。`--name` 支持按名字模糊匹配。 |
+| 31 | **creator_show** | `scopai creator show --id {id}` | 查看博主详情和最近同步记录。 |
+| 32 | **creator_sync** | `scopai creator sync --id {id} [--initial]` | 手动触发同步。`--initial` 导入全部历史帖子。 |
+| 33 | **creator_pause / resume** | `scopai creator pause|resume --id {id}` | 暂停/恢复自动同步。 |
+| 34 | **creator_remove** | `scopai creator remove --id {id}` | 取消订阅博主。 |
+
+> **博主同步管道**：独立于任务/队列管道。Worker 直接轮询 `creator_sync_jobs`，通过 `opencli` 抓取帖子（如 `opencli xiaohongshu user {author_id} -f json`），经平台适配器字段映射归一化后写入 `posts` 表。
 
 ---
 
