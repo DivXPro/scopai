@@ -62,6 +62,19 @@ async function main() {
   await migrate();
   await seedPlatforms();
 
+  // Ensure scopai opencli adapters are installed (re-install if opencli updated)
+  const installScript = path.resolve(__dirname, '../../../scripts/install-opencli.js');
+  if (existsSync(installScript)) {
+    const result = spawnSync('node', [installScript], { stdio: 'pipe', encoding: 'utf-8' });
+    if (result.status === 0 && result.stdout) {
+      const lines = result.stdout.trim().split('\n').filter((l) => l.includes('Copied') || l.includes('Forced') || l.includes('Skipped'));
+      if (lines.length > 0) {
+        console.log('[scopai] OpenCLI adapters synced:');
+        for (const line of lines) console.log('  ' + line.trim());
+      }
+    }
+  }
+
   // --- Stale lock file check ---
   const existingLock = readLockFile();
   if (existingLock) {

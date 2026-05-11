@@ -16,11 +16,12 @@ function isOpencliInstalled() {
   }
 }
 
-function install({ symlink = false } = {}) {
+function install({ symlink = false, force = false } = {}) {
   if (!isOpencliInstalled()) {
-    console.error('[scopai] opencli is not installed. Please install it first:');
-    console.error('  npm install -g @jackwener/opencli');
-    process.exit(1);
+    console.warn('[scopai] opencli is not installed. Skipping adapter installation.');
+    console.warn('  Install it first: npm install -g @jackwener/opencli');
+    console.warn('  Then re-run: node scripts/install-opencli.js');
+    return;
   }
 
   if (!fs.existsSync(EXTENSIONS_DIR)) {
@@ -59,11 +60,11 @@ function install({ symlink = false } = {}) {
         const fileStat = fs.lstatSync(srcFile);
         if (!fileStat.isFile()) continue;
 
-        if (fs.existsSync(destFile)) {
+        if (fs.existsSync(destFile) && !force) {
           console.log(`  Skipped ${name}/${file} (already exists)`);
         } else {
           fs.copyFileSync(srcFile, destFile);
-          console.log(`  Copied  ${name}/${file} -> ${dest}`);
+          console.log(`  ${force ? 'Forced' : 'Copied'}  ${name}/${file} -> ${dest}`);
         }
       }
     }
@@ -71,4 +72,5 @@ function install({ symlink = false } = {}) {
 }
 
 const symlink = process.argv.includes('--symlink') || process.argv.includes('-s');
-install({ symlink });
+const force = process.argv.includes('--force') || process.argv.includes('-f');
+install({ symlink, force });

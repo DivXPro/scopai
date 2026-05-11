@@ -12,8 +12,10 @@ You operate the `scopai` command-line tool for social media content analysis.
 
 - **Node.js** 20+
 - **npm** or **pnpm** (for building from source)
-- **@scopai/cli** installed globally: `pnpm add -g @scopai/cli`
 - **opencli** installed and available in PATH
+- **@scopai/cli** installed globally: `pnpm add -g @scopai/cli`
+
+> **Install order matters:** Install `opencli` **before** `@scopai/cli`. scopai's postinstall copies custom OpenCLI adapters into `~/.opencli/clis/`. If opencli is installed later, its postinstall may clear that directory. scopai's daemon auto-repairs this on startup, but installing opencli first avoids the issue entirely.
 
 ## OpenCLI Plugin Installation
 
@@ -32,9 +34,9 @@ node scripts/install-opencli.js --symlink
 ```
 
 The installer:
-1. Checks if `opencli` is installed (`opencli --version`). If not, exits with install instructions.
+1. Checks if `opencli` is installed (`opencli --version`). If not, warns and skips (no error — you can install opencli later).
 2. Copies `opencli-extensions/{platform}/*.js` to `~/.opencli/clis/{platform}/`.
-3. **Skips files that already exist** — never overwrites user-modified adapters.
+3. **Skips files that already exist** — never overwrites user-modified adapters. Use `--force` to overwrite.
 
 ### Manual Installation
 
@@ -53,6 +55,17 @@ cp -n opencli-extensions/xiaohongshu/*.js ~/.opencli/clis/xiaohongshu/
 
 # 4. Verify
 opencli list
+```
+
+### Recovering After opencli Re-installation
+
+If you installed opencli **after** scopai (or updated opencli), its postinstall may have cleared scopai's adapters from `~/.opencli/clis/`.
+
+**Automatic recovery:** Start scopai daemon — it re-runs `install-opencli.js` on startup.
+
+**Manual recovery:**
+```bash
+node scripts/install-opencli.js
 ```
 
 ### Updating Adapters
