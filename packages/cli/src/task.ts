@@ -84,11 +84,15 @@ export function taskCommands(program: Command): void {
     .description('List tasks')
     .option('--status <status>', 'Filter by status')
     .option('--query <text>', 'Search by task name')
+    .option('--limit <n>', 'Max results', '50')
+    .option('--offset <n>', 'Offset', '0')
     .option('--json', 'Output raw JSON')
-    .action(async (opts: { status?: string; query?: string; json?: boolean }) => {
+    .action(async (opts: { status?: string; query?: string; limit: string; offset: string; json?: boolean }) => {
       const params = new URLSearchParams();
       if (opts.status) params.set('status', opts.status);
       if (opts.query) params.set('query', opts.query);
+      params.set('limit', opts.limit);
+      params.set('offset', opts.offset);
       const response = await apiGet<ListTasksResponse>('/tasks?' + params.toString());
       if (opts.json) {
         console.log(JSON.stringify(response, null, 2));

@@ -188,10 +188,11 @@ export function strategyCommands(program: Command): void {
     .requiredOption('--task-id <id>', 'Task ID')
     .requiredOption('--strategy <id>', 'Strategy ID')
     .option('--limit <n>', 'Max results', '50')
+    .option('--offset <n>', 'Offset', '0')
     .option('--json', 'Output raw JSON')
-    .action(async (opts: { taskId: string; strategy: string; limit: string; json?: boolean }) => {
+    .action(async (opts: { taskId: string; strategy: string; limit: string; offset: string; json?: boolean }) => {
       try {
-        const response = await apiGet<{ results: any[]; stats: Record<string, unknown> }>('/tasks/' + opts.taskId + '/results?strategy_id=' + opts.strategy + '&limit=' + (opts.limit ?? '50'));
+        const response = await apiGet<{ results: any[]; stats: Record<string, unknown> }>('/tasks/' + opts.taskId + '/results?strategy_id=' + opts.strategy + '&limit=' + opts.limit + '&offset=' + opts.offset);
         if (opts.json) {
           console.log(JSON.stringify(response, null, 2));
           return;

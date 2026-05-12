@@ -228,7 +228,9 @@ export default async function postsRoutes(app: FastifyInstance) {
 
   app.get('/posts/:id/comments', async (request) => {
     const { id } = request.params as { id: string };
-    return listCommentsByPost(id);
+    const { limit = '100', offset = '0' } = request.query as Record<string, string>;
+    const comments = await listCommentsByPost(id, parseInt(limit, 10), parseInt(offset, 10));
+    return { comments, total: comments.length };
   });
 
   app.post('/posts/:id/comments/import', async (request, reply) => {

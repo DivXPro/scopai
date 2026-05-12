@@ -128,14 +128,14 @@ export default async function tasksRoutes(app: FastifyInstance) {
 
   app.get('/tasks/:id/results', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const { strategy_id } = request.query as Record<string, string>;
+    const { strategy_id, limit = '100', offset = '0' } = request.query as Record<string, string>;
 
     if (!strategy_id) {
       reply.code(400);
       throw new Error('strategy_id is required');
     }
 
-    const results = await listStrategyResultsByTask(strategy_id, id, 100);
+    const results = await listStrategyResultsByTask(strategy_id, id, parseInt(limit, 10), parseInt(offset, 10));
     const stats = await getStrategyResultStats(strategy_id, id);
 
     return { results, stats };

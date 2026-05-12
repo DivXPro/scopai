@@ -137,9 +137,9 @@ Run these **in order** before any workflow:
 |---|------|---------|-------------|
 | 12 | **get_task_results** | `scopai task results {tid}` | After all steps complete. Shows result summary. |
 | 13 | **get_task_status** | `scopai task show {tid}` | Show full task details including phases, steps, jobs, and recent failures. **Not needed when using `--wait` mode.** |
-| 14 | **list_tasks** | `scopai task list [--status {s}] [--query {text}]` | View existing tasks. Filter by status or search by name. |
+| 14 | **list_tasks** | `scopai task list [--status {s}] [--query {text}] [--limit {n}] [--offset {n}]` | View existing tasks. Filter by status or search by name. |
 | 15 | **list_task_steps** | `scopai task step list {tid}` | Inspect step states before running. |
-| 16 | **strategy_result_list** | `scopai strategy result list --task-id {tid} --strategy {sid}` | Inspect per-post results. |
+| 16 | **strategy_result_list** | `scopai strategy result list --task-id {tid} --strategy {sid} [--limit {n}] [--offset {n}]` | Inspect per-post results. |
 | 17 | **strategy_result_export** | `scopai strategy result export --task-id {tid} --strategy {sid} [--format csv|json] [--output {path}]` | Export results to file. |
 | 18 | **strategy_result_stats** | `scopai strategy result stats --task-id {tid} --strategy {sid}` | Show numeric and text field statistics. |
 | 19 | **strategy_result_aggregate** | `scopai strategy result aggregate --task-id {tid} --strategy {sid} --group-by {field} [--agg count|sum|avg|min|max] [--format table|csv|json]` | Aggregate a specific result field. |
@@ -150,10 +150,10 @@ Run these **in order** before any workflow:
 |---|------|---------|-------------|
 | 20 | **retry_failed_queue_jobs** | `scopai queue retry [--task-id {tid}]` | Re-run only failed jobs. |
 | 21 | **reset_queue_jobs** | `scopai queue reset [--task-id {tid}]` | **Blunt instrument**: force-reset all non-pending jobs. Prefer `queue retry`. |
-| 22 | **list_queue_jobs** | `scopai queue list --task-id {tid} [--failed-only] [--limit {n}]` | Inspect queue job status. |
+| 22 | **list_queue_jobs** | `scopai queue list --task-id {tid} [--failed-only] [--limit {n}] [--offset {n}]` | Inspect queue job status. |
 | 23 | **pause_task / resume_task / cancel_task** | `scopai task pause|resume|cancel {tid}` | Control running tasks. |
 | 24 | **show_post** | `scopai post show {pid}` | Show post details (title, author, stats, content preview). |
-| 25 | **list_posts / search_posts_db** | `scopai post list [--platform {id}] [--author-id {aid}] [--starred] [--label {name}]` / `scopai post search --platform {id} --query {text} [--author-id {aid}]` | Browse imported data. `--author-id` filters by blogger; `--starred` filters starred posts; `--label` filters by label name. |
+| 25 | **list_posts / search_posts_db** | `scopai post list [--platform {id}] [--author-id {aid}] [--starred] [--label {name}] [--limit {n}] [--offset {n}]` / `scopai post search --platform {id} --query {text} [--author-id {aid}] [--limit {n}] [--offset {n}]` | Browse imported data. `--author-id` filters by blogger; `--starred` filters starred posts; `--label` filters by label name. |
 | 26 | **daemon management** | `scopai daemon start [--fg] [--verbose]` / `stop` / `restart` / `status` | Manage API server lifecycle. CLI auto-restarts if version mismatch. |
 | 26 | **run_single_analysis** | `scopai analyze run --task-id {tid} --strategy-id {sid}` | Run a one-shot strategy analysis without task steps. |
 | 27 | **submit_analysis** | `scopai analyze submit --strategy-id {sid} --post-ids {ids}` | Simplified analysis entry point. See Phase 4 #12. |
@@ -176,7 +176,7 @@ Run these **in order** before any workflow:
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
 | 28 | **creator_add** | `scopai creator add --platform {id} --author-id {aid} [--name {name}]` | Subscribe to a creator/blogger. Auto-creates sync schedule. |
-| 29 | **creator_list** | `scopai creator list [--platform {id}] [--status {s}] [--name {text}]` | List subscribed creators. `--name` filters by partial author name match. |
+| 29 | **creator_list** | `scopai creator list [--platform {id}] [--status {s}] [--name {text}] [--limit {n}] [--offset {n}]` | List subscribed creators. `--name` filters by partial author name match. |
 | 30 | **creator_show** | `scopai creator show --id {id}` | Show creator details and recent sync logs. |
 | 31 | **creator_sync** | `scopai creator sync --id {id} [--initial]` | Trigger manual sync. `--initial` imports all historical posts. |
 | 32 | **creator_pause/resume** | `scopai creator pause|resume --id {id}` | Pause/resume automatic sync. |

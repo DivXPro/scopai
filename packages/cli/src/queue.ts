@@ -13,13 +13,15 @@ export function queueCommands(program: Command): void {
     .requiredOption('--task-id <id>', 'Task ID')
     .option('--failed-only', 'Show only failed jobs')
     .option('--limit <n>', 'Max jobs to show', '20')
+    .option('--offset <n>', 'Offset', '0')
     .option('--json', 'Output raw JSON')
-    .action(async (opts: { taskId: string; failedOnly?: boolean; limit: string; json?: boolean }) => {
+    .action(async (opts: { taskId: string; failedOnly?: boolean; limit: string; offset: string; json?: boolean }) => {
       try {
         const params = new URLSearchParams();
         params.set('task_id', opts.taskId);
         if (opts.failedOnly) params.set('status', 'failed');
         params.set('limit', opts.limit);
+        params.set('offset', opts.offset);
         const response = await apiGet<ListQueueResponse>('/queue?' + params.toString());
         if (opts.json) {
           console.log(JSON.stringify(response, null, 2));

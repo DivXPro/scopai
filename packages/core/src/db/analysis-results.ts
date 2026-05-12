@@ -53,11 +53,12 @@ export async function listStrategyResultsByTask(
   strategyId: string,
   taskId: string,
   limit = 100,
+  offset = 0,
 ): Promise<AnalysisResult[]> {
   const tableName = getStrategyResultTableName(strategyId);
   return query<AnalysisResult>(
-    `SELECT * FROM "${tableName}" WHERE task_id = ? ORDER BY analyzed_at DESC LIMIT ?`,
-    [taskId, limit],
+    `SELECT * FROM "${tableName}" WHERE task_id = ? ORDER BY analyzed_at DESC LIMIT ? OFFSET ?`,
+    [taskId, limit, offset],
   );
 }
 

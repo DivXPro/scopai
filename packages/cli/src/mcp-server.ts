@@ -34,6 +34,7 @@ const TOOLS = [
         starred: { type: 'boolean', description: 'Only show starred posts' },
         label: { type: 'string', description: 'Filter by label name' },
         limit: { type: 'number', description: 'Max results (default: 50)' },
+        offset: { type: 'number', description: 'Offset for pagination (default: 0)' },
       },
       required: ['platform', 'query'],
     },
@@ -57,6 +58,8 @@ const TOOLS = [
       properties: {
         status: { type: 'string', description: 'Filter by status (pending/running/paused/completed/failed)' },
         query: { type: 'string', description: 'Search by task name' },
+        limit: { type: 'number', description: 'Max results (default: 50)' },
+        offset: { type: 'number', description: 'Offset for pagination (default: 0)' },
       },
     },
   },
@@ -157,6 +160,8 @@ const TOOLS = [
         platform: { type: 'string', description: 'Filter by platform ID' },
         status: { type: 'string', description: 'Filter by status (active/paused/unsubscribed)' },
         name: { type: 'string', description: 'Filter by author name (partial match)' },
+        limit: { type: 'number', description: 'Max results (default: 50)' },
+        offset: { type: 'number', description: 'Offset for pagination (default: 0)' },
       },
     },
   },
@@ -168,6 +173,8 @@ const TOOLS = [
       properties: {
         task_id: { type: 'string', description: 'Task ID (required)' },
         strategy_id: { type: 'string', description: 'Strategy ID (auto-detected from task steps if omitted)' },
+        limit: { type: 'number', description: 'Max results (default: 100)' },
+        offset: { type: 'number', description: 'Offset for pagination (default: 0)' },
       },
       required: ['task_id'],
     },
@@ -181,6 +188,7 @@ const TOOLS = [
         task_id: { type: 'string', description: 'Task ID (required)' },
         failed_only: { type: 'boolean', description: 'Show only failed jobs' },
         limit: { type: 'number', description: 'Max jobs to show (default: 20)' },
+        offset: { type: 'number', description: 'Offset for pagination (default: 0)' },
       },
       required: ['task_id'],
     },
@@ -240,6 +248,7 @@ export async function startMcpServer(): Promise<void> {
           if (a.starred) params.set('starred', 'true');
           if (a.label) params.set('label', String(a.label));
           if (a.limit) params.set('limit', String(a.limit));
+          if (a.offset !== undefined) params.set('offset', String(a.offset));
           const result = await apiGet('/posts?' + params.toString());
           return makeTextResult(result);
         }
@@ -255,6 +264,8 @@ export async function startMcpServer(): Promise<void> {
           const a = (args ?? {}) as Record<string, unknown>;
           if (a.status) params.set('status', String(a.status));
           if (a.query) params.set('query', String(a.query));
+          if (a.limit) params.set('limit', String(a.limit));
+          if (a.offset !== undefined) params.set('offset', String(a.offset));
           const result = await apiGet('/tasks?' + params.toString());
           return makeTextResult(result);
         }
@@ -324,12 +335,16 @@ export async function startMcpServer(): Promise<void> {
           if (a.platform) params.set('platform', String(a.platform));
           if (a.status) params.set('status', String(a.status));
           if (a.name) params.set('name', String(a.name));
+          if (a.limit) params.set('limit', String(a.limit));
+          if (a.offset !== undefined) params.set('offset', String(a.offset));
           const result = await apiGet('/creators?' + params.toString());
           return makeTextResult(result);
         }
 
         case 'get_task_results': {
           const a = args as Record<string, unknown>;
+          const limit = a.limit ? `&limit=${a.limit}` : '';
+          const offset = a.offset !== undefined ? `&offset=${a.offset}` : '';
           let strategyId = a.strategy_id as string | undefined;
           if (!strategyId) {
             const task = await apiGet<any>(`/tasks/${a.task_id}`);
@@ -342,12 +357,12 @@ export async function startMcpServer(): Promise<void> {
             }
             const results: Record<string, unknown> = {};
             for (const sid of ids) {
-              const r = await apiGet(`/tasks/${a.task_id}/results?strategy_id=${sid}`);
+              const r = await apiGet(`/tasks/${a.task_id}/results?strategy_id=${sid}${limit}${offset}`);
               results[sid] = r;
             }
             return makeTextResult(results);
           }
-          const result = await apiGet(`/tasks/${a.task_id}/results?strategy_id=${strategyId}`);
+          const result = await apiGet(`/tasks/${a.task_id}/results?strategy_id=${strategyId}${limit}${offset}`);
           return makeTextResult(result);
         }
 
@@ -357,6 +372,7 @@ export async function startMcpServer(): Promise<void> {
           params.set('task_id', String(a.task_id));
           if (a.failed_only) params.set('status', 'failed');
           params.set('limit', String(a.limit ?? 20));
+          if (a.offset !== undefined) params.set('offset', String(a.offset));
           const result = await apiGet('/queue?' + params.toString());
           return makeTextResult(result);
         }

@@ -17,10 +17,10 @@ export async function createComment(comment: Omit<Comment, 'id' | 'fetched_at'>)
   return { ...comment, id, fetched_at: ts };
 }
 
-export async function listCommentsByPost(postId: string, limit = 100): Promise<Comment[]> {
+export async function listCommentsByPost(postId: string, limit = 100, offset = 0): Promise<Comment[]> {
   return query<Comment>(
-    'SELECT * FROM comments WHERE post_id = ? ORDER BY published_at ASC LIMIT ?',
-    [postId, limit]
+    'SELECT * FROM comments WHERE post_id = ? ORDER BY published_at ASC LIMIT ? OFFSET ?',
+    [postId, limit, offset]
   );
 }
 

@@ -38,12 +38,16 @@ export function creatorCommands(program: Command): void {
     .option('--platform <id>', 'Filter by platform')
     .option('--status <status>', 'Filter by status (active/paused/unsubscribed)')
     .option('--name <text>', 'Filter by author name (partial match)')
+    .option('--limit <n>', 'Max results', '50')
+    .option('--offset <n>', 'Offset', '0')
     .option('--json', 'Output raw JSON')
-    .action(async (opts: { platform?: string; status?: string; name?: string; json?: boolean }) => {
+    .action(async (opts: { platform?: string; status?: string; name?: string; limit: string; offset: string; json?: boolean }) => {
       const params = new URLSearchParams();
       if (opts.platform) params.set('platform', opts.platform);
       if (opts.status) params.set('status', opts.status);
       if (opts.name) params.set('name', opts.name);
+      params.set('limit', opts.limit);
+      params.set('offset', opts.offset);
       const result = await apiGet<ListCreatorsResponse>('/creators?' + params.toString());
       if (opts.json) {
         console.log(JSON.stringify(result, null, 2));
