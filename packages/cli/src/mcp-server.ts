@@ -260,6 +260,75 @@ export async function startMcpServer(): Promise<void> {
     return makeTextResult(result);
   });
 
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+  registerAppTool(server, 'get_post', {
+    description: 'Get detailed information about a specific post by internal ID or platform post ID',
+    inputSchema: z.object({
+      id: z.string().optional().describe('Internal post ID'),
+      platform_post_id: z.string().optional().describe('Original platform post ID (e.g. xiaohongshu note ID)'),
+      platform: z.string().optional().describe('Platform ID (required when using platform_post_id)'),
+    }).refine((data) => data.id || (data.platform_post_id && data.platform), {
+      message: 'Provide either id or platform_post_id + platform',
+    }),
+    _meta: {
+      ui: {
+        resourceUri: 'ui://scopai/post-viewer',
+        visibility: ['model', 'app'],
+      },
+    },
+  }, async (args) => {
+    let post: any;
+
+    if (args.platform_post_id) {
+      if (!args.platform) {
+        throw new Error('platform is required when using platform_post_id');
+      }
+      const params = new URLSearchParams();
+      params.set('platform_post_id', args.platform_post_id);
+      params.set('platform', args.platform);
+      const result = await apiGet<{ posts?: Array<{ id: string } & Record<string, unknown>> }>(
+        '/posts?' + params.toString()
+      );
+      if (!result.posts || result.posts.length === 0) {
+        throw new Error('Post not found');
+      }
+      post = result.posts[0];
+    } else if (args.id) {
+      post = await apiGet<{ id: string } & Record<string, unknown>>(`/posts/${args.id}`);
+    } else {
+      throw new Error('Provide either id or platform_post_id');
+    }
+
+    // Fetch media files
+    const media = await apiGet<Array<{ src?: string; url?: string; media_type?: string; description?: string }>>(
+      `/posts/${post.id}/media`
+    );
+    const enrichedPost = { ...post, media_files: media };
+
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(enrichedPost) }],
+    };
+  });
+
+  registerAppResource(
+    server,
+    'post-viewer',
+    'ui://scopai/post-viewer',
+    { mimeType: RESOURCE_MIME_TYPE },
+    async () => {
+      const htmlPath = path.join(__dirname, 'mcp-ui', 'post-viewer.html');
+      const html = await fs.promises.readFile(htmlPath, 'utf-8');
+      return {
+        contents: [{
+          uri: 'ui://scopai/post-viewer',
+          mimeType: RESOURCE_MIME_TYPE,
+          text: html,
+        }],
+      };
+    },
+  );
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
