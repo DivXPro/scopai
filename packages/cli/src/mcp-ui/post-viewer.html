@@ -213,6 +213,7 @@
 
     function isValidMediaUrl(url) {
       if (!url) return false;
+      if (url.startsWith('/')) return true;
       try {
         const parsed = new URL(url);
         return ['http:', 'https:', 'data:'].includes(parsed.protocol);
