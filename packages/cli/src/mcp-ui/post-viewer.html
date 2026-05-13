@@ -49,14 +49,17 @@
       aspect-ratio: 4/3;
       overflow: hidden;
     }
-    .carousel img {
+    .carousel .media-item {
       width: 100%;
       height: 100%;
       object-fit: cover;
       display: none;
     }
-    .carousel img.active {
+    .carousel .media-item.active {
       display: block;
+    }
+    .carousel video.media-item {
+      background: #000;
     }
     .carousel-nav {
       position: absolute;
@@ -208,7 +211,7 @@
       }
     }
 
-    function isValidImageUrl(url) {
+    function isValidMediaUrl(url) {
       if (!url) return false;
       try {
         const parsed = new URL(url);
@@ -223,26 +226,38 @@
       carousel.className = 'carousel';
       carousel.id = 'carousel';
 
-      const validMedia = media.filter((m) => isValidImageUrl(m.src || m.url));
+      const validMedia = media.filter((m) => isValidMediaUrl(m.src || m.url));
 
       validMedia.forEach((m, i) => {
-        const img = document.createElement('img');
-        img.src = m.src || m.url || '';
-        img.alt = m.description || 'image';
-        img.onerror = () => {
-          img.style.display = 'none';
-          img.classList.remove('active');
-          const placeholder = document.createElement('div');
-          placeholder.className = 'no-media';
-          placeholder.textContent = '图片加载失败';
-          placeholder.style.position = 'absolute';
-          placeholder.style.top = '50%';
-          placeholder.style.left = '50%';
-          placeholder.style.transform = 'translate(-50%, -50%)';
-          carousel.insertBefore(placeholder, img);
-        };
-        if (i === 0) img.classList.add('active');
-        carousel.appendChild(img);
+        const isVideo = m.media_type === 'video';
+        let el;
+        if (isVideo) {
+          el = document.createElement('video');
+          el.src = m.src || m.url || '';
+          el.controls = true;
+          el.muted = true;
+          el.playsInline = true;
+          el.preload = 'metadata';
+        } else {
+          el = document.createElement('img');
+          el.src = m.src || m.url || '';
+          el.alt = m.description || 'image';
+          el.onerror = () => {
+            el.style.display = 'none';
+            el.classList.remove('active');
+            const placeholder = document.createElement('div');
+            placeholder.className = 'no-media';
+            placeholder.textContent = '图片加载失败';
+            placeholder.style.position = 'absolute';
+            placeholder.style.top = '50%';
+            placeholder.style.left = '50%';
+            placeholder.style.transform = 'translate(-50%, -50%)';
+            carousel.insertBefore(placeholder, el);
+          };
+        }
+        el.className = 'media-item';
+        if (i === 0) el.classList.add('active');
+        carousel.appendChild(el);
       });
 
       if (validMedia.length === 0) {
@@ -271,12 +286,22 @@
       nav.appendChild(nextBtn);
       carousel.appendChild(nav);
 
-      const images = carousel.querySelectorAll('img');
+      const items = carousel.querySelectorAll('.media-item');
       let current = 0;
-      const total = images.length;
+      const total = items.length;
 
       function show(index) {
-        images.forEach((img, i) => img.classList.toggle('active', i === index));
+        items.forEach((item, i) => {
+          item.classList.toggle('active', i === index);
+          if (item.tagName === 'VIDEO') {
+            if (i === index) {
+              item.play().catch(() => {});
+            } else {
+              item.pause();
+              item.currentTime = 0;
+            }
+          }
+        });
         counter.textContent = `${index + 1} / ${total}`;
       }
 
