@@ -152,8 +152,8 @@ Run these **in order** before any workflow:
 | 21 | **reset_queue_jobs** | `scopai queue reset [--task-id {tid}]` | **Blunt instrument**: force-reset all non-pending jobs. Prefer `queue retry`. |
 | 22 | **list_queue_jobs** | `scopai queue list --task-id {tid} [--failed-only] [--limit {n}] [--offset {n}]` | Inspect queue job status. |
 | 23 | **pause_task / resume_task / cancel_task** | `scopai task pause|resume|cancel {tid}` | Control running tasks. |
-| 24 | **show_post** | `scopai post show {pid}` | Show post details (title, author, stats, content preview). |
-| 25 | **list_posts / search_posts_db** | `scopai post list [--platform {id}] [--author-id {aid}] [--starred] [--label {name}] [--limit {n}] [--offset {n}]` / `scopai post search --platform {id} --query {text} [--author-id {aid}] [--limit {n}] [--offset {n}]` | Browse imported data. `--author-id` filters by blogger; `--starred` filters starred posts; `--label` filters by label name. |
+| 24 | **show_post** | `scopai post show {pid}` or `scopai post show --platform-post-id {pid} --platform {platform}` | Show post details by internal ID or by original platform post ID. |
+| 25 | **list_posts / search_posts_db** | `scopai post list [--platform {id}] [--author-id {aid}] [--starred] [--label {name}] [--limit {n}] [--offset {n}] [--platform-post-id {id}]` / `scopai post search --platform {id} --query {text} [--author-id {aid}] [--limit {n}] [--offset {n}]` | Browse imported data. `--author-id` filters by blogger; `--starred` filters starred posts; `--label` filters by label name; `--platform-post-id` queries by original platform post ID (with `--platform`). |
 | 26 | **daemon management** | `scopai daemon start [--fg] [--verbose]` / `stop` / `restart` / `status` | Manage API server lifecycle. CLI auto-restarts if version mismatch. |
 | 26 | **run_single_analysis** | `scopai analyze run --task-id {tid} --strategy-id {sid}` | Run a one-shot strategy analysis without task steps. |
 | 27 | **submit_analysis** | `scopai analyze submit --strategy-id {sid} --post-ids {ids}` | Simplified analysis entry point. See Phase 4 #12. |

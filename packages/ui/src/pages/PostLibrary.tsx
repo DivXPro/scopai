@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as icons from '@gravity-ui/icons';
 import { apiGet, apiPost, apiDelete } from '@/api/client';
 import { Card, Skeleton, Button, Select, ListBox, Modal } from '@heroui/react';
@@ -44,7 +45,7 @@ export interface Post {
   labels?: { id: string; name: string; color: string | null }[];
 }
 
-interface MediaFile {
+export interface MediaFile {
   id: string;
   media_type: 'image' | 'video' | 'audio';
   url: string;
@@ -59,7 +60,7 @@ interface Platform {
   name: string;
 }
 
-interface AnalysisResult {
+export interface AnalysisResult {
   strategy_id: string;
   strategy_name: string;
   task_id: string;
@@ -69,7 +70,7 @@ interface AnalysisResult {
   analyzed_at: string;
 }
 
-interface Strategy {
+export interface Strategy {
   id: string;
   name: string;
   output_schema: Record<string, unknown>;
@@ -93,6 +94,18 @@ function timeAgo(dateStr: string | null): string {
   const diffDay = Math.floor(diffHr / 24);
   if (diffDay < 7) return `${diffDay} 天前`;
   return date.toLocaleDateString('zh-CN');
+}
+
+function NavLinkDetail({ postId }: { postId: string }) {
+  const navigate = useNavigate();
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); navigate(`/posts/${postId}`); }}
+      className="text-xs text-muted-foreground hover:text-primary transition-colors"
+    >
+      详情
+    </button>
+  );
 }
 
 function PostCard({ post, onViewMedia, onToggleStar, onAddLabel, onRemoveLabel }: { post: Post; onViewMedia: (postId: string) => void; onToggleStar: (postId: string, currentStarred: boolean) => void; onAddLabel: (postId: string, labelName: string) => void; onRemoveLabel: (postId: string, labelId: string) => void }) {
@@ -238,6 +251,7 @@ function PostCard({ post, onViewMedia, onToggleStar, onAddLabel, onRemoveLabel }
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-50">
+          <NavLinkDetail postId={post.id} />
           <a href={post.url ?? '#'} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground ml-auto">
             <Button variant="ghost" size="sm" className="h-7 text-xs">
               <CircleArrowRight className="h-3.5 w-3.5 mr-1" />
@@ -370,6 +384,7 @@ function SchemaRenderer({
 }
 
 export function PostDetailModal({ post, onClose, onToggleStar, onDelete }: { post: Post; onClose: () => void; onToggleStar: (postId: string, currentStarred: boolean) => void; onDelete: (postId: string) => void }) {
+  const navigate = useNavigate();
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -592,17 +607,27 @@ export function PostDetailModal({ post, onClose, onToggleStar, onDelete }: { pos
 
                 {/* 底部操作栏 */}
                 <div className="shrink-0 border-t border-slate-200 p-3 flex items-center justify-between bg-white">
-                  <button
-                    onClick={() => onToggleStar(post.id, post.is_starred)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:bg-slate-50"
-                  >
-                    <span className={post.is_starred ? 'text-yellow-500 text-lg' : 'text-gray-400 text-lg'}>
-                      {post.is_starred ? '★' : '☆'}
-                    </span>
-                    <span className={post.is_starred ? 'text-slate-900' : 'text-slate-500'}>
-                      {post.is_starred ? '已星标' : '星标'}
-                    </span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onToggleStar(post.id, post.is_starred)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:bg-slate-50"
+                    >
+                      <span className={post.is_starred ? 'text-yellow-500 text-lg' : 'text-gray-400 text-lg'}>
+                        {post.is_starred ? '★' : '☆'}
+                      </span>
+                      <span className={post.is_starred ? 'text-slate-900' : 'text-slate-500'}>
+                        {post.is_starred ? '已星标' : '星标'}
+                      </span>
+                    </button>
+                    <span className="text-slate-200">|</span>
+                    <button
+                      onClick={() => navigate(`/posts/${post.id}`)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-primary transition-colors hover:bg-slate-50"
+                    >
+                      详情
+                      <icons.ArrowChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                   <Button
                     variant="danger"
                     size="sm"
@@ -1130,6 +1155,7 @@ export default function PostLibrary() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <NavLinkDetail postId={post.id} />
                       <a
                         href={post.url ?? '#'}
                         target="_blank"

@@ -4,6 +4,7 @@ import Overview from '@/pages/Overview';
 import TaskList from '@/pages/TaskList';
 import TaskDetail from '@/pages/TaskDetail';
 import PostLibrary from '@/pages/PostLibrary';
+import PostDetail from '@/pages/PostDetail';
 import Strategies from '@/pages/Strategies';
 import QueueMonitor from '@/pages/QueueMonitor';
 import CreatorList from '@/pages/CreatorList';
@@ -18,6 +19,7 @@ export default function App() {
           <Route path="tasks" element={<TaskList />} />
           <Route path="tasks/:id" element={<TaskDetail />} />
           <Route path="posts" element={<PostLibrary />} />
+          <Route path="posts/:id" element={<PostDetail />} />
           <Route path="strategies" element={<Strategies />} />
           <Route path="queue" element={<QueueMonitor />} />
           <Route path="/creators" element={<CreatorList />} />

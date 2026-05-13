@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import * as path from 'node:path';
 import {
   listPosts, searchPosts, listCommentsByPost, listMediaFilesByPost,
-  getPostAnalysisResults, getPostById, countPosts, createComment,
+  getPostAnalysisResults, getPostById, getPostByPlatformPostId, countPosts, createComment,
   countPostAnalysisResults, countMediaFilesByPost,
   deletePostById,
   getOrCreateLabel, addPostLabel, removePostLabel, getPostLabels,
@@ -20,9 +20,23 @@ import { config } from '@scopai/core';
 
 export default async function postsRoutes(app: FastifyInstance) {
   app.get('/posts', async (request) => {
-    const { platform, limit = '50', offset = '0', query: searchQuery, starred, label, author_id: authorId } = request.query as Record<string, string>;
+    const { platform, limit = '50', offset = '0', query: searchQuery, starred, label, author_id: authorId, platform_post_id: platformPostId } = request.query as Record<string, string>;
     const parsedLimit = parseInt(limit, 10);
     const parsedOffset = parseInt(offset, 10);
+
+    if (platformPostId) {
+      const post = await getPostByPlatformPostId(platformPostId, platform || undefined);
+      if (!post) {
+        return { posts: [], total: 0 };
+      }
+      const enriched = {
+        ...post,
+        labels: await getPostLabels(post.id),
+        analysis_count: await countPostAnalysisResults(post.id),
+        media_count: await countMediaFilesByPost(post.id),
+      };
+      return { posts: [enriched], total: 1 };
+    }
 
     let items;
     if (starred === 'true') {

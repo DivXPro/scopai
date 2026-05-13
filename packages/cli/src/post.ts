@@ -118,10 +118,35 @@ export function postCommands(program: Command): void {
   post
     .command('show')
     .description('Show post details')
-    .argument('<id>', 'Post ID')
+    .argument('[id]', 'Post ID (internal id)')
+    .option('--platform-post-id <id>', 'Query by original platform post ID')
+    .option('--platform <id>', 'Platform ID (required with --platform-post-id)')
     .option('--json', 'Output raw JSON')
-    .action(async (id: string, options: { json?: boolean }) => {
-      const p = await apiGet<any>(`/posts/${id}`);
+    .action(async (id: string | undefined, options: { json?: boolean; platformPostId?: string; platform?: string }) => {
+      if (!id && !options.platformPostId) {
+        console.log(pc.red('Error: Provide either <id> or --platform-post-id'));
+        process.exit(1);
+      }
+      if (options.platformPostId && !options.platform) {
+        console.log(pc.red('Error: --platform is required when using --platform-post-id'));
+        process.exit(1);
+      }
+
+      let p: any;
+      if (options.platformPostId) {
+        const params = new URLSearchParams();
+        params.set('platform_post_id', options.platformPostId);
+        params.set('platform', options.platform!);
+        const result = await apiGet<any>('/posts?' + params.toString());
+        if (!result.posts || result.posts.length === 0) {
+          console.log(pc.yellow('Post not found'));
+          process.exit(1);
+        }
+        p = result.posts[0];
+      } else {
+        p = await apiGet<any>(`/posts/${id}`);
+      }
+
       if (options.json) {
         console.log(JSON.stringify(p, null, 2));
         return;
