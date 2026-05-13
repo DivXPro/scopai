@@ -19,9 +19,9 @@ You operate the `scopai` MCP server for social media content analysis. This serv
 
 | Tool | Description | Key Parameters |
 |------|-------------|----------------|
-| `list_posts` | List imported posts with filters | `platform`, `author_id`, `starred`, `label`, `limit`, `offset` |
+| `list_posts` | List imported posts with filters | `platform`, `author_id`, `starred`, `label`, `limit`, `offset`, `platform_post_id` |
 | `search_posts` | Search posts by keyword in content | `platform` (required), `query` (required), `author_id`, `starred`, `label`, `limit`, `offset` |
-| `get_post` | Get detailed post info including metadata | `id` (required) |
+| `get_post` | Get detailed post info with media files, supports MCP Apps UI rendering | `id` (internal ID) or `platform_post_id` + `platform` |
 | `list_creators` | List subscribed creators | `platform`, `status`, `name`, `limit`, `offset` |
 
 ### Task Management
@@ -55,6 +55,13 @@ search_posts(platform=xhs, query="上海美食") → get_post(id) for details
   → get_task_results(task_id)
 ```
 
+### "查看帖子详情（带图片展示）"
+
+```
+1. get_post(id="xxx") 或 get_post(platform_post_id="xxx", platform="xhs")
+2. （Agent client 自动渲染帖子展示 UI，含图片轮播）
+```
+
 ## Key Rules
 
 1. **search_posts only searches `content` field** — it does NOT search title or author. Use `get_post` to inspect specific posts.
@@ -63,6 +70,13 @@ search_posts(platform=xhs, query="上海美食") → get_post(id) for details
 4. **run_task_prepare blocks** — it fetches details/comments/media and waits for completion.
 5. **run_task_analysis blocks** — it runs all steps in order and waits for completion.
 6. **Daemon dependency** — all tools require `scopai daemon` to be running. If MCP server fails to start, check daemon status first.
+
+### "查看指定笔记的详情"
+
+```
+1. get_post(platform_post_id="5xXyZ123", platform="xhs")
+2. (Review post content, images, stats)
+```
 
 ## Example Conversation Flows
 
