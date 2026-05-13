@@ -3,7 +3,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 declare const __dirname: string;
-import { apiGet, apiPost } from './api-client';
+import { apiGet, apiPost, getApiBaseUrl } from './api-client';
 import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE }
   from '@modelcontextprotocol/ext-apps/server';
 import { z } from 'zod';
@@ -298,11 +298,16 @@ export async function startMcpServer(): Promise<void> {
       throw new Error('Provide either id or platform_post_id');
     }
 
-    // Fetch media files
+    // Fetch media files and convert relative src to absolute URLs
     const media = await apiGet<Array<{ src?: string; url?: string; media_type?: string; description?: string }>>(
       `/posts/${post.id}/media`
     );
-    const enrichedPost = { ...post, media_files: media };
+    const baseUrl = getApiBaseUrl();
+    const absoluteMedia = media.map((m) => ({
+      ...m,
+      src: m.src && m.src.startsWith('/') ? `${baseUrl}${m.src}` : m.src,
+    }));
+    const enrichedPost = { ...post, media_files: absoluteMedia };
 
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(enrichedPost) }],

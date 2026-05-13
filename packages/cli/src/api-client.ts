@@ -1,5 +1,11 @@
 import { readLockFile, isApiAlive, type LockFileData } from '@scopai/core';
 
+export function getApiBaseUrl(): string {
+  const lock = readLockFile();
+  if (!lock) throw new Error('Daemon is not running');
+  return getBaseUrl(lock);
+}
+
 export class ApiClientError extends Error {
   constructor(
     public status: number,
