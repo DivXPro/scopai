@@ -306,6 +306,12 @@ export async function startMcpServer(): Promise<void> {
 
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(enrichedPost) }],
+      _meta: {
+        ui: {
+          resourceUri: 'ui://scopai/post-viewer',
+          visibility: ['model', 'app'],
+        },
+      },
     };
   });
 
