@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
+declare const __dirname: string;
 import { apiGet, apiPost } from './api-client';
 import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE }
   from '@modelcontextprotocol/ext-apps/server';
@@ -259,8 +259,6 @@ export async function startMcpServer(): Promise<void> {
     const result = await apiPost(`/tasks/${args.task_id}/run-all-steps`);
     return makeTextResult(result);
   });
-
-  const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
   registerAppTool(server, 'get_post', {
     description: 'Get detailed information about a specific post by internal ID or platform post ID',
