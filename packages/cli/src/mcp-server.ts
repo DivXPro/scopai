@@ -184,6 +184,82 @@ export async function startMcpServer(): Promise<void> {
     return makeTextResult(result);
   });
 
+  server.registerTool('create_task', {
+    description: 'Create a new analysis task',
+    inputSchema: z.object({
+      name: z.string().describe('Task name (required)'),
+      description: z.string().optional().describe('Task description'),
+      cli_templates: z.record(z.string()).optional().describe(
+        'OpenCLI command templates as a JSON object, e.g. {"fetch_note":"opencli xiaohongshu note {url} -f json"}'
+      ),
+    }),
+  }, async (args) => {
+    const { generateId } = await import('@scopai/core');
+    const body: Record<string, unknown> = {
+      id: generateId(),
+      name: args.name,
+      description: args.description ?? null,
+    };
+    if (args.cli_templates) {
+      body.cli_templates = JSON.stringify(args.cli_templates);
+    } else {
+      body.cli_templates = null;
+    }
+    const result = await apiPost('/tasks', body);
+    return makeTextResult(result);
+  });
+
+  server.registerTool('add_task_posts', {
+    description: 'Add posts to an existing task for analysis',
+    inputSchema: z.object({
+      task_id: z.string().describe('Task ID (required)'),
+      post_ids: z.array(z.string()).describe('Array of post IDs to add (required)'),
+    }),
+  }, async (args) => {
+    const result = await apiPost(`/tasks/${args.task_id}/add-posts`, {
+      post_ids: args.post_ids,
+    });
+    return makeTextResult(result);
+  });
+
+  server.registerTool('add_task_step', {
+    description: 'Add an analysis strategy step to a task',
+    inputSchema: z.object({
+      task_id: z.string().describe('Task ID (required)'),
+      strategy_id: z.string().describe('Strategy ID (required)'),
+      name: z.string().optional().describe('Step name (optional, defaults to strategy name)'),
+      order: z.number().optional().describe('Step order (optional, auto-incremented if omitted)'),
+      depends_on_step_id: z.string().optional().describe('Upstream step ID for secondary strategies'),
+    }),
+  }, async (args) => {
+    const body: Record<string, unknown> = { strategy_id: args.strategy_id };
+    if (args.name) body.name = args.name;
+    if (args.order !== undefined) body.order = args.order;
+    if (args.depends_on_step_id) body.depends_on_step_id = args.depends_on_step_id;
+    const result = await apiPost(`/tasks/${args.task_id}/steps`, body);
+    return makeTextResult(result);
+  });
+
+  server.registerTool('run_task_prepare', {
+    description: 'Prepare task data by fetching post details, comments, and media via opencli',
+    inputSchema: z.object({
+      task_id: z.string().describe('Task ID (required)'),
+    }),
+  }, async (args) => {
+    const result = await apiPost(`/tasks/${args.task_id}/prepare-data`);
+    return makeTextResult(result);
+  });
+
+  server.registerTool('run_task_analysis', {
+    description: 'Run all pending/failed analysis steps for a task',
+    inputSchema: z.object({
+      task_id: z.string().describe('Task ID (required)'),
+    }),
+  }, async (args) => {
+    const result = await apiPost(`/tasks/${args.task_id}/run-all-steps`);
+    return makeTextResult(result);
+  });
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
