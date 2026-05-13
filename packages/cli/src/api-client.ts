@@ -1,6 +1,9 @@
 import { readLockFile, isApiAlive, type LockFileData } from '@scopai/core';
 
 export function getApiBaseUrl(): string {
+  if (process.env.SCOPAI_API_BASE_URL) {
+    return process.env.SCOPAI_API_BASE_URL.replace(/\/$/, '');
+  }
   const lock = readLockFile();
   if (!lock) throw new Error('Daemon is not running');
   return getBaseUrl(lock);
