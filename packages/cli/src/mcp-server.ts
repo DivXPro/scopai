@@ -21,6 +21,169 @@ export async function startMcpServer(): Promise<void> {
 
   // === Tools will be registered below ===
 
+  server.registerTool('list_posts', {
+    description: 'List imported posts with optional filters (platform, author_id, starred, label)',
+    inputSchema: z.object({
+      platform: z.string().optional().describe('Filter by platform ID'),
+      author_id: z.string().optional().describe('Filter by author ID'),
+      starred: z.boolean().optional().describe('Only show starred posts'),
+      label: z.string().optional().describe('Filter by label name'),
+      limit: z.number().optional().describe('Max results (default: 50)'),
+      offset: z.number().optional().describe('Offset for pagination (default: 0)'),
+    }),
+  }, async (args) => {
+    const params = new URLSearchParams();
+    if (args.platform) params.set('platform', args.platform);
+    if (args.author_id) params.set('author_id', args.author_id);
+    if (args.starred) params.set('starred', 'true');
+    if (args.label) params.set('label', args.label);
+    if (args.limit !== undefined) params.set('limit', String(args.limit));
+    if (args.offset !== undefined) params.set('offset', String(args.offset));
+    const result = await apiGet('/posts?' + params.toString());
+    return makeTextResult(result);
+  });
+
+  server.registerTool('search_posts', {
+    description: 'Search posts by keyword query',
+    inputSchema: z.object({
+      platform: z.string().describe('Platform ID (required)'),
+      query: z.string().describe('Search query text (required)'),
+      author_id: z.string().optional().describe('Filter by author ID'),
+      starred: z.boolean().optional().describe('Only show starred posts'),
+      label: z.string().optional().describe('Filter by label name'),
+      limit: z.number().optional().describe('Max results (default: 50)'),
+      offset: z.number().optional().describe('Offset for pagination (default: 0)'),
+    }),
+  }, async (args) => {
+    const params = new URLSearchParams();
+    params.set('query', args.query);
+    params.set('platform', args.platform);
+    if (args.author_id) params.set('author_id', args.author_id);
+    if (args.starred) params.set('starred', 'true');
+    if (args.label) params.set('label', args.label);
+    if (args.limit !== undefined) params.set('limit', String(args.limit));
+    if (args.offset !== undefined) params.set('offset', String(args.offset));
+    const result = await apiGet('/posts?' + params.toString());
+    return makeTextResult(result);
+  });
+
+  server.registerTool('list_tasks', {
+    description: 'List analysis tasks with optional filters',
+    inputSchema: z.object({
+      status: z.string().optional().describe('Filter by status (pending/running/paused/completed/failed)'),
+      query: z.string().optional().describe('Search by task name'),
+      limit: z.number().optional().describe('Max results (default: 50)'),
+      offset: z.number().optional().describe('Offset for pagination (default: 0)'),
+    }),
+  }, async (args) => {
+    const params = new URLSearchParams();
+    if (args.status) params.set('status', args.status);
+    if (args.query) params.set('query', args.query);
+    if (args.limit !== undefined) params.set('limit', String(args.limit));
+    if (args.offset !== undefined) params.set('offset', String(args.offset));
+    const result = await apiGet('/tasks?' + params.toString());
+    return makeTextResult(result);
+  });
+
+  server.registerTool('get_task', {
+    description: 'Get detailed status and progress of a task',
+    inputSchema: z.object({
+      id: z.string().describe('Task ID (required)'),
+    }),
+  }, async (args) => {
+    const result = await apiGet(`/tasks/${args.id}`);
+    return makeTextResult(result);
+  });
+
+  server.registerTool('list_strategies', {
+    description: 'List all available analysis strategies',
+    inputSchema: z.object({}),
+  }, async () => {
+    const result = await apiGet('/strategies');
+    return makeTextResult(result);
+  });
+
+  server.registerTool('list_creators', {
+    description: 'List subscribed creators with optional filters',
+    inputSchema: z.object({
+      platform: z.string().optional().describe('Filter by platform ID'),
+      status: z.string().optional().describe('Filter by status (active/paused/unsubscribed)'),
+      name: z.string().optional().describe('Filter by author name (partial match)'),
+      limit: z.number().optional().describe('Max results (default: 50)'),
+      offset: z.number().optional().describe('Offset for pagination (default: 0)'),
+    }),
+  }, async (args) => {
+    const params = new URLSearchParams();
+    if (args.platform) params.set('platform', args.platform);
+    if (args.status) params.set('status', args.status);
+    if (args.name) params.set('name', args.name);
+    if (args.limit !== undefined) params.set('limit', String(args.limit));
+    if (args.offset !== undefined) params.set('offset', String(args.offset));
+    const result = await apiGet('/creators?' + params.toString());
+    return makeTextResult(result);
+  });
+
+  server.registerTool('get_task_results', {
+    description: 'Get analysis results for a completed task',
+    inputSchema: z.object({
+      task_id: z.string().describe('Task ID (required)'),
+      strategy_id: z.string().optional().describe('Strategy ID (auto-detected from task steps if omitted)'),
+      limit: z.number().optional().describe('Max results (default: 100)'),
+      offset: z.number().optional().describe('Offset for pagination (default: 0)'),
+    }),
+  }, async (args) => {
+    const limit = args.limit !== undefined ? `&limit=${args.limit}` : '';
+    const offset = args.offset !== undefined ? `&offset=${args.offset}` : '';
+
+    if (!args.strategy_id) {
+      const task = await apiGet<any>(`/tasks/${args.task_id}`);
+      const steps = task.phases?.steps ?? task.steps ?? [];
+      const ids = steps
+        .map((s: any) => s.strategyId ?? s.strategy_id)
+        .filter(Boolean);
+      if (ids.length === 0) {
+        return makeTextResult({ error: 'No strategy steps found. Use strategy_id parameter.' });
+      }
+      const results: Record<string, unknown> = {};
+      for (const sid of ids) {
+        const r = await apiGet(`/tasks/${args.task_id}/results?strategy_id=${sid}${limit}${offset}`);
+        results[sid] = r;
+      }
+      return makeTextResult(results);
+    }
+
+    const result = await apiGet(`/tasks/${args.task_id}/results?strategy_id=${args.strategy_id}${limit}${offset}`);
+    return makeTextResult(result);
+  });
+
+  server.registerTool('list_queue_jobs', {
+    description: 'List queue jobs for a task',
+    inputSchema: z.object({
+      task_id: z.string().describe('Task ID (required)'),
+      failed_only: z.boolean().optional().describe('Show only failed jobs'),
+      limit: z.number().optional().describe('Max jobs to show (default: 20)'),
+      offset: z.number().optional().describe('Offset for pagination (default: 0)'),
+    }),
+  }, async (args) => {
+    const params = new URLSearchParams();
+    params.set('task_id', args.task_id);
+    if (args.failed_only) params.set('status', 'failed');
+    params.set('limit', String(args.limit ?? 20));
+    if (args.offset !== undefined) params.set('offset', String(args.offset));
+    const result = await apiGet('/queue?' + params.toString());
+    return makeTextResult(result);
+  });
+
+  server.registerTool('retry_failed_jobs', {
+    description: 'Retry failed queue jobs for a task or all tasks',
+    inputSchema: z.object({
+      task_id: z.string().optional().describe('Limit retries to a specific task (optional)'),
+    }),
+  }, async (args) => {
+    const result = await apiPost('/queue/retry', { task_id: args.task_id ?? null });
+    return makeTextResult(result);
+  });
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
