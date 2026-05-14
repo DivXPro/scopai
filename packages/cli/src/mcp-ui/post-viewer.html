@@ -276,52 +276,54 @@
         carousel.appendChild(el);
       }
 
-      const nav = document.createElement('div');
-      nav.className = 'carousel-nav';
+      if (validMedia.length > 1) {
+        const nav = document.createElement('div');
+        nav.className = 'carousel-nav';
 
-      const prevBtn = document.createElement('button');
-      prevBtn.textContent = '◀';
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = '◀';
 
-      const counter = document.createElement('span');
-      counter.id = 'carousel-counter';
-      counter.textContent = `1 / ${validMedia.length}`;
+        const counter = document.createElement('span');
+        counter.id = 'carousel-counter';
+        counter.textContent = `1 / ${validMedia.length}`;
 
-      const nextBtn = document.createElement('button');
-      nextBtn.textContent = '▶';
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = '▶';
 
-      nav.appendChild(prevBtn);
-      nav.appendChild(counter);
-      nav.appendChild(nextBtn);
-      carousel.appendChild(nav);
+        nav.appendChild(prevBtn);
+        nav.appendChild(counter);
+        nav.appendChild(nextBtn);
+        carousel.appendChild(nav);
 
-      const items = carousel.querySelectorAll('.media-item');
-      let current = 0;
-      const total = items.length;
+        const items = carousel.querySelectorAll('.media-item');
+        let current = 0;
+        const total = items.length;
 
-      function show(index) {
-        items.forEach((item, i) => {
-          item.classList.toggle('active', i === index);
-          if (item.tagName === 'VIDEO') {
-            if (i === index) {
-              item.play().catch(() => {});
-            } else {
-              item.pause();
-              item.currentTime = 0;
+        function show(index) {
+          items.forEach((item, i) => {
+            item.classList.toggle('active', i === index);
+            if (item.tagName === 'VIDEO') {
+              if (i === index) {
+                item.play().catch(() => {});
+              } else {
+                item.pause();
+                item.currentTime = 0;
+              }
             }
-          }
+          });
+          counter.textContent = `${index + 1} / ${total}`;
+        }
+
+        prevBtn.addEventListener('click', () => {
+          current = (current - 1 + total) % total;
+          show(current);
         });
-        counter.textContent = `${index + 1} / ${total}`;
+
+        nextBtn.addEventListener('click', () => {
+          current = (current + 1) % total;
+          show(current);
+        });
       }
-
-      prevBtn.addEventListener('click', () => {
-        current = (current - 1 + total) % total;
-        show(current);
-      });
-
-      nextBtn.addEventListener('click', () => {
-        current = (current + 1) % total;
-        show(current);
-      });
 
       return carousel;
     }
