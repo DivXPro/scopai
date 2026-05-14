@@ -328,11 +328,19 @@ export async function startMcpServer(): Promise<void> {
     async () => {
       const htmlPath = path.join(__dirname, 'mcp-ui', 'post-viewer.html');
       const html = await fs.promises.readFile(htmlPath, 'utf-8');
+      const baseUrl = getApiBaseUrl();
       return {
         contents: [{
           uri: 'ui://scopai/post-viewer',
           mimeType: RESOURCE_MIME_TYPE,
           text: html,
+          _meta: {
+            ui: {
+              csp: {
+                resourceDomains: [baseUrl],
+              },
+            },
+          },
         }],
       };
     },

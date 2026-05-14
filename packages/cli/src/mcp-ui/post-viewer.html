@@ -140,10 +140,10 @@
 
     const app = new App({ name: "post-viewer", version: "1.0.0" });
 
-    app.ontoolresult = (result) => {
+    app.ontoolresult = async (result) => {
       try {
         const post = JSON.parse(result.content[0].text);
-        renderPost(post);
+        await renderPost(post);
       } catch (err) {
         const card = document.getElementById('post-card');
         card.innerHTML = '';
@@ -156,7 +156,7 @@
 
     await app.connect();
 
-    function renderPost(post) {
+    async function renderPost(post) {
       const card = document.getElementById('post-card');
       card.innerHTML = '';
 
@@ -185,7 +185,7 @@
 
       const media = post.media_files || [];
       if (media.length > 0) {
-        card.appendChild(buildCarousel(media));
+        card.appendChild(await buildCarousel(media));
       } else {
         const noMedia = document.createElement('div');
         noMedia.className = 'no-media';
@@ -211,37 +211,52 @@
       }
     }
 
-    function isValidMediaUrl(url) {
-      if (!url) return false;
-      if (url.startsWith('/')) return true;
-      try {
-        const parsed = new URL(url);
-        return ['http:', 'https:', 'data:'].includes(parsed.protocol);
-      } catch {
-        return false;
+    async function toBlobUrl(url) {
+      if (!url) return '';
+      if (url.startsWith('blob:') || url.startsWith('https:') || url.startsWith('/')) return url;
+      if (url.startsWith('http://')) {
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) return url;
+          const blob = await resp.blob();
+          return URL.createObjectURL(blob);
+        } catch {
+          return url;
+        }
       }
+      return url;
     }
 
-    function buildCarousel(media) {
+    async function buildCarousel(media) {
       const carousel = document.createElement('div');
       carousel.className = 'carousel';
       carousel.id = 'carousel';
 
-      const validMedia = media.filter((m) => isValidMediaUrl(m.src || m.url));
+      const validMedia = media.filter((m) => m.src || m.url);
 
-      validMedia.forEach((m, i) => {
+      if (validMedia.length === 0) {
+        const noMedia = document.createElement('div');
+        noMedia.className = 'no-media';
+        noMedia.textContent = '暂无媒体文件';
+        carousel.appendChild(noMedia);
+        return carousel;
+      }
+
+      for (let i = 0; i < validMedia.length; i++) {
+        const m = validMedia[i];
+        const url = await toBlobUrl(m.src || m.url);
         const isVideo = m.media_type === 'video';
         let el;
         if (isVideo) {
           el = document.createElement('video');
-          el.src = m.src || m.url || '';
+          el.src = url;
           el.controls = true;
           el.muted = true;
           el.playsInline = true;
           el.preload = 'metadata';
         } else {
           el = document.createElement('img');
-          el.src = m.src || m.url || '';
+          el.src = url;
           el.alt = m.description || 'image';
           el.onerror = () => {
             el.style.display = 'none';
@@ -259,14 +274,6 @@
         el.className = 'media-item';
         if (i === 0) el.classList.add('active');
         carousel.appendChild(el);
-      });
-
-      if (validMedia.length === 0) {
-        const noMedia = document.createElement('div');
-        noMedia.className = 'no-media';
-        noMedia.textContent = '暂无媒体文件';
-        carousel.appendChild(noMedia);
-        return carousel;
       }
 
       const nav = document.createElement('div');
