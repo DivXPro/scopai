@@ -16,7 +16,6 @@ const Eye = icons.Eye;
 const Sliders = icons.Sliders;
 const ArrowUpArrowDown = icons.ArrowUpArrowDown;
 const CirclePlay = icons.CirclePlay;
-const CircleArrowRight = icons.CircleArrowRight;
 const LayoutCellsLarge = icons.LayoutCellsLarge;
 const ListUl = icons.ListUl;
 const Picture = icons.Picture;
@@ -109,96 +108,145 @@ function NavLinkDetail({ postId }: { postId: string }) {
 }
 
 function PostCard({ post, onViewMedia, onToggleStar, onAddLabel, onRemoveLabel }: { post: Post; onViewMedia: (postId: string) => void; onToggleStar: (postId: string, currentStarred: boolean) => void; onAddLabel: (postId: string, labelName: string) => void; onRemoveLabel: (postId: string, labelId: string) => void }) {
-  const contentPreview = post.content?.slice(0, 120) + (post.content?.length > 120 ? '...' : '') || '无内容';
+  const contentPreview = post.content?.slice(0, 100) + (post.content?.length > 100 ? '...' : '') || '无内容';
+  const titleText = post.title || contentPreview;
   const isVideo = post.post_type === 'video' || post.platform_id.includes('bilibili');
-  const initials = (post.author_name || '匿名').slice(0, 2).toUpperCase();
+  const hasCover = !!(post.cover_url || post.cover_local_path);
+
+  const statsOverlay = [
+    post.like_count > 0 && `${formatCount(post.like_count)} 赞`,
+    post.comment_count > 0 && `${formatCount(post.comment_count)} 评`,
+    post.collect_count > 0 && `${formatCount(post.collect_count)} 收藏`,
+  ].filter(Boolean) as string[];
 
   return (
-    <Card className="hover:shadow-[0_12px_24px_rgba(0,0,0,0.06)] transition-all duration-300 flex flex-col group relative">
-      <Card.Content className="p-5 flex flex-col flex-1">
-        {/* Author + Platform */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0">
-              {initials}
+    <Card
+      className="group relative flex flex-col overflow-hidden bg-white border-0 shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer p-0"
+      onClick={() => onViewMedia(post.id)}
+    >
+      {/* Cover Image */}
+      {hasCover ? (
+        <div className="relative aspect-[4/5] overflow-hidden rounded-t-xl">
+          <img
+            src={post.cover_local_path ? `/api/posts/${post.id}/cover` : post.cover_url!}
+            alt=""
+            className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+            loading="lazy"
+          />
+
+          {/* Star */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleStar(post.id, post.is_starred); }}
+            className="absolute top-3 right-3 z-20 w-7 h-7 rounded-full bg-black/20 backdrop-blur-sm flex items-center justify-center text-sm hover:bg-black/40 transition-colors"
+          >
+            <span className={post.is_starred ? 'text-yellow-400' : 'text-white/80'}>
+              {post.is_starred ? '★' : '☆'}
+            </span>
+          </button>
+
+          {/* Video Play Icon */}
+          {isVideo && (
+            <div className="absolute inset-0 bg-black/10 flex items-center justify-center z-10">
+              <Play className="h-10 w-10 text-white" style={{ fill: 'white' }} />
             </div>
-            <div>
-              <p className="font-semibold text-sm text-slate-900 leading-tight">
-                {post.author_name || '匿名用户'}
-              </p>
-              <p className="text-xs text-slate-400">
-                @{post.author_name || 'anonymous'}
-              </p>
+          )}
+
+          {/* Bottom Overlay: author + stats + platform */}
+          <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-12 pb-3 px-3">
+            <div className="flex items-end justify-between">
+              <div className="min-w-0">
+                <span className="text-[11px] text-white/90 font-medium truncate block">
+                  @{post.author_name || 'anonymous'}
+                </span>
+                <div className="flex items-center gap-1 text-[10px] text-white/70 mt-0.5">
+                  {statsOverlay.map((s, i) => (
+                    <span key={i} className="flex items-center">
+                      {s}
+                      {i < statsOverlay.length - 1 && <span className="mx-1">·</span>}
+                    </span>
+                  ))}
+                  {post.play_count > 0 && isVideo && (
+                    <span className="ml-1">{formatCount(post.play_count)} 播放</span>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <PlatformBadge platformId={post.platform_id} />
-            <button
-              onClick={(e) => { e.stopPropagation(); onToggleStar(post.id, post.is_starred); }}
-              className="ml-1 text-lg leading-none hover:scale-110 transition-transform"
-            >
-              <span className={post.is_starred ? 'text-yellow-500' : 'text-gray-400'}>{post.is_starred ? '★' : '☆'}</span>
-            </button>
           </div>
         </div>
-
-        {/* Cover Image or Text Content */}
-        {post.cover_url || post.cover_local_path ? (
-          <div className="relative rounded-lg overflow-hidden mb-4 aspect-[4/3] cursor-pointer" onClick={() => onViewMedia(post.id)}>
-            <img
-              src={post.cover_local_path ? `/api/posts/${post.id}/cover` : post.cover_url!}
-              alt=""
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            />
-            {isVideo && (
-              <>
-                <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
-                  <Play className="h-12 w-12 text-white" style={{ fill: 'white' }} />
+      ) : (
+        /* Text-only card header */
+        <div className="relative aspect-[4/5] bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col justify-center p-5">
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleStar(post.id, post.is_starred); }}
+            className="absolute top-3 right-3 z-20 w-7 h-7 rounded-full bg-black/10 backdrop-blur-sm flex items-center justify-center text-sm hover:bg-black/20 transition-colors"
+          >
+            <span className={post.is_starred ? 'text-yellow-500' : 'text-slate-400'}>
+              {post.is_starred ? '★' : '☆'}
+            </span>
+          </button>
+          <h3 className="font-semibold text-sm text-slate-900 line-clamp-3 mb-2 leading-snug">
+            {titleText}
+          </h3>
+          {post.title && post.content && post.content !== post.title && (
+            <p className="text-xs text-slate-500 line-clamp-4">{contentPreview}</p>
+          )}
+          {/* Bottom overlay for text card */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent pt-10 pb-3 px-3">
+            <div className="flex items-end justify-between">
+              <div className="min-w-0">
+                <span className="text-[11px] text-white/90 font-medium truncate block">
+                  @{post.author_name || 'anonymous'}
+                </span>
+                <div className="flex items-center gap-1 text-[10px] text-white/70 mt-0.5">
+                  {statsOverlay.map((s, i) => (
+                    <span key={i} className="flex items-center">
+                      {s}
+                      {i < statsOverlay.length - 1 && <span className="mx-1">·</span>}
+                    </span>
+                  ))}
                 </div>
-                {post.play_count > 0 && (
-                  <div className="absolute bottom-2 right-2 bg-black/60 text-white px-2 py-0.5 rounded text-[10px] font-medium">
-                    {formatCount(post.play_count)} 播放
-                  </div>
-                )}
-              </>
-            )}
-            {!isVideo && (
-              <div className="absolute top-2 right-2 bg-black/40 backdrop-blur-sm text-white px-2 py-1 rounded text-[10px] font-medium flex items-center gap-1">
-                <Picture className="h-3 w-3" />
-                封面
               </div>
-            )}
+            </div>
           </div>
-        ) : (
-          <div className="relative rounded-lg overflow-hidden mb-4 aspect-[4/3] bg-slate-50 border border-slate-100 p-5 flex flex-col justify-center cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => onViewMedia(post.id)}>
-            <h3 className="font-semibold text-sm text-slate-900 line-clamp-2 mb-2 leading-snug">
-              {post.title || contentPreview}
-            </h3>
-            {post.title && post.content && post.content !== post.title && (
-              <p className="text-sm text-slate-500 line-clamp-3">
-                {contentPreview}
-              </p>
-            )}
-          </div>
+        </div>
+      )}
+
+      {/* Content Body */}
+      <div className="flex flex-col flex-1 p-4">
+        {/* Title */}
+        {hasCover && (
+          <h3 className="font-semibold text-sm text-slate-900 line-clamp-2 mb-1.5 leading-snug group-hover:text-slate-700 transition-colors">
+            {titleText}
+          </h3>
+        )}
+
+        {/* Content excerpt */}
+        {hasCover && post.title && post.content && post.content !== post.title && (
+          <p className="text-xs text-slate-500 line-clamp-2 mb-3">{contentPreview}</p>
         )}
 
         {/* Labels */}
-        {(post.labels && post.labels.length > 0) && (
-          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+        {post.labels && post.labels.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1 mb-3">
             {post.labels.map((label) => (
-              <span key={label.id} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">
+              <span
+                key={label.id}
+                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 hover:bg-slate-200 transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {label.name}
                 <button
                   onClick={(e) => { e.stopPropagation(); onRemoveLabel(post.id, label.id); }}
-                  className="ml-0.5 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="text-slate-400 hover:text-slate-600"
                 >
-                  x
+                  ×
                 </button>
               </span>
             ))}
             <button
-              className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-gray-300 text-gray-400 text-xs hover:border-gray-400 hover:text-gray-500 transition-colors"
-              onClick={() => {
+              className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-slate-300 text-slate-400 text-[10px] hover:border-slate-400 hover:text-slate-500 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
                 const name = window.prompt('Label name:');
                 if (name?.trim()) onAddLabel(post.id, name.trim());
               }}
@@ -208,58 +256,22 @@ function PostCard({ post, onViewMedia, onToggleStar, onAddLabel, onRemoveLabel }
           </div>
         )}
         {(!post.labels || post.labels.length === 0) && (
-          <div className="flex items-center gap-1.5 mb-3">
+          <div className="flex items-center gap-1 mb-3">
             <button
-              className="inline-flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-500 transition-colors"
-              onClick={() => {
+              className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-500 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
                 const name = window.prompt('Label name:');
                 if (name?.trim()) onAddLabel(post.id, name.trim());
               }}
             >
-              <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-dashed border-gray-300 text-xs">+</span>
+              <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-dashed border-slate-300 text-xs">+</span>
               添加标签
             </button>
           </div>
         )}
 
-        {/* Engagement Stats */}
-        <div className="flex items-center gap-4 text-xs text-on-surface-variant font-medium mt-auto border-t border-slate-50 pt-4">
-          <span className="flex items-center gap-1.5">
-            <Heart className="h-3.5 w-3.5" />
-            {formatCount(post.like_count ?? 0)}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Comment className="h-3.5 w-3.5" />
-            {formatCount(post.comment_count ?? 0)}
-          </span>
-          {post.collect_count > 0 && (
-            <span className="flex items-center gap-1.5">
-              <Bookmark className="h-3.5 w-3.5" />
-              {formatCount(post.collect_count)}
-            </span>
-          )}
-          {post.play_count > 0 && !isVideo && (
-            <span className="flex items-center gap-1.5">
-              <Eye className="h-3.5 w-3.5" />
-              {formatCount(post.play_count)}
-            </span>
-          )}
-          <span className="ml-auto text-[10px] text-slate-400 uppercase tracking-wider">
-            {timeAgo(post.published_at || post.fetched_at)}
-          </span>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-50">
-          <NavLinkDetail postId={post.id} />
-          <a href={post.url ?? '#'} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground ml-auto">
-            <Button variant="ghost" size="sm" className="h-7 text-xs">
-              <CircleArrowRight className="h-3.5 w-3.5 mr-1" />
-              原帖
-            </Button>
-          </a>
-        </div>
-      </Card.Content>
+      </div>
     </Card>
   );
 }
@@ -384,7 +396,6 @@ function SchemaRenderer({
 }
 
 export function PostDetailModal({ post, onClose, onToggleStar, onDelete }: { post: Post; onClose: () => void; onToggleStar: (postId: string, currentStarred: boolean) => void; onDelete: (postId: string) => void }) {
-  const navigate = useNavigate();
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -585,17 +596,6 @@ export function PostDetailModal({ post, onClose, onToggleStar, onDelete }: { pos
                           )}
                         </div>
 
-                        {post.url && (
-                          <a
-                            href={post.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                          >
-                            查看原文
-                            <icons.ArrowChevronRight className="h-3 w-3" />
-                          </a>
-                        )}
                       </div>
                     </div>
                   ) : (
@@ -620,13 +620,15 @@ export function PostDetailModal({ post, onClose, onToggleStar, onDelete }: { pos
                       </span>
                     </button>
                     <span className="text-slate-200">|</span>
-                    <button
-                      onClick={() => navigate(`/posts/${post.id}`)}
+                    <a
+                      href={post.url ?? '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-primary transition-colors hover:bg-slate-50"
                     >
-                      详情
+                      原帖
                       <icons.ArrowChevronRight className="h-3.5 w-3.5" />
-                    </button>
+                    </a>
                   </div>
                   <Button
                     variant="danger"
@@ -881,15 +883,12 @@ export default function PostLibrary() {
     }
   }, [searchQuery, selectedPlatform, starredFilter, page]);
 
-  const loadPosts = useCallback(() => {
-    setPage(1);
-    fetchPosts(1);
-  }, [fetchPosts]);
-
   const toggleStar = useCallback(async (postId: string, currentStarred: boolean) => {
     await apiPost(`/api/posts/${postId}/star`, { starred: !currentStarred });
-    await loadPosts();
-  }, [loadPosts]);
+    setPosts((prev) =>
+      prev.map((p) => (p.id === postId ? { ...p, is_starred: !currentStarred } : p)),
+    );
+  }, []);
 
   const handleDeletePost = useCallback(async (postId: string) => {
     try {
@@ -903,14 +902,26 @@ export default function PostLibrary() {
   }, []);
 
   const addLabel = useCallback(async (postId: string, labelName: string) => {
-    await apiPost(`/api/posts/${postId}/labels`, { label_name: labelName });
-    await loadPosts();
-  }, [loadPosts]);
+    const res = await apiPost<{ id: string; name: string }>(`/api/posts/${postId}/labels`, { label_name: labelName });
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? { ...p, labels: [...(p.labels || []), { ...res, color: null }] }
+          : p,
+      ),
+    );
+  }, []);
 
   const removeLabel = useCallback(async (postId: string, labelId: string) => {
     await apiDelete(`/api/posts/${postId}/labels/${labelId}`);
-    await loadPosts();
-  }, [loadPosts]);
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? { ...p, labels: (p.labels || []).filter((l) => l.id !== labelId) }
+          : p,
+      ),
+    );
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -1034,7 +1045,7 @@ export default function PostLibrary() {
       {/* Content */}
       {loading ? (
         viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <PostSkeleton key={i} />
             ))}
@@ -1059,7 +1070,7 @@ export default function PostLibrary() {
         </div>
       ) : viewMode === 'grid' ? (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {posts.map((post) => (
               <PostCard key={post.id} post={post} onViewMedia={setViewingMediaPostId} onToggleStar={toggleStar} onAddLabel={addLabel} onRemoveLabel={removeLabel} />
             ))}
