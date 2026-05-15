@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE TABLE IF NOT EXISTS task_targets (
     id          TEXT PRIMARY KEY,
     task_id     TEXT NOT NULL REFERENCES tasks(id),
-    target_type TEXT NOT NULL CHECK(target_type IN ('post','comment')),
+    target_type TEXT NOT NULL CHECK(target_type IN ('post','comment','multi-post')),
     target_id   TEXT NOT NULL,
     status      TEXT DEFAULT 'pending' CHECK(status IN ('pending','processing','done','failed')),
     error       TEXT,
@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS strategies (
     name            TEXT NOT NULL,
     description     TEXT,
     version         TEXT NOT NULL DEFAULT '1.0.0',
-    target          TEXT NOT NULL CHECK(target IN ('post', 'comment')),
+    target          TEXT NOT NULL CHECK(target IN ('post', 'comment', 'multi-post')),
     needs_media     JSON,
     prompt          TEXT NOT NULL,
     output_schema   JSON NOT NULL,
@@ -272,4 +272,15 @@ CREATE TABLE IF NOT EXISTS post_labels (
 );
 
 CREATE INDEX IF NOT EXISTS idx_post_labels_label ON post_labels(label_id);
+
+CREATE TABLE IF NOT EXISTS search_index (
+    post_id          TEXT NOT NULL,
+    source_type      TEXT NOT NULL,
+    searchable_text  TEXT NOT NULL,
+    weight           REAL DEFAULT 1.0,
+    updated_at       TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_search_index_post ON search_index(post_id);
+CREATE INDEX IF NOT EXISTS idx_search_index_type ON search_index(source_type);
 

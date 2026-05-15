@@ -201,6 +201,73 @@ async function migrateLabelsTables(): Promise<void> {
   }
 }
 
+async function migrateSearchIndexTable(): Promise<void> {
+  const hasSearchIndex = await query<{ name: string }>(
+    "SELECT table_name as name FROM information_schema.tables WHERE table_name = 'search_index'"
+  );
+  if (hasSearchIndex.length === 0) {
+    await exec(`CREATE TABLE search_index (
+      post_id TEXT NOT NULL,
+      source_type TEXT NOT NULL,
+      searchable_text TEXT NOT NULL,
+      weight REAL DEFAULT 1.0,
+      updated_at TIMESTAMP DEFAULT NOW()
+    )`);
+    await exec('CREATE INDEX idx_search_index_post ON search_index(post_id)');
+    await exec('CREATE INDEX idx_search_index_type ON search_index(source_type)');
+  }
+}
+
+// Expand target_type CHECK to allow 'multi-post' value for task_targets and strategies
+// DuckDB does not support DROP CONSTRAINT or ALTER COLUMN type.
+// Migration strategy: if 'multi-post' INSERT fails due to CHECK, recreate the table.
+async function migrateTargetTypeCheck(): Promise<void> {
+  // Migrate task_targets
+  const taskTargetsTables = await query<{ name: string }>(
+    "SELECT table_name as name FROM information_schema.tables WHERE table_name = 'task_targets'"
+  );
+  if (taskTargetsTables.length > 0) {
+    try {
+      await exec(`
+        INSERT INTO task_targets (id, task_id, target_type, target_id, status, created_at)
+        SELECT 'check-migrate-0002', 'check-trigger', 'multi-post', 'check-trigger', 'pending', NOW()
+      `);
+      await exec("DELETE FROM task_targets WHERE id = 'check-migrate-0002'");
+    } catch (err: unknown) {
+      const msg = String(err);
+      if (msg.includes('CHECK constraint') || msg.includes('task_targets')) {
+        await exec('CREATE TABLE task_targets_backup AS SELECT * FROM task_targets');
+        await exec('DROP TABLE task_targets');
+        await exec('INSERT INTO task_targets SELECT * FROM task_targets_backup');
+        await exec('DROP TABLE task_targets_backup');
+        await exec('CREATE INDEX IF NOT EXISTS idx_task_targets_task ON task_targets(task_id)');
+      }
+    }
+  }
+
+  // Migrate strategies
+  const strategiesTables = await query<{ name: string }>(
+    "SELECT table_name as name FROM information_schema.tables WHERE table_name = 'strategies'"
+  );
+  if (strategiesTables.length > 0) {
+    try {
+      await exec(`
+        INSERT INTO strategies (id, name, version, target, prompt, output_schema, created_at, updated_at)
+        SELECT 'check-migrate-0003', 'check-trigger', '1.0.0', 'multi-post', 'check', '{}', NOW(), NOW()
+      `);
+      await exec("DELETE FROM strategies WHERE id = 'check-migrate-0003'");
+    } catch (err: unknown) {
+      const msg = String(err);
+      if (msg.includes('CHECK constraint') || msg.includes('strategies')) {
+        await exec('CREATE TABLE strategies_backup AS SELECT * FROM strategies');
+        await exec('DROP TABLE strategies');
+        await exec('INSERT INTO strategies SELECT * FROM strategies_backup');
+        await exec('DROP TABLE strategies_backup');
+      }
+    }
+  }
+}
+
 export async function runMigrations(): Promise<void> {
   const schemaPath = findSchemaPath();
   const schema = fs.readFileSync(schemaPath, 'utf-8');
@@ -218,6 +285,8 @@ export async function runMigrations(): Promise<void> {
   await migrateIsStarredColumn();
   await migrateCoverLocalPathColumn();
   await migrateLabelsTables();
+  await migrateSearchIndexTable();
+  await migrateTargetTypeCheck();
 
   // Migration: drop legacy analysis_results table if present
   const hasAnalysisResults = await query<{ name: string }>(

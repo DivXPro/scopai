@@ -173,6 +173,22 @@ export default async function postsRoutes(app: FastifyInstance) {
 
     getLogger().info(`[PostImport] Imported ${imported} new posts, updated ${skipped} existing posts, task_id=${body.task_id ?? 'none'}`);
 
+    // 同步写入 search_index
+    const { insertSearchIndex } = await import('@scopai/core');
+    for (const postId of postIds) {
+      const importedPost = await getPostById(postId);
+      if (importedPost) {
+        const searchableText = [
+          importedPost.title,
+          importedPost.content,
+          importedPost.author_name,
+        ].filter(Boolean).join(' ');
+        if (searchableText) {
+          await insertSearchIndex(postId, 'post_content', searchableText, 1.0);
+        }
+      }
+    }
+
     try { await checkpoint(); } catch {}
 
     return { imported, skipped, postIds };
