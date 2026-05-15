@@ -483,10 +483,13 @@ async function processStrategyJob(
 ): Promise<void> {
   const logger = getLogger();
   if (!job.strategy_id) throw new Error('Job has no strategy_id');
-  if (!job.target_id) throw new Error('Job has no target_id');
 
   const strategy = await getStrategyById(job.strategy_id);
   if (!strategy) throw new Error(`Strategy ${job.strategy_id} not found`);
+
+  if (!job.target_id && strategy.target !== 'multi-post') {
+    throw new Error('Job has no target_id');
+  }
 
   logger.info(`[Worker-${workerId}] Strategy ${strategy.id} (target=${strategy.target}, media=${strategy.needs_media?.enabled ?? false})`);
 
@@ -532,6 +535,20 @@ async function processStrategyJob(
       error: null,
       analyzed_at: new Date(),
     }, dynamicColumns, dynamicValues);
+
+    // Sync search_index for post analysis
+    const { insertSearchIndex, buildSearchableText } = await import('@scopai/core');
+    const searchableText = buildSearchableText(parsed.values);
+    if (searchableText) {
+      const sourceType = strategy.id === 'creative-copy-deconstruct'
+        ? 'brief_copy'
+        : strategy.id === 'creative-visual-style'
+          ? 'brief_visual'
+          : strategy.id === 'creative-topic-angle'
+            ? 'brief_topic'
+            : 'brief_other';
+      await insertSearchIndex(post.id, sourceType, searchableText);
+    }
   } else if (strategy.target === 'comment') {
     const comment = await getCommentById(job.target_id);
     if (!comment) throw new Error(`Comment ${job.target_id} not found`);
@@ -574,6 +591,8 @@ async function processStrategyJob(
       error: null,
       analyzed_at: new Date(),
     }, dynamicColumns, dynamicValues);
+  } else if (strategy.target === 'multi-post') {
+    await processMultiPostStrategyJob(job, task, strategy, workerId);
   } else {
     throw new Error(`Unknown strategy target: ${strategy.target}`);
   }
@@ -711,4 +730,90 @@ async function syncStepStats(taskId: string, strategyId: string): Promise<void> 
   else if (failed > 0 && done + failed === total) status = 'failed';
 
   await updateTaskStepStatus(step.id, status, { total, done, failed });
+}
+
+async function processMultiPostStrategyJob(
+  job: QueueJob,
+  task: { id: string; name: string },
+  strategy: { id: string; version: string; target: string; output_schema: Record<string, unknown>; prompt: string },
+  workerId: number | string,
+): Promise<void> {
+  const logger = getLogger();
+  const { listTaskTargets } = await import('@scopai/core');
+  const { getUpstreamResult } = await import('@scopai/core');
+  const { getPostById } = await import('@scopai/core');
+  const { analyzeMultiPostWithStrategy } = await import('./anthropic');
+  const { parseStrategyResult } = await import('./parser');
+
+  // Get all post targets for this task
+  const targets = await listTaskTargets(job.task_id);
+  const postTargets = targets.filter(t => t.target_type === 'post');
+
+  if (postTargets.length === 0) {
+    throw new Error('No post targets found for multi-post strategy');
+  }
+
+  // Query upstream analysis results for each post
+  // Depends on the first three creative strategies being available
+  const references = [];
+  for (const target of postTargets) {
+    const post = await getPostById(target.target_id);
+    if (!post) continue;
+
+    const copyAnalysis = await getUpstreamResult('creative-copy-deconstruct', job.task_id, target.target_id);
+    const visualAnalysis = await getUpstreamResult('creative-visual-style', job.task_id, target.target_id);
+    const topicAnalysis = await getUpstreamResult('creative-topic-angle', job.task_id, target.target_id);
+
+    references.push({
+      post_id: target.target_id,
+      post_content: post.content,
+      copy_analysis: copyAnalysis ?? {},
+      visual_analysis: visualAnalysis ?? {},
+      topic_analysis: topicAnalysis ?? {},
+    });
+  }
+
+  if (references.length === 0) {
+    throw new Error('No references with analysis results found');
+  }
+
+  // Build prompt with references
+  const promptText = strategy.prompt
+    .replace('{{references}}', JSON.stringify(references, null, 2))
+    .replace('{{requirements}}', '');
+
+  logger.info(`[Worker-${workerId}] Calling analyzeMultiPostWithStrategy for ${references.length} references`);
+  const rawResponse = await analyzeMultiPostWithStrategy(promptText, strategy as any);
+  logger.info(`[Worker-${workerId}] analyzeMultiPostWithStrategy returned ${rawResponse.length} chars`);
+  const parsed = parseStrategyResult(rawResponse, strategy.output_schema);
+
+  const dynamicColumns = Object.keys(parsed.values);
+  const schemaProperties = (strategy.output_schema.properties || {}) as Record<string, Record<string, unknown>>;
+  const dynamicValues = dynamicColumns.map((k) => {
+    const val = parsed.values[k];
+    const def = schemaProperties[k];
+    if (def?.type === 'array' && Array.isArray(val)) {
+      const items = val.map((v: unknown) => {
+        if (typeof v === 'string') return `'${String(v).replace(/'/g, "''")}'`;
+        return String(v);
+      });
+      return `[${items.join(',')}]`;
+    }
+    if (def?.type === 'object' && val !== null && val !== undefined) {
+      return JSON.stringify(val);
+    }
+    return val;
+  });
+
+  // For multi-post, target_type is 'multi-post' and target_id is the task_id
+  await insertStrategyResult(strategy.id, {
+    task_id: task.id,
+    target_type: 'multi-post',
+    target_id: job.task_id,
+    post_id: null,
+    strategy_version: strategy.version,
+    raw_response: parsed.raw,
+    error: null,
+    analyzed_at: new Date(),
+  }, dynamicColumns, dynamicValues);
 }

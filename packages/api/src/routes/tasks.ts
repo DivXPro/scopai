@@ -390,6 +390,35 @@ export default async function tasksRoutes(app: FastifyInstance) {
       throw new Error(`Strategy not found: ${step.strategy_id}`);
     }
 
+    // Handle multi-post strategies
+    if (strategy.target === 'multi-post') {
+      const allJobs = await listJobsByTask(id);
+      const hasJob = allJobs.some(j => j.strategy_id === strategy.id);
+      if (!hasJob) {
+        const job: QueueJob = {
+          id: generateId(),
+          task_id: id,
+          strategy_id: strategy.id,
+          target_type: null,
+          target_id: null,
+          status: 'pending' as const,
+          priority: 0,
+          attempts: 0,
+          max_attempts: 3,
+          error: null,
+          created_at: new Date(),
+          processed_at: null,
+        };
+        await enqueueJob(job);
+        await updateTaskStepStatus(stepId, 'running', { total: 1, done: 0, failed: 0 });
+        return { status: 'running', enqueued: 1 };
+      }
+      if (step.status === 'pending') {
+        await updateTaskStepStatus(stepId, 'running', { total: 1, done: 0, failed: 0 });
+      }
+      return { status: 'running', enqueued: 0 };
+    }
+
     const targets = await listTaskTargets(id);
     const relevantTargets = targets.filter(t => {
       if (strategy.target === 'post') return t.target_type === 'post';
@@ -472,6 +501,32 @@ export default async function tasksRoutes(app: FastifyInstance) {
         if (!strategy) {
           await updateTaskStepStatus(step.id, 'failed', undefined, `Strategy not found: ${step.strategy_id}`);
           failed++;
+          continue;
+        }
+
+        // Handle multi-post strategies
+        if (strategy.target === 'multi-post') {
+          const allJobs = await listJobsByTask(id);
+          const hasJob = allJobs.some(j => j.strategy_id === strategy.id);
+          if (!hasJob) {
+            const job: QueueJob = {
+              id: generateId(),
+              task_id: id,
+              strategy_id: strategy.id,
+              target_type: null,
+              target_id: null,
+              status: 'pending' as const,
+              priority: 0,
+              attempts: 0,
+              max_attempts: 3,
+              error: null,
+              created_at: new Date(),
+              processed_at: null,
+            };
+            await enqueueJob(job);
+          }
+          await updateTaskStepStatus(step.id, 'running', { total: 1, done: 0, failed: 0 });
+          completed++;
           continue;
         }
 

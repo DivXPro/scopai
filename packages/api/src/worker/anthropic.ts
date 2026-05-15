@@ -540,3 +540,10 @@ function filterMediaFiles(mediaFiles: MediaFile[], cfg: { media_types?: string[]
   }
   return result;
 }
+
+export async function analyzeMultiPostWithStrategy(
+  promptText: string,
+  strategy: { output_schema: Record<string, unknown> },
+): Promise<string> {
+  return callLLM(promptText, [], strategy.output_schema);
+}
