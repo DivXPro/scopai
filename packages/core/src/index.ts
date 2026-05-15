@@ -26,6 +26,7 @@ export * from './db/strategies';
 export * from './db/queue-jobs';
 export * from './db/analysis-results';
 export * from './db/labels';
+export * from './db/search-index';
 export * from './db/aggregation';
 export * from './db/creators';
 export * from './db/creator-field-mappings';
