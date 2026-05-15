@@ -162,7 +162,7 @@ export interface TaskStep {
 export interface TaskTarget {
   id: string;
   task_id: string;
-  target_type: 'post' | 'comment';
+  target_type: 'post' | 'comment' | 'multi-post';
   target_id: string;
   status: TargetStatus;
   error: string | null;
@@ -288,7 +288,7 @@ export interface Strategy {
   name: string;
   description: string | null;
   version: string;
-  target: 'post' | 'comment';
+  target: 'post' | 'comment' | 'multi-post';
   needs_media: NeedsMediaConfig | null;
   prompt: string;
   output_schema: Record<string, unknown>;
@@ -305,7 +305,7 @@ export interface AnalysisResult {
   task_id: string;
   strategy_id: string;
   strategy_version: string;
-  target_type: 'post' | 'comment';
+  target_type: 'post' | 'comment' | 'multi-post';
   target_id: string;
   post_id: string | null;
   raw_response: Record<string, unknown> | null;
