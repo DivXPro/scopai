@@ -7,6 +7,7 @@ import {
   deletePostById,
   getOrCreateLabel, addPostLabel, removePostLabel, getPostLabels,
   setPostStarred, listPostsByLabel, listStarredPostIds, getLabelByName,
+  listStrategies, getStrategyResultTableName,
 } from '@scopai/core';
 import type { Post } from '@scopai/core';
 import {
@@ -352,5 +353,54 @@ export default async function postsRoutes(app: FastifyInstance) {
     const starred = body.starred ?? true;
     await setPostStarred(postId, starred);
     return { starred };
+  });
+
+  app.get('/posts/:id/reference', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const post = await getPostById(id);
+    if (!post) {
+      reply.code(404);
+      throw new Error(`Post not found: ${id}`);
+    }
+
+    const { listStrategies, getStrategyResultTableName, query } = await import('@scopai/core');
+    const strategies = await listStrategies();
+    const references: Record<string, unknown> = {};
+    let analyzed = false;
+
+    const strategyMap: Record<string, string> = {
+      'creative-copy-deconstruct': 'copy',
+      'creative-visual-style': 'visual',
+      'creative-topic-angle': 'topic',
+    };
+
+    for (const strategy of strategies) {
+      const refKey = strategyMap[strategy.id];
+      if (!refKey) continue;
+
+      const tableName = getStrategyResultTableName(strategy.id);
+      try {
+        const rows = await query<Record<string, unknown>>(
+          `SELECT * FROM "${tableName}" WHERE post_id = ? ORDER BY analyzed_at DESC LIMIT 1`,
+          [id],
+        );
+        if (rows.length > 0) {
+          const row = rows[0];
+          const standardCols = ['id', 'task_id', 'target_type', 'target_id', 'post_id', 'strategy_version', 'raw_response', 'error', 'analyzed_at'];
+          const dynamicData: Record<string, unknown> = {};
+          for (const [key, value] of Object.entries(row)) {
+            if (!standardCols.includes(key) && value !== null && value !== undefined) {
+              dynamicData[key] = value;
+            }
+          }
+          references[refKey] = dynamicData;
+          analyzed = true;
+        }
+      } catch {
+        // Table may not exist yet, skip
+      }
+    }
+
+    return { post, references, analyzed };
   });
 }
