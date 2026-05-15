@@ -9,6 +9,7 @@ import creatorsRoutes from './creators';
 import analyzeRoutes from './analyze';
 import mediaRoutes from './media';
 import labelsRoutes from './labels';
+import searchRoutes from './search';
 
 export async function registerRoutes(app: FastifyInstance) {
   await app.register(tasksRoutes, { prefix: '/api' });
@@ -21,4 +22,5 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(analyzeRoutes, { prefix: '/api' });
   await app.register(mediaRoutes, { prefix: '/api' });
   await app.register(labelsRoutes, { prefix: '/api' });
+  await app.register(searchRoutes, { prefix: '/api' });
 }
