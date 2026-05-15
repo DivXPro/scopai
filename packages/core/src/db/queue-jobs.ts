@@ -32,28 +32,62 @@ export async function getNextJob(): Promise<QueueJob | null> {
 }
 
 export async function getNextJobs(limit: number, targetTypes?: string[]): Promise<QueueJob[]> {
-  if (targetTypes && targetTypes.length > 0) {
-    const placeholders = targetTypes.map(() => '?').join(',');
-    const rows = await query<QueueJob>(
-      `UPDATE queue_jobs
-       SET status = 'processing', attempts = attempts + 1
-       WHERE id IN (
-         SELECT id FROM queue_jobs WHERE status = 'pending' AND target_type IN (${placeholders}) ORDER BY priority DESC, created_at ASC LIMIT ?
-       )
-       RETURNING *`,
-      [...targetTypes, limit]
+  if (limit <= 0) return [];
+
+  const targetFilter = targetTypes && targetTypes.length > 0
+    ? `AND target_type IN (${targetTypes.map(() => '?').join(',')})`
+    : '';
+  const targetParams = targetTypes && targetTypes.length > 0 ? [...targetTypes] : [];
+
+  // Step 1: Get the first pending job to determine co-location target
+  const firstRows = await query<{ id: string; target_id: string | null }>(
+    `SELECT id, target_id FROM queue_jobs
+     WHERE status = 'pending' ${targetFilter}
+     ORDER BY priority DESC, created_at ASC LIMIT 1`,
+    targetParams,
+  );
+
+  if (firstRows.length === 0) return [];
+
+  const firstTargetId = firstRows[0].target_id;
+  let ids: string[] = [firstRows[0].id];
+
+  // Step 2: Co-locate jobs with the same target_id for media cache optimization.
+  // Jobs sharing the same target (e.g. same post analyzed by multiple strategies)
+  // are fetched together so the worker can reuse cached media blocks and
+  // benefit from Anthropic prompt caching across consecutive LLM calls.
+  if (firstTargetId !== null && ids.length < limit) {
+    const sameTargetRows = await query<{ id: string }>(
+      `SELECT id FROM queue_jobs
+       WHERE status = 'pending' ${targetFilter} AND target_id = ? AND id != ?
+       ORDER BY priority DESC, created_at ASC LIMIT ?`,
+      [...targetParams, firstTargetId, firstRows[0].id, limit - 1],
     );
-    return rows;
+    ids = ids.concat(sameTargetRows.map(r => r.id));
   }
+
+  // Step 3: Fill remaining slots with any pending jobs (fallback to preserve throughput)
+  if (ids.length < limit) {
+    const idPlaceholders = ids.length > 0 ? ids.map(() => '?').join(',') : 'NULL';
+    const extraRows = await query<{ id: string }>(
+      `SELECT id FROM queue_jobs
+       WHERE status = 'pending' ${targetFilter} AND id NOT IN (${idPlaceholders})
+       ORDER BY priority DESC, created_at ASC LIMIT ?`,
+      ids.length > 0 ? [...targetParams, ...ids, limit - ids.length] : [...targetParams, limit - ids.length],
+    );
+    ids = ids.concat(extraRows.map(r => r.id));
+  }
+
+  // Step 4: Atomically lock all selected jobs
+  const placeholders = ids.map(() => '?').join(',');
   const rows = await query<QueueJob>(
     `UPDATE queue_jobs
      SET status = 'processing', attempts = attempts + 1
-     WHERE id IN (
-       SELECT id FROM queue_jobs WHERE status = 'pending' ORDER BY priority DESC, created_at ASC LIMIT ?
-     )
+     WHERE id IN (${placeholders})
      RETURNING *`,
-    [limit]
+    ids,
   );
+
   return rows;
 }
 

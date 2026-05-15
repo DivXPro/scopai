@@ -8,6 +8,7 @@ import type { Comment, MediaFile, Strategy, Post } from '@scopai/core';
 import { listMediaFilesByPost } from '@scopai/core';
 import { getPlatformById } from '@scopai/core';
 import { getCommentById } from '@scopai/core';
+import { getCachedMediaBlocks, setCachedMediaBlocks } from './media-cache';
 
 const client = new Anthropic({
   apiKey: config.anthropic.api_key,
@@ -120,6 +121,7 @@ function anthropicToolToOpenAI(tool: { name: string; description: string; input_
 async function callAnthropic(
   content: Anthropic.Messages.ContentBlockParam[],
   tools: Anthropic.Messages.Tool[],
+  useCache: boolean = false,
 ): Promise<string> {
   const response = await client.messages.create({
     model: config.anthropic.model,
@@ -128,6 +130,7 @@ async function callAnthropic(
     tools: tools.length > 0 ? tools : undefined,
     tool_choice: tools.length > 0 ? { type: 'tool', name: tools[0].name } : undefined,
     messages: [{ role: 'user', content }],
+    extraHeaders: useCache ? { 'anthropic-beta': 'prompt-caching-2024-07-31' } : undefined,
   });
 
   const toolUse = response.content.find(c => c.type === 'tool_use');
@@ -145,6 +148,7 @@ async function callLLM(
   promptText: string,
   mediaBlocks: Array<{ type: string; source: { type: 'base64'; media_type: string; data: string } }>,
   outputSchema: Record<string, unknown>,
+  options: { useCache?: boolean } = {},
 ): Promise<string> {
   const isOpenAI = config.api_format === 'openai';
 
@@ -175,14 +179,28 @@ async function callLLM(
     );
   }
 
-  // Anthropic format
+  // Anthropic format with optional prompt caching
   const content: Anthropic.Messages.ContentBlockParam[] = [
     { type: 'text', text: promptText },
   ];
   for (const m of mediaBlocks) {
-    content.push(m as Anthropic.Messages.ContentBlockParam);
+    content.push({
+      ...m,
+      cache_control: options.useCache ? { type: 'ephemeral' } : undefined,
+    } as Anthropic.Messages.ContentBlockParam);
   }
-  console.log(`[callLLM] Sending ${content.length} content blocks (${mediaBlocks.length} media) to LLM, model=${config.anthropic.model ?? 'default'}`);
+
+  // Append a cache breakpoint after media blocks so that
+  // subsequent requests with the same prefix can hit the cache.
+  if (options.useCache && mediaBlocks.length > 0) {
+    content.push({
+      type: 'text',
+      text: '[media-end]',
+      cache_control: { type: 'ephemeral' },
+    } as Anthropic.Messages.ContentBlockParam);
+  }
+
+  console.log(`[callLLM] Sending ${content.length} content blocks (${mediaBlocks.length} media, cache=${options.useCache ?? false}) to LLM, model=${config.anthropic.model ?? 'default'}`);
 
   const tools: Anthropic.Messages.Tool[] = [
     {
@@ -192,7 +210,7 @@ async function callLLM(
     },
   ];
 
-  return callAnthropic(content, tools);
+  return callAnthropic(content, tools, options.useCache);
 }
 
 // === Exported functions ===
@@ -247,20 +265,36 @@ export async function analyzeWithStrategy(
 
   // Build media blocks for upload
   const mediaBlocks: Array<{ type: string; source: { type: 'base64'; media_type: string; data: string } }> = [];
+  let useCache = false;
 
   if (isPost && strategy.needs_media?.enabled) {
-    const mediaFiles = await listMediaFilesByPost((target as Post).id);
-    const filtered = filterMediaFiles(mediaFiles, strategy.needs_media);
-    for (const m of filtered) {
-      const block = await buildMediaContentBlock(m);
-      if (block) {
-        mediaBlocks.push(block);
+    const postId = (target as Post).id;
+
+    // Try local cache first (same post, multiple strategies within cache TTL)
+    const cached = getCachedMediaBlocks(postId);
+    if (cached) {
+      mediaBlocks.push(...cached);
+      useCache = true;
+      console.log(`[analyzeWithStrategy] Post ${postId}: using ${cached.length} cached media blocks`);
+    } else {
+      const mediaFiles = await listMediaFilesByPost(postId);
+      const filtered = filterMediaFiles(mediaFiles, strategy.needs_media);
+      for (const m of filtered) {
+        const block = await buildMediaContentBlock(m);
+        if (block) {
+          mediaBlocks.push(block);
+        }
       }
+      // Cache for subsequent strategies on the same post
+      if (mediaBlocks.length > 0) {
+        setCachedMediaBlocks(postId, mediaBlocks);
+        useCache = true;
+      }
+      console.log(`[analyzeWithStrategy] Post ${postId}: ${mediaFiles.length} media files, ${filtered.length} filtered, ${mediaBlocks.length} blocks built (cached)`);
     }
-    console.log(`[analyzeWithStrategy] Post ${(target as Post).id}: ${mediaFiles.length} media files, ${filtered.length} filtered, ${mediaBlocks.length} blocks built`);
   }
 
-  return callLLM(promptText, mediaBlocks, strategy.output_schema);
+  return callLLM(promptText, mediaBlocks, strategy.output_schema, { useCache });
 }
 
 export async function analyzeBatchWithStrategy(
