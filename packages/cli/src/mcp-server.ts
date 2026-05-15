@@ -44,24 +44,33 @@ export async function startMcpServer(): Promise<void> {
   });
 
   server.registerTool('search_posts', {
-    description: 'Search posts by keyword query',
+    description: 'Search posts by keyword query or natural language concept. When query is provided, uses full-text search across post content and analysis results.',
     inputSchema: z.object({
-      platform: z.string().describe('Platform ID (required)'),
-      query: z.string().describe('Search query text (required)'),
+      query: z.string().optional().describe('Natural language search query (e.g. "高级感美妆产品首图")'),
+      platform: z.string().optional().describe('Filter by platform ID'),
       author_id: z.string().optional().describe('Filter by author ID'),
       starred: z.boolean().optional().describe('Only show starred posts'),
       label: z.string().optional().describe('Filter by label name'),
-      limit: z.number().optional().describe('Max results (default: 50)'),
+      limit: z.number().optional().describe('Max results (default: 50 for list, 5 for search)'),
       offset: z.number().optional().describe('Offset for pagination (default: 0)'),
     }),
   }, async (args) => {
+    // If query is provided, use full-text search
+    if (args.query) {
+      const params = new URLSearchParams();
+      params.set('query', args.query);
+      params.set('limit', String(args.limit ?? 5));
+      const result = await apiGet('/search?' + params.toString());
+      return makeTextResult(result);
+    }
+
+    // Otherwise fall back to list/filter
     const params = new URLSearchParams();
-    params.set('query', args.query);
-    params.set('platform', args.platform);
+    if (args.platform) params.set('platform', args.platform);
     if (args.author_id) params.set('author_id', args.author_id);
     if (args.starred) params.set('starred', 'true');
     if (args.label) params.set('label', args.label);
-    if (args.limit !== undefined) params.set('limit', String(args.limit));
+    params.set('limit', String(args.limit ?? 50));
     if (args.offset !== undefined) params.set('offset', String(args.offset));
     const result = await apiGet('/posts?' + params.toString());
     return makeTextResult(result);
@@ -318,6 +327,77 @@ export async function startMcpServer(): Promise<void> {
         },
       },
     };
+  });
+
+  server.registerTool('get_post_reference', {
+    description: 'Get structured creative reference card for a post. Includes copy deconstruction, visual style, topic angle analysis if available.',
+    inputSchema: z.object({
+      post_id: z.string().describe('Post ID (required)'),
+    }),
+  }, async (args) => {
+    const result = await apiGet(`/posts/${args.post_id}/reference`);
+    return makeTextResult(result);
+  });
+
+  server.registerTool('generate_creative_brief', {
+    description: 'Generate a creative brief based on multiple reference posts. Creates a task with creative analysis steps and runs them. Returns task_id for polling.',
+    inputSchema: z.object({
+      post_ids: z.array(z.string()).describe('Array of post IDs to use as references (required)'),
+      brief_type: z.enum(['短视频脚本', '产品图方案', '种草文案', '通用']).optional().describe('Brief type (default: 通用)'),
+      requirements: z.string().optional().describe('Additional creative requirements'),
+    }),
+  }, async (args) => {
+    const { generateId } = await import('@scopai/core');
+
+    // 1. Create task
+    const taskId = generateId();
+    const taskResult = await apiPost('/tasks', {
+      id: taskId,
+      name: `创作简报: ${args.brief_type ?? '通用'}`,
+      description: args.requirements ?? null,
+    });
+
+    // 2. Add posts to task
+    await apiPost(`/tasks/${taskId}/add-posts`, {
+      post_ids: args.post_ids,
+    });
+
+    // 3. Add creative analysis steps
+    const stepConfigs = [
+      { strategy_id: 'creative-copy-deconstruct', name: '文案解构' },
+      { strategy_id: 'creative-visual-style', name: '视觉风格' },
+      { strategy_id: 'creative-topic-angle', name: '话题角度' },
+    ];
+
+    let prevStepId: string | undefined;
+    for (const config of stepConfigs) {
+      const body: Record<string, unknown> = {
+        strategy_id: config.strategy_id,
+        name: config.name,
+      };
+      if (prevStepId) body.depends_on_step_id = prevStepId;
+      const stepResult = await apiPost(`/tasks/${taskId}/steps`, body);
+      prevStepId = (stepResult as Record<string, unknown>).stepId as string;
+    }
+
+    // 4. Add creative-brief step (depends on the last step)
+    if (prevStepId) {
+      await apiPost(`/tasks/${taskId}/steps`, {
+        strategy_id: 'creative-brief',
+        name: '综合创作简报',
+        depends_on_step_id: prevStepId,
+      });
+    }
+
+    // 5. Run all steps
+    await apiPost(`/tasks/${taskId}/run-all-steps`);
+
+    return makeTextResult({
+      task_id: taskId,
+      status: 'running',
+      message: 'Creative brief task created and running. Use get_task to poll for completion.',
+      post_count: args.post_ids.length,
+    });
   });
 
   registerAppResource(
