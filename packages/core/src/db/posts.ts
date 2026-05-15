@@ -98,12 +98,18 @@ export async function countPostsByAuthor(platformId: string, authorId: string): 
   return Number(rows[0]?.cnt ?? 0);
 }
 
-export async function countPosts(platformId?: string): Promise<number> {
-  const sql = platformId
-    ? 'SELECT COUNT(*) as cnt FROM posts WHERE platform_id = ?'
-    : 'SELECT COUNT(*) as cnt FROM posts';
-  const params = platformId ? [platformId] : [];
-  const rows = await query<{ cnt: bigint }>(sql, params);
+export async function countPosts(platformId?: string, starred?: boolean): Promise<number> {
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  if (platformId) {
+    conditions.push('platform_id = ?');
+    params.push(platformId);
+  }
+  if (starred) {
+    conditions.push('is_starred = true');
+  }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const rows = await query<{ cnt: bigint }>(`SELECT COUNT(*) as cnt FROM posts ${where}`, params);
   return Number(rows[0]?.cnt ?? 0);
 }
 

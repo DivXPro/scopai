@@ -40,7 +40,7 @@ export default async function postsRoutes(app: FastifyInstance) {
 
     let items;
     if (starred === 'true') {
-      const ids = await listStarredPostIds(parsedLimit, parsedOffset);
+      const ids = await listStarredPostIds(parsedLimit, parsedOffset, platform || undefined);
       items = await Promise.all(ids.map(id => getPostById(id))).then(r => r.filter(Boolean) as Post[]);
     } else if (label) {
       const labelRow = await getLabelByName(label);
@@ -64,7 +64,7 @@ export default async function postsRoutes(app: FastifyInstance) {
         media_count: await countMediaFilesByPost(post.id),
       })),
     );
-    return { posts: itemsWithExtras, total: await countPosts(platform || undefined) };
+    return { posts: itemsWithExtras, total: await countPosts(platform || undefined, starred === 'true') };
   });
 
   app.post('/posts/import', async (request, reply) => {

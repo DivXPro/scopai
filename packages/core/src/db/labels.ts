@@ -70,10 +70,11 @@ export async function setPostStarred(postId: string, starred: boolean): Promise<
   await run('UPDATE posts SET is_starred = ? WHERE id = ?', [starred, postId]);
 }
 
-export async function listStarredPostIds(limit = 50, offset = 0): Promise<string[]> {
-  const rows = await query<{ id: string }>(
-    'SELECT id FROM posts WHERE is_starred = true ORDER BY fetched_at DESC LIMIT ? OFFSET ?',
-    [limit, offset]
-  );
+export async function listStarredPostIds(limit = 50, offset = 0, platformId?: string): Promise<string[]> {
+  const sql = platformId
+    ? 'SELECT id FROM posts WHERE is_starred = true AND platform_id = ? ORDER BY fetched_at DESC LIMIT ? OFFSET ?'
+    : 'SELECT id FROM posts WHERE is_starred = true ORDER BY fetched_at DESC LIMIT ? OFFSET ?';
+  const params = platformId ? [platformId, limit, offset] : [limit, offset];
+  const rows = await query<{ id: string }>(sql, params);
   return rows.map(r => r.id);
 }

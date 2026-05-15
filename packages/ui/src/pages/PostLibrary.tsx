@@ -170,6 +170,9 @@ function PostCard({ post, onViewMedia, onToggleStar, onAddLabel, onRemoveLabel }
                   )}
                 </div>
               </div>
+              <div className="shrink-0 ml-2">
+                <PlatformBadge platformId={post.platform_id} />
+              </div>
             </div>
           </div>
         </div>
@@ -206,13 +209,16 @@ function PostCard({ post, onViewMedia, onToggleStar, onAddLabel, onRemoveLabel }
                   ))}
                 </div>
               </div>
+              <div className="shrink-0 ml-2">
+                <PlatformBadge platformId={post.platform_id} />
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {/* Content Body */}
-      <div className="flex flex-col flex-1 p-4">
+      <div className="flex flex-col flex-1 p-3">
         {/* Title */}
         {hasCover && (
           <h3 className="font-semibold text-sm text-slate-900 line-clamp-2 mb-1.5 leading-snug group-hover:text-slate-700 transition-colors">
@@ -560,11 +566,6 @@ export function PostDetailModal({ post, onClose, onToggleStar, onDelete }: { pos
                   {activeTab === 'content' ? (
                     <div className="p-4">
                       <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                          <PlatformBadge platformId={post.platform_id} />
-                          <span className="text-xs text-slate-400">{timeAgo(post.published_at || post.fetched_at)}</span>
-                        </div>
-
                         {post.title && (
                           <h3 className="font-semibold text-sm text-slate-900">{post.title}</h3>
                         )}
@@ -594,6 +595,10 @@ export function PostDetailModal({ post, onClose, onToggleStar, onDelete }: { pos
                               {formatCount(post.share_count)}
                             </span>
                           )}
+                          <div className="ml-auto flex items-center gap-2">
+                            <PlatformBadge platformId={post.platform_id} />
+                            <span className="text-slate-400">{timeAgo(post.published_at || post.fetched_at)}</span>
+                          </div>
                         </div>
 
                       </div>
