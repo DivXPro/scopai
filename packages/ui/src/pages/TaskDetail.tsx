@@ -318,7 +318,7 @@ function StepRow({ step, taskId }: { step: TaskStep; taskId: string }) {
                 {resultStats && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <ChartBar className="h-4 w-4" />
-                    共 {resultStats.total} 条结果
+                    分析结果
                   </div>
                 )}
                 <Table aria-label="分析结果">

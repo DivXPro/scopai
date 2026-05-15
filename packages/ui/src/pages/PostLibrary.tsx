@@ -974,12 +974,7 @@ export default function PostLibrary() {
     <div className="space-y-6 max-w-[1440px]">
       {/* Page Header */}
       <div className="flex items-end justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900">帖子库</h2>
-          <p className="text-sm text-on-surface-variant mt-1">
-            {loading ? '加载中...' : `共 ${total} 条帖子`}
-          </p>
-        </div>
+        <h2 className="text-3xl font-bold tracking-tight text-slate-900">帖子库</h2>
       </div>
 
       {/* Filters & Sorting Row */}

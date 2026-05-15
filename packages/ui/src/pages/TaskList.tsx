@@ -86,9 +86,6 @@ export default function TaskList() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight text-foreground">任务列表</h2>
-        <p className="text-sm text-muted-foreground">
-          {loading ? '加载中...' : `共 ${total} 个任务`}
-        </p>
       </div>
 
       {/* 状态筛选 */}

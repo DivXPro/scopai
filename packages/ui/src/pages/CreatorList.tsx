@@ -97,10 +97,7 @@ export default function CreatorList() {
     <div className="space-y-6 max-w-[1440px]">
       {/* Page Header */}
       <div className="flex justify-between items-end mb-10">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-primary mb-2">博主管理</h2>
-          <p className="text-sm text-on-surface-variant">共有 {total} 个博主</p>
-        </div>
+        <h2 className="text-3xl font-bold tracking-tight text-primary mb-2">博主管理</h2>
         <Button className="flex items-center gap-2 shadow-lg shadow-blue-500/20">
           <Plus className="h-4 w-4" />
           <span>添加博主</span>
