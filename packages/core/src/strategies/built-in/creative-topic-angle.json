@@ -1,0 +1,44 @@
+{
+  "id": "creative-topic-angle",
+  "name": "话题角度",
+  "description": "分析帖子的核心话题、切入角度和差异化点",
+  "version": "1.0.0",
+  "target": "post",
+  "prompt": "你是一位内容策略分析师。请分析以下帖子的核心话题、切入角度和差异化点，评估其爆点潜力和内容形式。\n\n帖子内容：\n标题：{{title}}\n正文：{{content}}\n作者：{{author_name}}\n平台：{{platform}}\n发布时间：{{published_at}}\n",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "core_topic": {
+        "type": "string",
+        "title": "核心话题",
+        "description": "核心话题"
+      },
+      "angle": {
+        "type": "string",
+        "title": "切入角度",
+        "description": "切入角度"
+      },
+      "differentiation": {
+        "type": "string",
+        "title": "差异化点",
+        "description": "差异化点"
+      },
+      "trend_potential": {
+        "type": "string",
+        "title": "爆点分析",
+        "description": "爆点分析"
+      },
+      "content_format": {
+        "type": "string",
+        "title": "内容形式",
+        "description": "内容形式"
+      },
+      "related_angles": {
+        "type": "array",
+        "items": { "type": "string" },
+        "title": "可延伸角度",
+        "description": "可延伸的相关角度"
+      }
+    }
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "id": "creative-visual-style",
+  "name": "视觉风格",
+  "description": "分析图片/视频的视觉效果，提取可用于二次创作参考的风格要素",
+  "version": "1.0.0",
+  "target": "post",
+  "needs_media": { "enabled": true },
+  "prompt": "你是一位视觉创意总监。请分析这组图片/视频的视觉效果，提取可用于二次创作参考的风格要素。如果有多张图，请指出系列图的一致性设计和变化节奏。\n\n帖子内容：\n标题：{{title}}\n正文：{{content}}\n作者：{{author_name}}\n平台：{{platform}}\n媒体文件：{{media_urls}}\n",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "color_palette": {
+        "type": "array",
+        "items": { "type": "string" },
+        "title": "主色调",
+        "description": "主色调"
+      },
+      "composition": {
+        "type": "string",
+        "title": "构图特点",
+        "description": "构图特点"
+      },
+      "lighting": {
+        "type": "string",
+        "title": "光影风格",
+        "description": "光影风格"
+      },
+      "mood": {
+        "type": "string",
+        "title": "整体氛围",
+        "description": "整体氛围"
+      },
+      "aesthetic_keywords": {
+        "type": "array",
+        "items": { "type": "string" },
+        "title": "美学标签",
+        "description": "美学标签"
+      },
+      "suitable_scenes": {
+        "type": "array",
+        "items": { "type": "string" },
+        "title": "适用场景",
+        "description": "适用场景"
+      },
+      "style_reference_prompt": {
+        "type": "string",
+        "title": "AI风格描述Prompt",
+        "description": "可直接用于AI图像生成的风格描述Prompt"
+      }
+    }
+  }
+}

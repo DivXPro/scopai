@@ -1,0 +1,49 @@
+{
+  "id": "creative-copy-deconstruct",
+  "name": "文案解构",
+  "description": "对帖子文案进行结构化拆解，提取创作者使用的文案技巧",
+  "version": "1.0.0",
+  "target": "post",
+  "prompt": "你是一位资深短视频/社交媒体文案分析师。请对以下帖子文案进行结构化拆解，提取创作者使用的文案技巧。关注：开头如何抓注意力、中间如何建立信任/制造情绪、结尾如何引导互动。\n\n帖子内容：\n标题：{{title}}\n正文：{{content}}\n作者：{{author_name}}\n平台：{{platform}}\n发布时间：{{published_at}}\n",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "hook": {
+        "type": "string",
+        "title": "开头钩子",
+        "description": "开头钩子，3秒内抓注意力的手法"
+      },
+      "structure_template": {
+        "type": "string",
+        "title": "文案结构模板",
+        "description": "文案结构模板，如'痛点共鸣→解决方案→社会证明→CTA'"
+      },
+      "golden_phrases": {
+        "type": "array",
+        "items": { "type": "string" },
+        "title": "金句/话术",
+        "description": "可复用的金句/话术"
+      },
+      "emotion_curve": {
+        "type": "string",
+        "title": "情绪走向",
+        "description": "情绪走向，如'焦虑→希望→紧迫'"
+      },
+      "pain_point": {
+        "type": "string",
+        "title": "受众痛点",
+        "description": "触达的受众痛点"
+      },
+      "target_audience": {
+        "type": "string",
+        "title": "目标受众画像",
+        "description": "目标受众画像"
+      },
+      "cta_type": {
+        "type": "string",
+        "title": "行动号召类型",
+        "description": "行动号召类型"
+      }
+    }
+  }
+}
