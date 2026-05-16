@@ -151,7 +151,7 @@ export function loadConfig(): Config {
       export_dir: process.env.ANALYZE_CLI_EXPORT_DIR ? expandPath(process.env.ANALYZE_CLI_EXPORT_DIR) : '',
     },
     worker: {
-      concurrency: parseInt(process.env.ANALYZE_CLI_WORKERS ?? '1', 10),
+      concurrency: 3,
       max_retries: 3,
       retry_delay_ms: 2000,
     },
