@@ -29,7 +29,13 @@ export default async function tasksRoutes(app: FastifyInstance) {
       listTasks(status, searchQuery, parseInt(limit, 10), parseInt(offset, 10)),
       countTasks(status, searchQuery),
     ]);
-    return { items, total };
+    const parsedItems = items.map(t => ({
+      ...t,
+      stats: typeof t.stats === 'string' && t.stats
+        ? JSON.parse(t.stats)
+        : t.stats ?? { total: 0, done: 0, failed: 0 },
+    }));
+    return { items: parsedItems, total };
   });
 
   app.get('/tasks/:id', async (request, reply) => {
@@ -90,8 +96,13 @@ export default async function tasksRoutes(app: FastifyInstance) {
         error: j.error ?? '',
       }));
 
+    const taskStats = typeof task.stats === 'string' && task.stats
+      ? JSON.parse(task.stats)
+      : task.stats ?? { total: 0, done: 0, failed: 0 };
+
     return {
       ...task,
+      stats: taskStats,
       ...stats,
       progress: {
         dataPreparation: {

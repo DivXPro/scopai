@@ -60,12 +60,10 @@ export const PipelineMatrix = memo(function PipelineMatrix({
         <CardContent className="p-0 overflow-auto">
           <Table aria-label="Pipeline 矩阵">
             <TableHeader>
-              <TableRow>
-                <TableHead className="sticky left-0 bg-background z-10 min-w-[120px]">帖子</TableHead>
-                {columns.map((col) => (
-                  <TableHead key={col.key} className="text-center min-w-[100px]">{col.name}</TableHead>
-                ))}
-              </TableRow>
+              <TableHead className="sticky left-0 bg-background z-10 min-w-[120px]">帖子</TableHead>
+              {columns.map((col) => (
+                <TableHead key={col.key} className="text-center min-w-[100px]">{col.name}</TableHead>
+              ))}
             </TableHeader>
             <TableBody>
               {rows.map((row) => (
