@@ -41,6 +41,17 @@ const statusIconMap: Record<string, React.ReactNode> = {
   failed: <ExclamationIcon className="h-3 w-3 text-danger-foreground" />,
 };
 
+const statusLabelMap: Record<string, string> = {
+  pending: '待处理',
+  running: '进行中',
+  processing: '进行中',
+  completed: '已完成',
+  done: '已完成',
+  failed: '失败',
+  paused: '已暂停',
+  cancelled: '已取消',
+};
+
 export const TaskTimeline = memo(function TaskTimeline({ phases }: TaskTimelineProps) {
   return (
     <div className="space-y-3">
@@ -105,16 +116,17 @@ export const TaskTimeline = memo(function TaskTimeline({ phases }: TaskTimelineP
                             }
                             size="sm"
                           >
-                            {phase.status}
+                            {statusLabelMap[phase.status] ?? phase.status}
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-3 shrink-0">
-                          {countText && (
-                            <span className="text-xs text-muted-foreground tabular-nums">{countText}</span>
-                          )}
-                          <div className="w-32">
-                            <Progress value={phase.progress} size="sm" showValueLabel />
+                        <div className="flex flex-col gap-1 shrink-0 w-32">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            {countText && (
+                              <span className="tabular-nums">{countText}</span>
+                            )}
+                            <span className="tabular-nums">{phase.progress}%</span>
                           </div>
+                          <Progress value={phase.progress} size="sm" />
                         </div>
                       </div>
                     </CardContent>

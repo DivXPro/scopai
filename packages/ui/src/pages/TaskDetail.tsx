@@ -1,13 +1,14 @@
 import { useEffect, useState, useMemo, memo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import * as icons from '@gravity-ui/icons';
-import { apiGet } from '@/api/client';
+import { apiGet, apiPost } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { TaskTimeline } from '@/components/TaskTimeline';
 import { PipelineMatrix } from '@/components/PipelineMatrix';
+import { PostDetailModal, type Post } from '@/pages/PostLibrary';
 
 const ArrowChevronLeft = icons.ArrowChevronLeft;
 
@@ -73,25 +74,6 @@ interface TaskDetail {
   }[];
 }
 
-interface PostPreview {
-  id: string;
-  platform_id: string;
-  platform_post_id: string;
-  title: string | null;
-  content: string;
-  author_name: string | null;
-  url: string | null;
-  cover_url: string | null;
-  like_count: number;
-  comment_count: number;
-  share_count: number;
-  collect_count: number;
-  published_at: string | null;
-  post_type: string | null;
-  is_starred: boolean;
-}
-
-
 const statusVariantMap: Record<string, BadgeVariant> = {
   pending: 'outline',
   running: 'default',
@@ -99,6 +81,15 @@ const statusVariantMap: Record<string, BadgeVariant> = {
   completed: 'default',
   failed: 'destructive',
   cancelled: 'destructive',
+};
+
+const statusLabelMap: Record<string, string> = {
+  pending: '待处理',
+  running: '进行中',
+  paused: '已暂停',
+  completed: '已完成',
+  failed: '失败',
+  cancelled: '已取消',
 };
 
 const TaskHeader = memo(function TaskHeader({ task }: { task: TaskDetail }) {
@@ -113,7 +104,7 @@ const TaskHeader = memo(function TaskHeader({ task }: { task: TaskDetail }) {
       <div className="space-y-1">
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-bold tracking-tight text-foreground">{task.name}</h2>
-          <Badge variant={statusVariantMap[task.status] ?? 'outline'} size="lg">{task.status}</Badge>
+          <Badge variant={statusVariantMap[task.status] ?? 'outline'} size="lg">{statusLabelMap[task.status] ?? task.status}</Badge>
         </div>
         {task.description && (
           <p className="text-sm text-muted-foreground">{task.description}</p>
@@ -177,7 +168,7 @@ export default function TaskDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [previewPostId, setPreviewPostId] = useState<string | null>(null);
-  const [previewPost, setPreviewPost] = useState<PostPreview | null>(null);
+  const [previewPost, setPreviewPost] = useState<Post | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
@@ -195,7 +186,7 @@ export default function TaskDetail() {
       return;
     }
     setPreviewLoading(true);
-    apiGet<PostPreview>(`/api/posts/${previewPostId}`)
+    apiGet<Post>(`/api/posts/${previewPostId}`)
       .then(setPreviewPost)
       .catch(() => setPreviewPost(null))
       .finally(() => setPreviewLoading(false));
@@ -322,94 +313,20 @@ export default function TaskDetail() {
       />
 
       {/* Post Preview Modal */}
-      {previewPostId && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-          onClick={() => setPreviewPostId(null)}
-        >
-          <div
-            className="bg-background rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto m-4 p-6 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {previewLoading ? (
-              <div className="space-y-3">
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-                <Skeleton className="h-24 w-full" />
-              </div>
-            ) : previewPost ? (
-              <>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-foreground">
-                      {previewPost.title || '无标题'}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                      <span>{previewPost.platform_id}</span>
-                      {previewPost.author_name && (
-                        <span>· {previewPost.author_name}</span>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setPreviewPostId(null)}
-                    className="shrink-0 p-1 rounded-md hover:bg-muted text-muted-foreground"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                {previewPost.cover_url && (
-                  <img
-                    src={previewPost.cover_url}
-                    alt="cover"
-                    className="w-full h-48 object-cover rounded-lg"
-                  />
-                )}
-
-                <p className="text-sm text-foreground whitespace-pre-wrap">
-                  {previewPost.content}
-                </p>
-
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  {previewPost.like_count > 0 && (
-                    <span>❤️ {previewPost.like_count}</span>
-                  )}
-                  {previewPost.comment_count > 0 && (
-                    <span>💬 {previewPost.comment_count}</span>
-                  )}
-                  {previewPost.share_count > 0 && (
-                    <span>↗️ {previewPost.share_count}</span>
-                  )}
-                  {previewPost.collect_count > 0 && (
-                    <span>🔖 {previewPost.collect_count}</span>
-                  )}
-                </div>
-
-                {previewPost.url && (
-                  <a
-                    href={previewPost.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block text-sm text-primary hover:underline"
-                  >
-                    查看原帖 →
-                  </a>
-                )}
-              </>
-            ) : (
-              <div className="text-center text-muted-foreground py-8">
-                <p>无法加载帖子详情</p>
-                <button
-                  onClick={() => setPreviewPostId(null)}
-                  className="mt-2 text-sm text-primary hover:underline"
-                >
-                  关闭
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+      {previewPostId && previewPost && !previewLoading && (
+        <PostDetailModal
+          post={previewPost}
+          onClose={() => setPreviewPostId(null)}
+          onToggleStar={async (postId, currentStarred) => {
+            await apiPost(`/api/posts/${postId}/star`, { starred: !currentStarred });
+            // Refresh post detail
+            apiGet<Post>(`/api/posts/${postId}`).then(setPreviewPost).catch(() => {});
+          }}
+          onDelete={(postId) => {
+            setPreviewPostId(null);
+            window.alert(`帖子 ${postId.slice(0, 8)}... 已删除`);
+          }}
+        />
       )}
     </div>
   );
