@@ -5,11 +5,12 @@ import { apiGet } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { TaskTimeline } from '@/components/TaskTimeline';
+import { PipelineMatrix } from '@/components/PipelineMatrix';
 
 const ArrowChevronLeft = icons.ArrowChevronLeft;
 const ArrowChevronDown = icons.ArrowChevronDown;
@@ -32,6 +33,7 @@ interface TaskJob {
   status: string;
   attempts: number;
   error: string | null;
+  strategy_id: string | null;
 }
 
 interface TaskProgress {
@@ -66,6 +68,13 @@ interface TaskDetail {
   steps: TaskStep[];
   jobs: TaskJob[];
   progress?: TaskProgress;
+  postStatuses?: {
+    postId: string;
+    status: string;
+    commentsFetched: boolean;
+    mediaFetched: boolean;
+    error: string | null;
+  }[];
 }
 
 interface AnalysisResult {
@@ -161,6 +170,11 @@ const KpiCards = memo(function KpiCards({ task }: { task: TaskDetail }) {
   );
 });
 
+/*
+// Keep for later cleanup task
+function StepRow({ step, taskId }: { step: TaskStep; taskId: string }) {
+*/
+// @ts-expect-error StepRow kept for later cleanup
 function StepRow({ step, taskId }: { step: TaskStep; taskId: string }) {
   const [expanded, setExpanded] = useState(false);
   const [results, setResults] = useState<AnalysisResult[]>([]);
@@ -276,7 +290,6 @@ export default function TaskDetail() {
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [rawExpanded, setRawExpanded] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -341,6 +354,49 @@ export default function TaskDetail() {
     }),
   ];
 
+  const matrixColumns = [
+    { key: 'data-prep', name: '数据准备' },
+    ...task.steps.map((step) => ({
+      key: step.id,
+      name: step.name,
+    })),
+  ];
+
+  const postStatusMap = new Map(
+    task.postStatuses?.map((p) => [p.postId, p]) ?? []
+  );
+
+  // Collect all post IDs from jobs and postStatuses
+  const jobPostIds = Array.from(
+    new Set(
+      task.jobs
+        .filter((j) => j.target_type === 'post' && j.target_id)
+        .map((j) => j.target_id!)
+    )
+  );
+  const statusPostIds = task.postStatuses?.map((p) => p.postId) ?? [];
+  const allPostIds = Array.from(new Set([...statusPostIds, ...jobPostIds]));
+
+  const matrixRows = allPostIds.map((postId) => {
+    const postStatus = postStatusMap.get(postId);
+    const cells: Record<string, { status: string }> = {};
+
+    cells['data-prep'] = { status: postStatus?.status ?? 'pending' };
+
+    for (const step of task.steps) {
+      const job = task.jobs.find(
+        (j) => j.target_id === postId && j.strategy_id === step.strategy_id
+      );
+      cells[step.id] = { status: job?.status ?? 'pending' };
+    }
+
+    return {
+      rowId: postId,
+      rowLabel: postId.slice(0, 12) + (postId.length > 12 ? '...' : ''),
+      cells,
+    };
+  });
+
   return (
     <div className="space-y-6">
       {/* 顶部导航 */}
@@ -357,35 +413,7 @@ export default function TaskDetail() {
 
       <TaskTimeline phases={phases} />
 
-      {/* 步骤列表 */}
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-foreground">分析步骤与结果</h3>
-        {task.steps.length === 0 ? (
-          <p className="text-sm text-muted-foreground">暂无分析步骤</p>
-        ) : (
-          task.steps.map((step) => <StepRow key={step.id} step={step} taskId={task.id} />)
-        )}
-      </div>
-
-      {/* 原始数据（折叠） */}
-      <Card>
-        <CardHeader
-          className="cursor-pointer hover:bg-default/50 transition-colors"
-          onClick={() => setRawExpanded(!rawExpanded)}
-        >
-          <CardTitle className="text-sm text-foreground flex items-center gap-2">
-            原始数据
-            {rawExpanded ? <ArrowChevronUp className="h-4 w-4" /> : <ArrowChevronDown className="h-4 w-4" />}
-          </CardTitle>
-        </CardHeader>
-        {rawExpanded && (
-          <CardContent>
-            <pre className="rounded-lg bg-default p-4 overflow-auto text-xs text-foreground">
-              {JSON.stringify(task, null, 2)}
-            </pre>
-          </CardContent>
-        )}
-      </Card>
+      <PipelineMatrix columns={matrixColumns} rows={matrixRows} />
     </div>
   );
 }
