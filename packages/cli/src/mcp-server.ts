@@ -79,7 +79,7 @@ export async function startMcpServer(): Promise<void> {
   server.registerTool('list_tasks', {
     description: 'List analysis tasks with optional filters',
     inputSchema: z.object({
-      status: z.string().optional().describe('Filter by status (pending/running/paused/completed/failed)'),
+      status: z.string().optional().describe('Filter by status (pending/running/paused/completed/failed/cancelled)'),
       query: z.string().optional().describe('Search by task name'),
       limit: z.number().optional().describe('Max results (default: 50)'),
       offset: z.number().optional().describe('Offset for pagination (default: 0)'),
@@ -146,7 +146,7 @@ export async function startMcpServer(): Promise<void> {
 
     if (!args.strategy_id) {
       const task = await apiGet<any>(`/tasks/${args.task_id}`);
-      const steps = task.phases?.steps ?? task.steps ?? [];
+      const steps = task.steps ?? [];
       const ids = steps
         .map((s: any) => s.strategyId ?? s.strategy_id)
         .filter(Boolean);
