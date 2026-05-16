@@ -194,14 +194,26 @@ export interface LLMProviderConfig {
   temperature: number;
 }
 
+export interface LLMApiConfig extends LLMProviderConfig {
+  name: string;
+  type: 'anthropic' | 'openai';
+}
+
 // === Config ===
 export interface Config {
   database: {
     path: string;
   };
-  api_format: 'anthropic' | 'openai';
-  anthropic: LLMProviderConfig;
-  openai: LLMProviderConfig;
+  /** @deprecated use llm_api + llm_apis instead */
+  api_format?: 'anthropic' | 'openai';
+  /** 指定使用 llm_apis 中哪个配置（按 name 匹配） */
+  llm_api?: string;
+  /** 多个 LLM API 配置列表 */
+  llm_apis?: LLMApiConfig[];
+  /** @deprecated use llm_apis instead */
+  anthropic?: LLMProviderConfig;
+  /** @deprecated use llm_apis instead */
+  openai?: LLMProviderConfig;
   worker: {
     concurrency: number;
     max_retries: number;

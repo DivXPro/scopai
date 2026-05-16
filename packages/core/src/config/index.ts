@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Config } from '../shared/types';
+import { Config, LLMApiConfig } from '../shared/types';
 import { expandPath } from '../shared/utils';
 import { loadClaudeConfig } from './claude-config';
 
@@ -8,20 +8,26 @@ const DEFAULT_CONFIG: Config = {
   database: {
     path: expandPath('~/.scopai/data.duckdb'),
   },
-  api_format: 'anthropic',
-  anthropic: {
-    api_key: '',
-    model: 'claude-opus-4-5-20250514',
-    max_tokens: 4096,
-    temperature: 0.3,
-  },
-  openai: {
-    api_key: '',
-    base_url: 'https://api.openai.com',
-    model: 'gpt-4o',
-    max_tokens: 4096,
-    temperature: 0.3,
-  },
+  llm_api: 'default',
+  llm_apis: [
+    {
+      name: 'default',
+      type: 'anthropic',
+      api_key: '',
+      model: 'claude-opus-4-5-20250514',
+      max_tokens: 4096,
+      temperature: 0.3,
+    },
+    {
+      name: 'openai',
+      type: 'openai',
+      api_key: '',
+      base_url: 'https://api.openai.com',
+      model: 'gpt-4o',
+      max_tokens: 4096,
+      temperature: 0.3,
+    },
+  ],
   worker: {
     concurrency: 3,
     max_retries: 3,
@@ -95,32 +101,47 @@ export function loadConfig(): Config {
   // Claude Code config fallback (lowest priority)
   const claudeConfig = loadClaudeConfig();
   const claudeFallback: Partial<Config> = {
-    anthropic: {
-      api_key: claudeConfig.api_key ?? '',
-      base_url: claudeConfig.base_url ?? '',
-      model: '',
-      max_tokens: 4096,
-      temperature: 0.3,
-    },
+    llm_apis: [
+      {
+        name: 'default',
+        type: 'anthropic',
+        api_key: claudeConfig.api_key ?? '',
+        base_url: claudeConfig.base_url ?? '',
+        model: '',
+        max_tokens: 4096,
+        temperature: 0.3,
+      },
+    ],
   };
 
   // Environment variable overrides
-  const envConfig: Partial<Config> = {
-    api_format: (process.env.API_FORMAT as Config['api_format']) ?? undefined,
-    anthropic: {
-      api_key: process.env.ANTHROPIC_API_KEY ?? '',
+  const envLlmApis: LLMApiConfig[] = [];
+  if (process.env.ANTHROPIC_API_KEY) {
+    envLlmApis.push({
+      name: 'default',
+      type: 'anthropic',
+      api_key: process.env.ANTHROPIC_API_KEY,
       base_url: process.env.ANTHROPIC_BASE_URL ?? '',
-      model: process.env.ANTHROPIC_MODEL ?? '',
+      model: process.env.ANTHROPIC_MODEL ?? 'claude-opus-4-5-20250514',
       max_tokens: parseInt(process.env.ANTHROPIC_MAX_TOKENS ?? '4096', 10),
       temperature: parseFloat(process.env.ANTHROPIC_TEMPERATURE ?? '0.3'),
-    },
-    openai: {
-      api_key: process.env.OPENAI_API_KEY ?? '',
-      base_url: process.env.OPENAI_BASE_URL ?? '',
-      model: process.env.OPENAI_MODEL ?? '',
+    });
+  }
+  if (process.env.OPENAI_API_KEY) {
+    envLlmApis.push({
+      name: 'openai',
+      type: 'openai',
+      api_key: process.env.OPENAI_API_KEY,
+      base_url: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com',
+      model: process.env.OPENAI_MODEL ?? 'gpt-4o',
       max_tokens: parseInt(process.env.OPENAI_MAX_TOKENS ?? '4096', 10),
       temperature: parseFloat(process.env.OPENAI_TEMPERATURE ?? '0.3'),
-    },
+    });
+  }
+
+  const envConfig: Partial<Config> = {
+    llm_api: process.env.LLM_API ?? undefined,
+    ...(envLlmApis.length > 0 ? { llm_apis: envLlmApis } : {}),
     database: {
       path: process.env.ANALYZE_CLI_DB_PATH ?? '',
     },
@@ -143,7 +164,60 @@ export function loadConfig(): Config {
   const withEnv = deepMerge(DEFAULT_CONFIG, envConfig);
   const withClaude = deepMerge(withEnv, claudeFallback);
   const resolved = deepMerge(withClaude, fileConfig);
-  return resolveEnvVariables(resolved) as Config;
+  const config = resolveEnvVariables(resolved) as Config;
+
+  // Backward compatibility: migrate legacy api_format + anthropic/openai to llm_apis
+  return normalizeLlmConfig(config);
+}
+
+function normalizeLlmConfig(config: Config): Config {
+  const hasNewConfig = config.llm_apis && config.llm_apis.length > 0;
+  const hasLegacy = config.api_format || config.anthropic || config.openai;
+
+  if (hasNewConfig && !hasLegacy) {
+    return config;
+  }
+
+  const apis: LLMApiConfig[] = config.llm_apis ? [...config.llm_apis] : [];
+
+  // Convert legacy anthropic config
+  if (config.anthropic && config.anthropic.api_key) {
+    const existing = apis.find(a => a.name === 'default' && a.type === 'anthropic');
+    if (!existing) {
+      apis.unshift({
+        name: 'default',
+        type: 'anthropic',
+        ...config.anthropic,
+      });
+    }
+  }
+
+  // Convert legacy openai config
+  if (config.openai && config.openai.api_key) {
+    const existing = apis.find(a => a.name === 'openai' && a.type === 'openai');
+    if (!existing) {
+      apis.push({
+        name: 'openai',
+        type: 'openai',
+        ...config.openai,
+      });
+    }
+  }
+
+  // Determine llm_api from legacy api_format
+  let llmApi = config.llm_api;
+  if (!llmApi && config.api_format) {
+    llmApi = config.api_format === 'openai' ? 'openai' : 'default';
+  }
+  if (!llmApi && apis.length > 0) {
+    llmApi = apis[0].name;
+  }
+
+  return {
+    ...config,
+    llm_api: llmApi,
+    llm_apis: apis.length > 0 ? apis : config.llm_apis,
+  };
 }
 
 export const config = loadConfig();
