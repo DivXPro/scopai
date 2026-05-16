@@ -51,6 +51,20 @@ export default async function tasksRoutes(app: FastifyInstance) {
     const jobs = await listJobsByTask(id);
     const postStatuses = await getTaskPostStatuses(id);
 
+    // Fetch post titles and platform_ids for the matrix display
+    const postIds = postStatuses.map(p => p.post_id);
+    const postDetailsMap = new Map<string, { title: string | null; platform_id: string }>();
+    if (postIds.length > 0) {
+      const placeholders = postIds.map(() => '?').join(',');
+      const posts = await query<{ id: string; title: string | null; platform_id: string }>(
+        `SELECT id, title, platform_id FROM posts WHERE id IN (${placeholders})`,
+        postIds,
+      );
+      for (const p of posts) {
+        postDetailsMap.set(p.id, { title: p.title, platform_id: p.platform_id });
+      }
+    }
+
     const totalPosts = postStatuses.length;
     const donePosts = postStatuses.filter(p => p.status === 'done').length;
     const failedPosts = postStatuses.filter(p => p.status === 'failed').length;
@@ -119,13 +133,18 @@ export default async function tasksRoutes(app: FastifyInstance) {
       },
       steps: stepDetails,
       recentErrors,
-      postStatuses: postStatuses.map(p => ({
-        postId: p.post_id,
-        status: p.status,
-        commentsFetched: p.comments_fetched,
-        mediaFetched: p.media_fetched,
-        error: p.error,
-      })),
+      postStatuses: postStatuses.map(p => {
+        const postDetail = postDetailsMap.get(p.post_id);
+        return {
+          postId: p.post_id,
+          status: p.status,
+          commentsFetched: p.comments_fetched,
+          mediaFetched: p.media_fetched,
+          error: p.error,
+          title: postDetail?.title ?? null,
+          platformId: postDetail?.platform_id ?? '',
+        };
+      }),
       jobs: jobs.map((j) => ({
         id: j.id,
         target_type: j.target_type,

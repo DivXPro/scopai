@@ -68,8 +68,29 @@ interface TaskDetail {
     commentsFetched: boolean;
     mediaFetched: boolean;
     error: string | null;
+    title: string | null;
+    platformId: string;
   }[];
 }
+
+interface PostPreview {
+  id: string;
+  platform_id: string;
+  platform_post_id: string;
+  title: string | null;
+  content: string;
+  author_name: string | null;
+  url: string | null;
+  cover_url: string | null;
+  like_count: number;
+  comment_count: number;
+  share_count: number;
+  collect_count: number;
+  published_at: string | null;
+  post_type: string | null;
+  is_starred: boolean;
+}
+
 
 const statusVariantMap: Record<string, BadgeVariant> = {
   pending: 'outline',
@@ -155,6 +176,9 @@ export default function TaskDetail() {
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [previewPostId, setPreviewPostId] = useState<string | null>(null);
+  const [previewPost, setPreviewPost] = useState<PostPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -164,6 +188,18 @@ export default function TaskDetail() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!previewPostId || previewPostId === 'test') {
+      setPreviewPost(null);
+      return;
+    }
+    setPreviewLoading(true);
+    apiGet<PostPreview>(`/api/posts/${previewPostId}`)
+      .then(setPreviewPost)
+      .catch(() => setPreviewPost(null))
+      .finally(() => setPreviewLoading(false));
+  }, [previewPostId]);
 
   if (loading) {
     return (
@@ -205,6 +241,8 @@ export default function TaskDetail() {
       progress: task.progress?.dataPreparation?.totalPosts
         ? Math.round((task.progress.dataPreparation.donePosts / task.progress.dataPreparation.totalPosts) * 100)
         : 0,
+      total: task.progress?.dataPreparation?.totalPosts ?? 0,
+      done: task.progress?.dataPreparation?.donePosts ?? 0,
     },
     ...task.steps.map((step) => {
       const total = step.stats?.total ?? 0;
@@ -215,6 +253,8 @@ export default function TaskDetail() {
         status: step.status,
         progress: total > 0 ? Math.round((done / total) * 100) : 0,
         stepOrder: step.step_order,
+        total,
+        done,
       };
     }),
   ];
@@ -231,7 +271,6 @@ export default function TaskDetail() {
     task.postStatuses?.map((p) => [p.postId, p]) ?? []
   );
 
-  // Collect all post IDs from jobs and postStatuses
   const jobPostIds = Array.from(
     new Set(
       task.jobs
@@ -245,22 +284,22 @@ export default function TaskDetail() {
   const matrixRows = allPostIds.map((postId) => {
     const postStatus = postStatusMap.get(postId);
     const cells: Record<string, { status: string }> = {};
-
     cells['data-prep'] = { status: postStatus?.status ?? 'pending' };
-
     for (const step of task.steps) {
       const job = task.jobs.find(
         (j) => j.target_id === postId && j.strategy_id === step.strategy_id
       );
       cells[step.id] = { status: job?.status ?? 'pending' };
     }
-
     return {
       rowId: postId,
       rowLabel: postId.slice(0, 12) + (postId.length > 12 ? '...' : ''),
+      title: postStatus?.title ?? null,
+      platformId: postStatus?.platformId ?? '',
       cells,
     };
   });
+
 
   return (
     <div className="space-y-6">
@@ -275,10 +314,103 @@ export default function TaskDetail() {
 
       <TaskHeader task={task} />
       <KpiCards task={task} />
-
       <TaskTimeline phases={phases} />
+      <PipelineMatrix
+        columns={matrixColumns}
+        rows={matrixRows}
+        onRowClick={(postId) => setPreviewPostId(postId)}
+      />
 
-      <PipelineMatrix columns={matrixColumns} rows={matrixRows} />
+      {/* Post Preview Modal */}
+      {previewPostId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setPreviewPostId(null)}
+        >
+          <div
+            className="bg-background rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto m-4 p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {previewLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-24 w-full" />
+              </div>
+            ) : previewPost ? (
+              <>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-semibold text-foreground">
+                      {previewPost.title || '无标题'}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                      <span>{previewPost.platform_id}</span>
+                      {previewPost.author_name && (
+                        <span>· {previewPost.author_name}</span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setPreviewPostId(null)}
+                    className="shrink-0 p-1 rounded-md hover:bg-muted text-muted-foreground"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {previewPost.cover_url && (
+                  <img
+                    src={previewPost.cover_url}
+                    alt="cover"
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                )}
+
+                <p className="text-sm text-foreground whitespace-pre-wrap">
+                  {previewPost.content}
+                </p>
+
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  {previewPost.like_count > 0 && (
+                    <span>❤️ {previewPost.like_count}</span>
+                  )}
+                  {previewPost.comment_count > 0 && (
+                    <span>💬 {previewPost.comment_count}</span>
+                  )}
+                  {previewPost.share_count > 0 && (
+                    <span>↗️ {previewPost.share_count}</span>
+                  )}
+                  {previewPost.collect_count > 0 && (
+                    <span>🔖 {previewPost.collect_count}</span>
+                  )}
+                </div>
+
+                {previewPost.url && (
+                  <a
+                    href={previewPost.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block text-sm text-primary hover:underline"
+                  >
+                    查看原帖 →
+                  </a>
+                )}
+              </>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                <p>无法加载帖子详情</p>
+                <button
+                  onClick={() => setPreviewPostId(null)}
+                  className="mt-2 text-sm text-primary hover:underline"
+                >
+                  关闭
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
