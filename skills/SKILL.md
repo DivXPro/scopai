@@ -136,7 +136,7 @@ Run these **in order** before any workflow:
 | # | Tool | Command | When to Use |
 |---|------|---------|-------------|
 | 12 | **get_task_results** | `scopai task results {tid}` | After all steps complete. Shows result summary. |
-| 13 | **get_task_status** | `scopai task show {tid}` | Show full task details including phases, steps, jobs, and recent failures. **Not needed when using `--wait` mode.** |
+| 13 | **get_task_status** | `scopai task show {tid}` | Show full task details including progress (data preparation + analysis stats), steps, jobs, and recent failures. **Not needed when using `--wait` mode.** |
 | 14 | **list_tasks** | `scopai task list [--status {s}] [--query {text}] [--limit {n}] [--offset {n}]` | View existing tasks. Filter by status or search by name. |
 | 15 | **list_task_steps** | `scopai task step list {tid}` | Inspect step states before running. |
 | 16 | **strategy_result_list** | `scopai strategy result list --task-id {tid} --strategy {sid} [--limit {n}] [--offset {n}]` | Inspect per-post results. |
@@ -151,7 +151,7 @@ Run these **in order** before any workflow:
 | 20 | **retry_failed_queue_jobs** | `scopai queue retry [--task-id {tid}]` | Re-run only failed jobs. |
 | 21 | **reset_queue_jobs** | `scopai queue reset [--task-id {tid}]` | **Blunt instrument**: force-reset all non-pending jobs. Prefer `queue retry`. |
 | 22 | **list_queue_jobs** | `scopai queue list --task-id {tid} [--failed-only] [--limit {n}] [--offset {n}]` | Inspect queue job status. |
-| 23 | **pause_task / resume_task / cancel_task** | `scopai task pause|resume|cancel {tid}` | Control running tasks. |
+| 23 | **pause_task / resume_task / cancel_task** | `scopai task pause|resume|cancel {tid}` | Control running tasks. `cancel` transitions task to `cancelled` status (user-initiated stop, distinct from `failed`). |
 | 24 | **show_post** | `scopai post show {pid}` or `scopai post show --platform-post-id {pid} --platform {platform}` | Show post details by internal ID or by original platform post ID. |
 | 25 | **list_posts / search_posts_db** | `scopai post list [--platform {id}] [--author-id {aid}] [--starred] [--label {name}] [--limit {n}] [--offset {n}] [--platform-post-id {id}]` / `scopai post search --platform {id} --query {text} [--author-id {aid}] [--limit {n}] [--offset {n}]` | Browse imported data. `--author-id` filters by blogger; `--starred` filters starred posts; `--label` filters by label name; `--platform-post-id` queries by original platform post ID (with `--platform`). |
 | 26 | **daemon management** | `scopai daemon start [--fg] [--verbose]` / `stop` / `restart` / `status` | Manage API server lifecycle. CLI auto-restarts if version mismatch. |
@@ -198,7 +198,7 @@ Configure hooks in `~/.scopai/config.json` to receive notifications on task life
 | Event | Trigger |
 |-------|---------|
 | `TaskCompleted` | All task steps completed successfully |
-| `TaskFailed` | Task failed or cancelled |
+| `TaskFailed` | Task failed (after all retries exhausted). **Not triggered by `cancel`** — cancelled tasks do not emit hooks. |
 | `StepCompleted` | A strategy step completed |
 | `StepFailed` | A strategy step has permanently failed jobs |
 | `PrepareDataCompleted` | All prepare jobs completed (no failures) |

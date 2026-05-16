@@ -26,7 +26,7 @@ export function taskPrepareCommands(program: Command): void {
 
       const poll = async () => {
         const status = await apiGet<Record<string, any>>('/tasks/' + taskId);
-        const dp = status.phases?.dataPreparation ?? {};
+        const dp = status.progress?.dataPreparation ?? {};
         const done = dp.status === 'done';
         const failed = dp.status === 'failed';
 
