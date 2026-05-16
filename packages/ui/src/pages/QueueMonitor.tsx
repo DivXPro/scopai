@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import * as icons from '@gravity-ui/icons';
 import { apiGet, apiPost } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,12 +46,33 @@ interface QueueData {
   total: number;
 }
 
+interface StrategyItem {
+  id: string;
+  name: string;
+}
+
 const statusVariantMap: Record<string, BadgeVariant> = {
   pending: 'outline',
   processing: 'default',
   completed: 'secondary',
   failed: 'destructive',
   waiting_media: 'outline',
+};
+
+const statusLabelMap: Record<string, string> = {
+  pending: '待处理',
+  processing: '处理中',
+  completed: '已完成',
+  failed: '失败',
+  waiting_media: '等待媒体',
+};
+
+const targetTypeLabelMap: Record<string, string> = {
+  post: '帖子',
+  comment: '评论',
+  media: '媒体',
+  strategy: '策略',
+  prepare: '数据准备',
 };
 
 const statusOptions = [
@@ -84,6 +105,21 @@ export default function QueueMonitor() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [retrying, setRetrying] = useState(false);
   const [page, setPage] = useState(1);
+  const [strategies, setStrategies] = useState<StrategyItem[]>([]);
+
+  useEffect(() => {
+    apiGet<StrategyItem[]>('/api/strategies')
+      .then((res) => setStrategies(Array.isArray(res) ? res : []))
+      .catch(() => setStrategies([]));
+  }, []);
+
+  const strategyNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of strategies) {
+      map.set(s.id, s.name);
+    }
+    return map;
+  }, [strategies]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -235,11 +271,11 @@ export default function QueueMonitor() {
                 <TableRow key={job.id}>
                   <TableCell>
                     <Badge variant={statusVariantMap[job.status] ?? 'outline'}>
-                      {job.status}
+                      {statusLabelMap[job.status] ?? job.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm text-foreground">{job.target_type ?? '-'}</TableCell>
-                  <TableCell className="text-sm font-mono text-foreground">{job.strategy_id ?? '-'}</TableCell>
+                  <TableCell className="text-sm text-foreground">{targetTypeLabelMap[job.target_type ?? ''] ?? job.target_type ?? '-'}</TableCell>
+                  <TableCell className="text-sm text-foreground">{job.strategy_id ? (strategyNameMap.get(job.strategy_id) ?? job.strategy_id) : '-'}</TableCell>
                   <TableCell className="text-sm text-foreground">
                     {job.attempts}/{job.max_attempts}
                   </TableCell>
