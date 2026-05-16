@@ -43,49 +43,58 @@ export const TaskTimeline = memo(function TaskTimeline({ phases }: TaskTimelineP
   return (
     <div className="space-y-3">
       <h3 className="text-lg font-semibold text-foreground">执行流程</h3>
-      <div className="relative pl-6 space-y-4">
-        <div className="absolute left-[11px] top-3 bottom-3 w-0.5 bg-border" />
+      {phases.length === 0 ? (
+        <p className="text-sm text-muted-foreground">暂无执行步骤</p>
+      ) : (
+        <ol className="relative pl-6 space-y-4" aria-label="任务执行流程">
+          {/* Vertical connector: centered in the pl-6 gutter. Dot is 20px wide, line is 2px. 24 - 10 - 1 = 13 */}
+          <div className="absolute left-[13px] top-3 bottom-3 w-0.5 bg-border" />
 
-        {phases.map((phase) => (
-          <div key={phase.id} className="relative">
-            <div
-              className={`absolute -left-6 top-1 h-5 w-5 rounded-full border-2 border-background flex items-center justify-center ${statusColorMap[phase.status] ?? 'bg-muted'}`}
+          {phases.map((phase) => (
+            <li
+              key={phase.id}
+              className="relative"
+              aria-current={phase.status === 'running' || phase.status === 'processing' ? 'step' : undefined}
             >
-              {statusIconMap[phase.status] ?? null}
-            </div>
+              <div
+                className={`absolute -left-6 top-1 h-5 w-5 rounded-full border-2 border-background flex items-center justify-center ${statusColorMap[phase.status] ?? 'bg-muted'}`}
+              >
+                {statusIconMap[phase.status] ?? null}
+              </div>
 
-            <Card className="ml-2">
-              <CardContent className="p-3">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    {phase.stepOrder !== undefined && (
-                      <span className="text-xs font-medium text-muted-foreground">步骤 {phase.stepOrder}</span>
-                    )}
-                    <span className="font-semibold text-foreground">{phase.name}</span>
-                    <Badge
-                      variant={
-                        phase.status === 'completed' || phase.status === 'done'
-                          ? 'success'
-                          : phase.status === 'failed'
-                            ? 'destructive'
-                            : phase.status === 'running' || phase.status === 'processing'
-                              ? 'default'
-                              : 'outline'
-                      }
-                      size="sm"
-                    >
-                      {phase.status}
-                    </Badge>
+              <Card className="ml-2">
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {phase.stepOrder !== undefined && (
+                        <span className="text-xs font-medium text-muted-foreground shrink-0">步骤 {phase.stepOrder}</span>
+                      )}
+                      <span className="font-semibold text-foreground min-w-0 truncate">{phase.name}</span>
+                      <Badge
+                        variant={
+                          phase.status === 'completed' || phase.status === 'done'
+                            ? 'success'
+                            : phase.status === 'failed'
+                              ? 'destructive'
+                              : phase.status === 'running' || phase.status === 'processing'
+                                ? 'default'
+                                : 'outline'
+                        }
+                        size="sm"
+                      >
+                        {phase.status}
+                      </Badge>
+                    </div>
+                    <div className="w-32 shrink-0">
+                      <Progress value={phase.progress} size="sm" showValueLabel />
+                    </div>
                   </div>
-                  <div className="w-32">
-                    <Progress value={phase.progress} size="sm" showValueLabel />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        ))}
-      </div>
+                </CardContent>
+              </Card>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 });
