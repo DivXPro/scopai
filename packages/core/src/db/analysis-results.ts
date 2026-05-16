@@ -202,7 +202,20 @@ export async function getPostAnalysisResults(postId: string): Promise<AnalysisRe
         `SELECT * FROM "${tableName}" WHERE post_id = ? ORDER BY analyzed_at DESC`,
         [postId],
       );
-      results.push(...rows);
+      for (const row of rows) {
+        // Attach strategy metadata
+        (row as any).strategy_id = strategy.id;
+        (row as any).strategy_name = strategy.name;
+        // Parse raw_response JSON string into object
+        if (row.raw_response && typeof row.raw_response === 'string') {
+          try {
+            (row as any).raw_response = JSON.parse(row.raw_response);
+          } catch {
+            // leave as-is if parse fails
+          }
+        }
+        results.push(row);
+      }
     } catch {
       // Table may not exist yet, skip
     }
