@@ -108,6 +108,13 @@ export default async function tasksRoutes(app: FastifyInstance) {
       },
       steps: stepDetails,
       recentErrors,
+      postStatuses: postStatuses.map(p => ({
+        postId: p.post_id,
+        status: p.status,
+        commentsFetched: p.comments_fetched,
+        mediaFetched: p.media_fetched,
+        error: p.error,
+      })),
       jobs: jobs.map((j) => ({
         id: j.id,
         target_type: j.target_type,
