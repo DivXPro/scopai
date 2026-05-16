@@ -292,7 +292,7 @@ export default async function tasksRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string };
     const body = request.body as Record<string, unknown>;
     const strategyId = body.strategy_id as string | undefined;
-    const name = (body.name as string | undefined) ?? strategyId;
+    const name = (body.name as string | undefined) ?? strategy.name ?? strategyId;
     const order = body.order as number | undefined;
 
     if (!strategyId) {

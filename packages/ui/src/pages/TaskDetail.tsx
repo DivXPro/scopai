@@ -12,6 +12,11 @@ import { PostDetailModal, type Post } from '@/pages/PostLibrary';
 
 const ArrowChevronLeft = icons.ArrowChevronLeft;
 
+interface StrategyItem {
+  id: string;
+  name: string;
+}
+
 interface TaskStep {
   id: string;
   name: string;
@@ -170,6 +175,7 @@ export default function TaskDetail() {
   const [previewPostId, setPreviewPostId] = useState<string | null>(null);
   const [previewPost, setPreviewPost] = useState<Post | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [strategies, setStrategies] = useState<StrategyItem[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -179,6 +185,12 @@ export default function TaskDetail() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    apiGet<StrategyItem[]>('/api/strategies')
+      .then((res) => setStrategies(Array.isArray(res) ? res : []))
+      .catch(() => setStrategies([]));
+  }, []);
 
   useEffect(() => {
     if (!previewPostId || previewPostId === 'test') {
@@ -191,6 +203,14 @@ export default function TaskDetail() {
       .catch(() => setPreviewPost(null))
       .finally(() => setPreviewLoading(false));
   }, [previewPostId]);
+
+  const strategyNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of strategies) {
+      map.set(s.id, s.name);
+    }
+    return map;
+  }, [strategies]);
 
   if (loading) {
     return (
@@ -224,6 +244,13 @@ export default function TaskDetail() {
     return <div className="text-muted-foreground">任务不存在</div>;
   }
 
+  const getStrategyDisplayName = (step: TaskDetail['steps'][0]) => {
+    if (step.strategy_id) {
+      return strategyNameMap.get(step.strategy_id) ?? step.name;
+    }
+    return step.name;
+  };
+
   const phases = [
     {
       id: 'data-prep',
@@ -240,7 +267,7 @@ export default function TaskDetail() {
       const done = step.stats?.done ?? 0;
       return {
         id: step.id,
-        name: step.name,
+        name: getStrategyDisplayName(step),
         status: step.status,
         progress: total > 0 ? Math.round((done / total) * 100) : 0,
         stepOrder: step.step_order,
@@ -254,7 +281,7 @@ export default function TaskDetail() {
     { key: 'data-prep', name: '数据准备' },
     ...task.steps.map((step) => ({
       key: step.id,
-      name: step.name,
+      name: getStrategyDisplayName(step),
     })),
   ];
 
