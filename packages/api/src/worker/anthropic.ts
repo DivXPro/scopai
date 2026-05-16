@@ -5,23 +5,56 @@ import path from "path";
 import { spawn } from "child_process";
 import { promisify } from "util";
 import { config } from "@scopai/core";
-import type { Comment, MediaFile, Strategy, Post } from "@scopai/core";
+import type { Comment, MediaFile, Strategy, Post, LLMApiConfig } from "@scopai/core";
 import { listMediaFilesByPost } from "@scopai/core";
 import { getPlatformById } from "@scopai/core";
 import { getCommentById } from "@scopai/core";
 import { getCachedMediaBlocks, setCachedMediaBlocks } from "./media-cache";
 
-const client = new Anthropic({
-  apiKey: config.anthropic.api_key,
-  baseURL: config.anthropic.base_url,
-});
+// === LLM client cache ===
 
-// === OpenAI-compatible API client ===
+const anthropicClients = new Map<string, Anthropic>();
+const openaiClients = new Map<string, OpenAI>();
 
-const openai = new OpenAI({
-  apiKey: config.openai.api_key,
-  baseURL: config.openai.base_url,
-});
+function getAnthropicClient(cfg: LLMApiConfig): Anthropic {
+  const key = cfg.base_url || 'default';
+  if (!anthropicClients.has(key)) {
+    anthropicClients.set(key, new Anthropic({
+      apiKey: cfg.api_key,
+      baseURL: cfg.base_url,
+    }));
+  }
+  return anthropicClients.get(key)!;
+}
+
+function getOpenAIClient(cfg: LLMApiConfig): OpenAI {
+  const key = cfg.base_url || 'default';
+  if (!openaiClients.has(key)) {
+    openaiClients.set(key, new OpenAI({
+      apiKey: cfg.api_key,
+      baseURL: cfg.base_url,
+    }));
+  }
+  return openaiClients.get(key)!;
+}
+
+function resolveLLMConfig(): LLMApiConfig {
+  // Prefer new llm_api + llm_apis
+  if (config.llm_apis && config.llm_apis.length > 0) {
+    const name = config.llm_api || config.llm_apis[0].name;
+    const found = config.llm_apis.find(a => a.name === name);
+    if (found) return found;
+  }
+  // Fallback to legacy api_format
+  const isOpenAI = config.api_format === 'openai';
+  if (isOpenAI && config.openai) {
+    return { name: 'openai', type: 'openai', ...config.openai };
+  }
+  if (config.anthropic) {
+    return { name: 'default', type: 'anthropic', ...config.anthropic };
+  }
+  throw new Error('No LLM API configuration found');
+}
 
 interface OpenAIMessage {
   role: "user" | "assistant" | "system";
@@ -36,14 +69,16 @@ interface OpenAIContentBlock {
 }
 
 async function callOpenAI(
+  cfg: LLMApiConfig,
   messages: OpenAIMessage[],
   tools: OpenAI.Chat.Completions.ChatCompletionTool[],
   toolChoice: OpenAI.Chat.Completions.ChatCompletionToolChoiceOption,
 ): Promise<string> {
-  const response = await openai.chat.completions.create({
-    model: config.openai.model,
-    max_tokens: config.openai.max_tokens,
-    temperature: config.openai.temperature,
+  const client = getOpenAIClient(cfg);
+  const response = await client.chat.completions.create({
+    model: cfg.model,
+    max_tokens: cfg.max_tokens,
+    temperature: cfg.temperature,
     messages,
     tools: tools.length > 0 ? tools : undefined,
     tool_choice: tools.length > 0 ? toolChoice : undefined,
@@ -77,14 +112,16 @@ function anthropicToolToOpenAI(tool: {
 // === Anthropic API client (existing) ===
 
 async function callAnthropic(
+  cfg: LLMApiConfig,
   content: Anthropic.Messages.ContentBlockParam[],
   tools: Anthropic.Messages.Tool[],
   useCache: boolean = false,
 ): Promise<string> {
+  const client = getAnthropicClient(cfg);
   const response = await client.messages.create({
-    model: config.anthropic.model,
-    max_tokens: config.anthropic.max_tokens,
-    temperature: config.anthropic.temperature,
+    model: cfg.model,
+    max_tokens: cfg.max_tokens,
+    temperature: cfg.temperature,
     tools: tools.length > 0 ? tools : undefined,
     tool_choice:
       tools.length > 0 ? { type: "tool", name: tools[0].name } : undefined,
@@ -114,7 +151,8 @@ async function callLLM(
   outputSchema: Record<string, unknown>,
   options: { useCache?: boolean } = {},
 ): Promise<string> {
-  const isOpenAI = config.api_format === "openai";
+  const cfg = resolveLLMConfig();
+  const isOpenAI = cfg.type === "openai";
 
   if (isOpenAI) {
     const content: OpenAIContentBlock[] = [{ type: "text", text: promptText }];
@@ -137,7 +175,7 @@ async function callLLM(
       }),
     ];
 
-    return callOpenAI([{ role: "user", content }], tools, {
+    return callOpenAI(cfg, [{ role: "user", content }], tools, {
       type: "function",
       function: { name: "output_analysis" },
     });
@@ -172,7 +210,7 @@ async function callLLM(
   }
 
   console.log(
-    `[callLLM] Sending ${content.length} content blocks (${mediaBlocks.length} media, cache=${options.useCache ?? false}) to LLM, model=${config.anthropic.model ?? "default"}`,
+    `[callLLM] Sending ${content.length} content blocks (${mediaBlocks.length} media, cache=${options.useCache ?? false}) to LLM, provider=${cfg.type}, model=${cfg.model ?? "default"}`,
   );
 
   const tools: Anthropic.Messages.Tool[] = [
@@ -183,7 +221,7 @@ async function callLLM(
     },
   ];
 
-  return callAnthropic(content, tools, options.useCache);
+  return callAnthropic(cfg, content, tools, options.useCache);
 }
 
 // === Exported functions ===
