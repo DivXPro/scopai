@@ -35,89 +35,43 @@ interface OpenAIContentBlock {
   video_url?: { url: string };
 }
 
-function toResponsesInput(
-  messages: OpenAIMessage[],
-): OpenAI.Responses.ResponseInput {
-  return messages.map((m) => {
-    const contentBlocks = Array.isArray(m.content)
-      ? m.content.map((block) => {
-          switch (block.type) {
-            case "text":
-              return { type: "input_text" as const, text: block.text ?? "" };
-            case "image_url":
-              return {
-                type: "input_image" as const,
-                image_url: block.image_url?.url ?? "",
-                detail: block.image_url?.detail ?? "auto",
-              };
-            case "video_url":
-              // input_video is not in the SDK types yet, cast as any for Volces/Ark support
-              return {
-                type: "input_video" as const,
-                video_url: block.video_url?.url ?? "",
-              } as any;
-            default:
-              return { type: "input_text" as const, text: "" };
-          }
-        })
-      : [{ type: "input_text" as const, text: m.content }];
-    return {
-      role: m.role,
-      content: contentBlocks,
-    } as OpenAI.Responses.ResponseInputItem;
-  });
-}
-
-function toResponsesTool(tool: {
-  name: string;
-  description: string;
-  input_schema: Record<string, unknown>;
-}): OpenAI.Responses.Tool {
-  return {
-    type: "function",
-    name: tool.name,
-    description: tool.description,
-    parameters: tool.input_schema as Record<string, unknown>,
-  };
-}
-
 async function callOpenAI(
   messages: OpenAIMessage[],
-  tools: OpenAI.Responses.Tool[],
-  toolChoice: OpenAI.Responses.ToolChoiceOptions,
+  tools: OpenAI.Chat.Completions.ChatCompletionTool[],
+  toolChoice: OpenAI.Chat.Completions.ChatCompletionToolChoiceOption,
 ): Promise<string> {
-  const response = await openai.responses.create({
+  const response = await openai.chat.completions.create({
     model: config.openai.model,
-    max_output_tokens: config.openai.max_tokens,
+    max_tokens: config.openai.max_tokens,
     temperature: config.openai.temperature,
-    input: toResponsesInput(messages),
+    messages,
     tools: tools.length > 0 ? tools : undefined,
     tool_choice: tools.length > 0 ? toolChoice : undefined,
   });
 
   // Prefer tool call result
-  const functionCall = response.output.find(
-    (item): item is OpenAI.Responses.ResponseFunctionToolCall =>
-      item.type === "function_call",
-  );
-  if (functionCall) {
-    return functionCall.arguments;
+  const msg = response.choices[0]?.message;
+  if (msg?.tool_calls && msg.tool_calls.length > 0) {
+    return msg.tool_calls[0].function.arguments;
   }
 
   // Fallback to text content
-  if (response.output_text) {
-    return response.output_text;
-  }
-
-  return "";
+  return msg?.content ?? "";
 }
 
 function anthropicToolToOpenAI(tool: {
   name: string;
   description: string;
   input_schema: Record<string, unknown>;
-}): OpenAI.Responses.Tool {
-  return toResponsesTool(tool);
+}): OpenAI.Chat.Completions.ChatCompletionTool {
+  return {
+    type: "function",
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.input_schema as Record<string, unknown>,
+    },
+  };
 }
 
 // === Anthropic API client (existing) ===
@@ -185,7 +139,7 @@ async function callLLM(
 
     return callOpenAI([{ role: "user", content }], tools, {
       type: "function",
-      name: "output_analysis",
+      function: { name: "output_analysis" },
     });
   }
 
