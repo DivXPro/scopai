@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { TaskTimeline } from '@/components/TaskTimeline';
 
 const ArrowChevronLeft = icons.ArrowChevronLeft;
 const ArrowChevronDown = icons.ArrowChevronDown;
@@ -90,8 +91,6 @@ const statusVariantMap: Record<string, BadgeVariant> = {
   cancelled: 'destructive',
 };
 
-const Check = icons.Check;
-
 const TaskHeader = memo(function TaskHeader({ task }: { task: TaskDetail }) {
   const progress = useMemo(() => {
     const total = task.stats?.total ?? 0;
@@ -161,61 +160,6 @@ const KpiCards = memo(function KpiCards({ task }: { task: TaskDetail }) {
     </div>
   );
 });
-
-function DataPrepSection({ progress }: { progress?: TaskProgress }) {
-  const dp = progress?.dataPreparation;
-
-  if (!dp || dp.totalPosts === 0) {
-    return (
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-foreground">数据准备</h3>
-        <p className="text-sm text-muted-foreground py-4">暂无相关帖子</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <h3 className="text-lg font-semibold text-foreground">数据准备</h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground">总帖子</p>
-            <p className="text-xl font-bold text-foreground">{dp.totalPosts}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground">已完成</p>
-            <p className="text-xl font-bold text-green-600">{dp.donePosts}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground">获取中</p>
-            <p className="text-xl font-bold text-blue-600">{dp.fetchingPosts}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground">失败</p>
-            <p className="text-xl font-bold text-destructive">{dp.failedPosts}</p>
-          </CardContent>
-        </Card>
-      </div>
-      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <Check className="h-3 w-3 text-green-600" />
-          评论已获取: {dp.commentsFetched}/{dp.totalPosts}
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Check className="h-3 w-3 text-green-600" />
-          媒体已获取: {dp.mediaFetched}/{dp.totalPosts}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 function StepRow({ step, taskId }: { step: TaskStep; taskId: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -375,6 +319,28 @@ export default function TaskDetail() {
     return <div className="text-muted-foreground">任务不存在</div>;
   }
 
+  const phases = [
+    {
+      id: 'data-prep',
+      name: '数据准备',
+      status: task.progress?.dataPreparation?.status ?? 'pending',
+      progress: task.progress?.dataPreparation?.totalPosts
+        ? Math.round((task.progress.dataPreparation.donePosts / task.progress.dataPreparation.totalPosts) * 100)
+        : 0,
+    },
+    ...task.steps.map((step) => {
+      const total = step.stats?.total ?? 0;
+      const done = step.stats?.done ?? 0;
+      return {
+        id: step.id,
+        name: step.name,
+        status: step.status,
+        progress: total > 0 ? Math.round((done / total) * 100) : 0,
+        stepOrder: step.step_order,
+      };
+    }),
+  ];
+
   return (
     <div className="space-y-6">
       {/* 顶部导航 */}
@@ -389,8 +355,7 @@ export default function TaskDetail() {
       <TaskHeader task={task} />
       <KpiCards task={task} />
 
-      {/* 数据准备进度 */}
-      <DataPrepSection progress={task.progress} />
+      <TaskTimeline phases={phases} />
 
       {/* 步骤列表 */}
       <div className="space-y-3">
