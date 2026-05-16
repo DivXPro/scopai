@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, memo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import * as icons from '@gravity-ui/icons';
 import { apiGet } from '@/api/client';
@@ -92,10 +92,12 @@ const statusVariantMap: Record<string, BadgeVariant> = {
 
 const Check = icons.Check;
 
-function TaskHeader({ task }: { task: TaskDetail }) {
-  const total = task.stats?.total ?? 0;
-  const done = task.stats?.done ?? 0;
-  const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+const TaskHeader = memo(function TaskHeader({ task }: { task: TaskDetail }) {
+  const progress = useMemo(() => {
+    const total = task.stats?.total ?? 0;
+    const done = task.stats?.done ?? 0;
+    return total > 0 ? Math.round((done / total) * 100) : 0;
+  }, [task.stats]);
 
   return (
     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -113,17 +115,27 @@ function TaskHeader({ task }: { task: TaskDetail }) {
         </p>
       </div>
       <div className="flex items-center gap-4">
-        <div className="text-right">
+        <div
+          className="text-right"
+          role="progressbar"
+          aria-valuenow={progress}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="总进度"
+        >
           <p className="text-3xl font-bold text-foreground">{progress}%</p>
           <p className="text-xs text-muted-foreground">总进度</p>
         </div>
       </div>
     </div>
   );
-}
+});
 
-function KpiCards({ task }: { task: TaskDetail }) {
-  const processingJobs = task.jobs.filter((j) => j.status === 'processing').length;
+const KpiCards = memo(function KpiCards({ task }: { task: TaskDetail }) {
+  const processingJobs = useMemo(
+    () => task.jobs.filter((j) => j.status === 'processing').length,
+    [task.jobs]
+  );
 
   const cards = [
     { label: '总任务', value: task.stats?.total ?? 0, color: 'text-foreground' },
@@ -148,7 +160,7 @@ function KpiCards({ task }: { task: TaskDetail }) {
       ))}
     </div>
   );
-}
+});
 
 function DataPrepSection({ progress }: { progress?: TaskProgress }) {
   const dp = progress?.dataPreparation;
