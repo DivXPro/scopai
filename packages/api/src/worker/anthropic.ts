@@ -1,15 +1,15 @@
-import Anthropic from '@anthropic-ai/sdk';
-import OpenAI from 'openai';
-import fs from 'fs';
-import path from 'path';
-import { spawn } from 'child_process';
-import { promisify } from 'util';
-import { config } from '@scopai/core';
-import type { Comment, MediaFile, Strategy, Post } from '@scopai/core';
-import { listMediaFilesByPost } from '@scopai/core';
-import { getPlatformById } from '@scopai/core';
-import { getCommentById } from '@scopai/core';
-import { getCachedMediaBlocks, setCachedMediaBlocks } from './media-cache';
+import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
+import fs from "fs";
+import path from "path";
+import { spawn } from "child_process";
+import { promisify } from "util";
+import { config } from "@scopai/core";
+import type { Comment, MediaFile, Strategy, Post } from "@scopai/core";
+import { listMediaFilesByPost } from "@scopai/core";
+import { getPlatformById } from "@scopai/core";
+import { getCommentById } from "@scopai/core";
+import { getCachedMediaBlocks, setCachedMediaBlocks } from "./media-cache";
 
 const client = new Anthropic({
   apiKey: config.anthropic.api_key,
@@ -24,57 +24,100 @@ const openai = new OpenAI({
 });
 
 interface OpenAIMessage {
-  role: 'user' | 'assistant' | 'system';
+  role: "user" | "assistant" | "system";
   content: string | OpenAIContentBlock[];
 }
 
 interface OpenAIContentBlock {
-  type: 'text' | 'image_url' | 'video_url';
+  type: "text" | "image_url" | "video_url";
   text?: string;
   image_url?: { url: string; detail?: string };
   video_url?: { url: string };
 }
 
+function toResponsesInput(
+  messages: OpenAIMessage[],
+): OpenAI.Responses.ResponseInput {
+  return messages.map((m) => {
+    const contentBlocks = Array.isArray(m.content)
+      ? m.content.map((block) => {
+          switch (block.type) {
+            case "text":
+              return { type: "input_text" as const, text: block.text ?? "" };
+            case "image_url":
+              return {
+                type: "input_image" as const,
+                image_url: block.image_url?.url ?? "",
+                detail: block.image_url?.detail ?? "auto",
+              };
+            case "video_url":
+              // input_video is not in the SDK types yet, cast as any for Volces/Ark support
+              return {
+                type: "input_video" as const,
+                video_url: block.video_url?.url ?? "",
+              } as any;
+            default:
+              return { type: "input_text" as const, text: "" };
+          }
+        })
+      : [{ type: "input_text" as const, text: m.content }];
+    return {
+      role: m.role,
+      content: contentBlocks,
+    } as OpenAI.Responses.ResponseInputItem;
+  });
+}
+
+function toResponsesTool(tool: {
+  name: string;
+  description: string;
+  input_schema: Record<string, unknown>;
+}): OpenAI.Responses.Tool {
+  return {
+    type: "function",
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.input_schema as Record<string, unknown>,
+  };
+}
+
 async function callOpenAI(
   messages: OpenAIMessage[],
-  tools: OpenAI.Chat.Completions.ChatCompletionTool[],
-  toolChoice: OpenAI.Chat.Completions.ChatCompletionToolChoiceOption,
+  tools: OpenAI.Responses.Tool[],
+  toolChoice: OpenAI.Responses.ToolChoiceOptions,
 ): Promise<string> {
-  const response = await openai.chat.completions.create({
+  const response = await openai.responses.create({
     model: config.openai.model,
-    max_tokens: config.openai.max_tokens,
+    max_output_tokens: config.openai.max_tokens,
     temperature: config.openai.temperature,
-    messages: messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+    input: toResponsesInput(messages),
     tools: tools.length > 0 ? tools : undefined,
     tool_choice: tools.length > 0 ? toolChoice : undefined,
   });
 
-  const choice = response.choices[0];
-
   // Prefer tool call result
-  const toolCall = choice?.message?.tool_calls?.[0];
-  if (toolCall) {
-    return toolCall.function.arguments;
+  const functionCall = response.output.find(
+    (item): item is OpenAI.Responses.ResponseFunctionToolCall =>
+      item.type === "function_call",
+  );
+  if (functionCall) {
+    return functionCall.arguments;
   }
 
   // Fallback to text content
-  const content = choice?.message?.content;
-  if (typeof content === 'string') {
-    return content;
+  if (response.output_text) {
+    return response.output_text;
   }
 
-  return '';
+  return "";
 }
 
-function anthropicToolToOpenAI(tool: { name: string; description: string; input_schema: Record<string, unknown> }): OpenAI.Chat.Completions.ChatCompletionTool {
-  return {
-    type: 'function',
-    function: {
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.input_schema as Record<string, unknown>,
-    },
-  };
+function anthropicToolToOpenAI(tool: {
+  name: string;
+  description: string;
+  input_schema: Record<string, unknown>;
+}): OpenAI.Responses.Tool {
+  return toResponsesTool(tool);
 }
 
 // === Anthropic API client (existing) ===
@@ -89,65 +132,71 @@ async function callAnthropic(
     max_tokens: config.anthropic.max_tokens,
     temperature: config.anthropic.temperature,
     tools: tools.length > 0 ? tools : undefined,
-    tool_choice: tools.length > 0 ? { type: 'tool', name: tools[0].name } : undefined,
-    messages: [{ role: 'user', content }],
-    extraHeaders: useCache ? { 'anthropic-beta': 'prompt-caching-2024-07-31' } : undefined,
+    tool_choice:
+      tools.length > 0 ? { type: "tool", name: tools[0].name } : undefined,
+    messages: [{ role: "user", content }],
+    extraHeaders: useCache
+      ? { "anthropic-beta": "prompt-caching-2024-07-31" }
+      : undefined,
   });
 
-  const toolUse = response.content.find(c => c.type === 'tool_use');
-  if (toolUse && 'input' in toolUse) {
+  const toolUse = response.content.find((c) => c.type === "tool_use");
+  if (toolUse && "input" in toolUse) {
     return JSON.stringify(toolUse.input);
   }
 
-  const text = response.content.find(c => c.type === 'text');
-  return text && 'text' in text ? text.text : '';
+  const text = response.content.find((c) => c.type === "text");
+  return text && "text" in text ? text.text : "";
 }
 
 // === Unified LLM call ===
 
 async function callLLM(
   promptText: string,
-  mediaBlocks: Array<{ type: string; source: { type: 'base64'; media_type: string; data: string } }>,
+  mediaBlocks: Array<{
+    type: string;
+    source: { type: "base64"; media_type: string; data: string };
+  }>,
   outputSchema: Record<string, unknown>,
   options: { useCache?: boolean } = {},
 ): Promise<string> {
-  const isOpenAI = config.api_format === 'openai';
+  const isOpenAI = config.api_format === "openai";
 
   if (isOpenAI) {
-    const content: OpenAIContentBlock[] = [{ type: 'text', text: promptText }];
+    const content: OpenAIContentBlock[] = [{ type: "text", text: promptText }];
     for (const m of mediaBlocks) {
-      const isVideo = m.type === 'video';
+      const isVideo = m.type === "video";
       const url = `data:${m.source.media_type};base64,${m.source.data}`;
       if (isVideo) {
-        content.push({ type: 'video_url', video_url: { url } });
+        content.push({ type: "video_url", video_url: { url } });
       } else {
-        content.push({ type: 'image_url', image_url: { url, detail: 'auto' } });
+        content.push({ type: "image_url", image_url: { url, detail: "auto" } });
       }
     }
 
-    const tools: OpenAITool[] = [
+    const tools: OpenAI.Responses.Tool[] = [
       anthropicToolToOpenAI({
-        name: 'output_analysis',
-        description: 'Return the analysis result in the required JSON structure',
+        name: "output_analysis",
+        description:
+          "Return the analysis result in the required JSON structure",
         input_schema: outputSchema,
       }),
     ];
 
-    return callOpenAI(
-      [{ role: 'user', content }],
-      tools,
-      { type: 'function', function: { name: 'output_analysis' } },
-    );
+    return callOpenAI([{ role: "user", content }], tools, {
+      type: "function",
+      name: "output_analysis",
+    });
   }
 
   // Anthropic format with optional prompt caching
   const content: Anthropic.Messages.ContentBlockParam[] = [
-    { type: 'text', text: promptText },
+    { type: "text", text: promptText },
   ];
   for (const m of mediaBlocks) {
     content.push({
       ...m,
-      cache_control: options.useCache ? { type: 'ephemeral' } : undefined,
+      cache_control: options.useCache ? { type: "ephemeral" } : undefined,
     } as Anthropic.Messages.ContentBlockParam);
   }
 
@@ -155,18 +204,20 @@ async function callLLM(
   // subsequent requests with the same prefix can hit the cache.
   if (options.useCache && mediaBlocks.length > 0) {
     content.push({
-      type: 'text',
-      text: '[media-end]',
-      cache_control: { type: 'ephemeral' },
+      type: "text",
+      text: "[media-end]",
+      cache_control: { type: "ephemeral" },
     } as Anthropic.Messages.ContentBlockParam);
   }
 
-  console.log(`[callLLM] Sending ${content.length} content blocks (${mediaBlocks.length} media, cache=${options.useCache ?? false}) to LLM, model=${config.anthropic.model ?? 'default'}`);
+  console.log(
+    `[callLLM] Sending ${content.length} content blocks (${mediaBlocks.length} media, cache=${options.useCache ?? false}) to LLM, model=${config.anthropic.model ?? "default"}`,
+  );
 
   const tools: Anthropic.Messages.Tool[] = [
     {
-      name: 'output_analysis',
-      description: 'Return the analysis result in the required JSON structure',
+      name: "output_analysis",
+      description: "Return the analysis result in the required JSON structure",
       input_schema: outputSchema as any,
     },
   ];
@@ -181,30 +232,34 @@ export async function buildCommentPrompt(
   strategy: Strategy,
   upstreamResult?: Record<string, unknown> | null,
 ): Promise<string> {
-  const platform = comment.platform_id ? await getPlatformById(comment.platform_id) : null;
+  const platform = comment.platform_id
+    ? await getPlatformById(comment.platform_id)
+    : null;
 
-  let parentAuthor = '';
+  let parentAuthor = "";
   if (comment.parent_comment_id) {
     const parent = await getCommentById(comment.parent_comment_id);
-    parentAuthor = parent?.author_name ?? '';
+    parentAuthor = parent?.author_name ?? "";
   }
 
   const vars: Record<string, string> = {
-    content: comment.content ?? '',
-    author_name: comment.author_name ?? '匿名',
-    platform: platform?.name ?? 'unknown',
-    published_at: comment.published_at?.toISOString() ?? '未知',
+    content: comment.content ?? "",
+    author_name: comment.author_name ?? "匿名",
+    platform: platform?.name ?? "unknown",
+    published_at: comment.published_at?.toISOString() ?? "未知",
     depth: String(comment.depth ?? 0),
     parent_author: parentAuthor,
     reply_count: String(comment.reply_count ?? 0),
-    media_urls: '',
-    upstream_result: upstreamResult ? JSON.stringify(upstreamResult, null, 2) : '',
-    original_content: strategy.include_original ? (comment.content ?? '') : '',
+    media_urls: "",
+    upstream_result: upstreamResult
+      ? JSON.stringify(upstreamResult, null, 2)
+      : "",
+    original_content: strategy.include_original ? (comment.content ?? "") : "",
   };
 
   let result = strategy.prompt;
   for (const [key, value] of Object.entries(vars)) {
-    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
   }
 
   const schemaHint = buildSchemaHint(strategy.output_schema);
@@ -219,13 +274,16 @@ export async function analyzeWithStrategy(
   strategy: Strategy,
   upstreamResult?: Record<string, unknown> | null,
 ): Promise<string> {
-  const isPost = strategy.target === 'post';
+  const isPost = strategy.target === "post";
   const promptText = isPost
     ? await buildStrategyPrompt(target as Post, strategy, upstreamResult)
     : await buildCommentPrompt(target as Comment, strategy, upstreamResult);
 
   // Build media blocks for upload
-  const mediaBlocks: Array<{ type: string; source: { type: 'base64'; media_type: string; data: string } }> = [];
+  const mediaBlocks: Array<{
+    type: string;
+    source: { type: "base64"; media_type: string; data: string };
+  }> = [];
   let useCache = false;
 
   if (isPost && strategy.needs_media?.enabled) {
@@ -236,7 +294,9 @@ export async function analyzeWithStrategy(
     if (cached) {
       mediaBlocks.push(...cached);
       useCache = true;
-      console.log(`[analyzeWithStrategy] Post ${postId}: using ${cached.length} cached media blocks`);
+      console.log(
+        `[analyzeWithStrategy] Post ${postId}: using ${cached.length} cached media blocks`,
+      );
     } else {
       const mediaFiles = await listMediaFilesByPost(postId);
       const filtered = filterMediaFiles(mediaFiles, strategy.needs_media);
@@ -251,7 +311,9 @@ export async function analyzeWithStrategy(
         setCachedMediaBlocks(postId, mediaBlocks);
         useCache = true;
       }
-      console.log(`[analyzeWithStrategy] Post ${postId}: ${mediaFiles.length} media files, ${filtered.length} filtered, ${mediaBlocks.length} blocks built (cached)`);
+      console.log(
+        `[analyzeWithStrategy] Post ${postId}: ${mediaFiles.length} media files, ${filtered.length} filtered, ${mediaBlocks.length} blocks built (cached)`,
+      );
     }
   }
 
@@ -269,30 +331,30 @@ export async function analyzeBatchWithStrategy(
   const lines = comments.map((c, i) => {
     const parts = [
       `\n[评论 ${i + 1}]`,
-      `作者: ${c.author_name ?? '匿名'}`,
-      `内容: ${c.content ?? ''}`,
+      `作者: ${c.author_name ?? "匿名"}`,
+      `内容: ${c.content ?? ""}`,
       `深度: ${c.depth ?? 0}`,
     ];
     if (c.parent_comment_id) {
-      parts.push(`回复对象: ${c.author_name ?? ''}`);
+      parts.push(`回复对象: ${c.author_name ?? ""}`);
     }
-    return parts.join('\n');
+    return parts.join("\n");
   });
 
   const batchSchema = {
-    type: 'object',
+    type: "object",
     properties: {
       results: {
-        type: 'array',
+        type: "array",
         items: strategy.output_schema,
         description: `分析结果数组，长度必须为 ${comments.length}，顺序与输入评论一致`,
       },
     },
-    required: ['results'],
+    required: ["results"],
   };
 
   let prompt = `请分析以下 ${comments.length} 条评论，逐条返回分析结果。\n\n`;
-  prompt += lines.join('\n');
+  prompt += lines.join("\n");
   prompt += `\n\n请严格按以下 JSON 格式返回，results 数组长度必须为 ${comments.length}，顺序与上方评论编号一致：`;
   prompt += `\n${JSON.stringify({ results: [strategy.output_schema] }, null, 2)}`;
   const schemaHint = buildSchemaHint(strategy.output_schema);
@@ -308,17 +370,21 @@ export async function buildStrategyPrompt(
   strategy: Strategy,
   upstreamResult?: Record<string, unknown> | null,
 ): Promise<string> {
-  const platform = target.platform_id ? await getPlatformById(target.platform_id) : null;
+  const platform = target.platform_id
+    ? await getPlatformById(target.platform_id)
+    : null;
   const vars: Record<string, string> = {
-    content: target.content ?? '',
-    title: target.title ?? '',
-    author_name: target.author_name ?? '匿名',
-    platform: platform?.name ?? 'unknown',
-    published_at: target.published_at?.toISOString() ?? '未知',
-    tags: target.tags ? JSON.stringify(target.tags) : '',
-    media_urls: '',
-    upstream_result: upstreamResult ? JSON.stringify(upstreamResult, null, 2) : '',
-    original_content: strategy.include_original ? (target.content ?? '') : '',
+    content: target.content ?? "",
+    title: target.title ?? "",
+    author_name: target.author_name ?? "匿名",
+    platform: platform?.name ?? "unknown",
+    published_at: target.published_at?.toISOString() ?? "未知",
+    tags: target.tags ? JSON.stringify(target.tags) : "",
+    media_urls: "",
+    upstream_result: upstreamResult
+      ? JSON.stringify(upstreamResult, null, 2)
+      : "",
+    original_content: strategy.include_original ? (target.content ?? "") : "",
   };
 
   if (strategy.needs_media?.enabled) {
@@ -326,16 +392,16 @@ export async function buildStrategyPrompt(
     const filtered = filterMediaFiles(mediaFiles, strategy.needs_media);
     if (filtered.length > 0) {
       const lines = filtered.map((m, i) => {
-        const filePath = m.local_path ?? m.url ?? '';
+        const filePath = m.local_path ?? m.url ?? "";
         return `[媒体 ${i + 1}] ${filePath}`;
       });
-      vars.media_urls = '\n' + lines.join('\n') + '\n';
+      vars.media_urls = "\n" + lines.join("\n") + "\n";
     }
   }
 
   let result = strategy.prompt;
   for (const [key, value] of Object.entries(vars)) {
-    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
   }
 
   const schemaHint = buildSchemaHint(strategy.output_schema);
@@ -347,9 +413,10 @@ export async function buildStrategyPrompt(
 
 // === Media handling ===
 
-async function buildMediaContentBlock(
-  media: MediaFile,
-): Promise<{ type: string; source: { type: 'base64'; media_type: string; data: string } } | null> {
+async function buildMediaContentBlock(media: MediaFile): Promise<{
+  type: string;
+  source: { type: "base64"; media_type: string; data: string };
+} | null> {
   let filePath = media.local_path;
   if (!filePath || !fs.existsSync(filePath)) {
     console.warn(`[MediaBlock] File not found: ${filePath}`);
@@ -363,12 +430,14 @@ async function buildMediaContentBlock(
   }
 
   // Compress video if too large
-  const isVideo = mediaType.startsWith('video/');
+  const isVideo = mediaType.startsWith("video/");
   const stats = fs.statSync(filePath);
   const maxSize = 20 * 1024 * 1024;
 
   if (isVideo && stats.size > maxSize) {
-    console.log(`[MediaBlock] Compressing video: ${filePath} (${stats.size} bytes)`);
+    console.log(
+      `[MediaBlock] Compressing video: ${filePath} (${stats.size} bytes)`,
+    );
     const compressed = await compressVideo(filePath);
     if (compressed) {
       filePath = compressed;
@@ -380,19 +449,23 @@ async function buildMediaContentBlock(
 
   try {
     const data = fs.readFileSync(filePath);
-    const base64 = data.toString('base64');
-    const blockType = isVideo ? 'video' : 'image';
-    console.log(`[MediaBlock] Built ${blockType} block: ${path.basename(filePath)}, size=${data.length}, base64_len=${base64.length}`);
+    const base64 = data.toString("base64");
+    const blockType = isVideo ? "video" : "image";
+    console.log(
+      `[MediaBlock] Built ${blockType} block: ${path.basename(filePath)}, size=${data.length}, base64_len=${base64.length}`,
+    );
     return {
       type: blockType,
       source: {
-        type: 'base64',
+        type: "base64",
         media_type: mediaType,
         data: base64,
       },
     };
   } catch (err) {
-    console.error(`[MediaBlock] Failed to read file ${filePath}: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(
+      `[MediaBlock] Failed to read file ${filePath}: ${err instanceof Error ? err.message : String(err)}`,
+    );
     return null;
   }
 }
@@ -411,23 +484,28 @@ async function compressVideo(inputPath: string): Promise<string | null> {
   }
 
   return new Promise((resolve) => {
-    const ffmpeg = spawn('ffmpeg', [
-      '-i', inputPath,
-      '-vf', 'scale=360:-2',
-      '-c:v', 'libx264',
-      '-crf', '32',
-      '-preset', 'fast',
-      '-an',
-      '-y',
+    const ffmpeg = spawn("ffmpeg", [
+      "-i",
+      inputPath,
+      "-vf",
+      "scale=360:-2",
+      "-c:v",
+      "libx264",
+      "-crf",
+      "32",
+      "-preset",
+      "fast",
+      "-an",
+      "-y",
       outputPath,
     ]);
 
-    let stderr = '';
-    ffmpeg.stderr.on('data', (data) => {
+    let stderr = "";
+    ffmpeg.stderr.on("data", (data) => {
       stderr += data.toString();
     });
 
-    ffmpeg.on('close', (code) => {
+    ffmpeg.on("close", (code) => {
       if (code === 0 && fs.existsSync(outputPath)) {
         const stats = fs.statSync(outputPath);
         if (stats.size < 10 * 1024 * 1024) {
@@ -438,7 +516,7 @@ async function compressVideo(inputPath: string): Promise<string | null> {
       resolve(null);
     });
 
-    ffmpeg.on('error', () => {
+    ffmpeg.on("error", () => {
       resolve(null);
     });
   });
@@ -447,25 +525,25 @@ async function compressVideo(inputPath: string): Promise<string | null> {
 function detectMediaType(filePath: string): string | null {
   const ext = path.extname(filePath).toLowerCase();
   switch (ext) {
-    case '.jpg':
-    case '.jpeg':
-      return 'image/jpeg';
-    case '.png':
-      return 'image/png';
-    case '.gif':
-      return 'image/gif';
-    case '.webp':
-      return 'image/webp';
-    case '.mp4':
-      return 'video/mp4';
-    case '.webm':
-      return 'video/webm';
-    case '.mov':
-      return 'video/quicktime';
-    case '.avi':
-      return 'video/x-msvideo';
-    case '.mkv':
-      return 'video/x-matroska';
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".png":
+      return "image/png";
+    case ".gif":
+      return "image/gif";
+    case ".webp":
+      return "image/webp";
+    case ".mp4":
+      return "video/mp4";
+    case ".webm":
+      return "video/webm";
+    case ".mov":
+      return "video/quicktime";
+    case ".avi":
+      return "video/x-msvideo";
+    case ".mkv":
+      return "video/x-matroska";
     default:
       return null;
   }
@@ -474,61 +552,71 @@ function detectMediaType(filePath: string): string | null {
 // === Schema helpers ===
 
 function buildSchemaHint(outputSchema: Record<string, unknown>): string | null {
-  if (typeof outputSchema !== 'object' || outputSchema === null) return null;
-  const properties = (outputSchema.properties || {}) as Record<string, Record<string, unknown>>;
+  if (typeof outputSchema !== "object" || outputSchema === null) return null;
+  const properties = (outputSchema.properties || {}) as Record<
+    string,
+    Record<string, unknown>
+  >;
   const keys = Object.keys(properties);
   if (keys.length === 0) return null;
 
-  const lines = keys.map(key => {
+  const lines = keys.map((key) => {
     const def = properties[key];
     const title = (def?.title as string) || key;
     return `  "${key}": ${schemaDefToHint(def)}  // ${title}`;
   });
-  const example = `{\n${lines.join(',\n')}\n}`;
+  const example = `{\n${lines.join(",\n")}\n}`;
 
-  const titleLines = keys.map(key => {
+  const titleLines = keys.map((key) => {
     const def = properties[key];
     const title = (def?.title as string) || key;
-    const desc = (def?.description as string) || '';
-    return `  - ${key}: ${title}${desc ? ' — ' + desc : ''}`;
+    const desc = (def?.description as string) || "";
+    return `  - ${key}: ${title}${desc ? " — " + desc : ""}`;
   });
 
-  return `=== 输出要求 ===\n请严格按以下 JSON 格式返回结果，只输出纯 JSON，不要添加 markdown 代码块标记或额外解释。字段含义如下：\n${titleLines.join('\n')}\n\n示例格式：\n${example}`;
+  return `=== 输出要求 ===\n请严格按以下 JSON 格式返回结果，只输出纯 JSON，不要添加 markdown 代码块标记或额外解释。字段含义如下：\n${titleLines.join("\n")}\n\n示例格式：\n${example}`;
 }
 
 function schemaDefToHint(def: Record<string, unknown>): string {
-  if (typeof def !== 'object' || def === null) return 'any';
+  if (typeof def !== "object" || def === null) return "any";
   const type = def.type as string | undefined;
   const enumValues = def.enum as unknown[] | undefined;
   const items = def.items as Record<string, unknown> | undefined;
-  const props = def.properties as Record<string, Record<string, unknown>> | undefined;
+  const props = def.properties as
+    | Record<string, Record<string, unknown>>
+    | undefined;
 
   if (enumValues && enumValues.length > 0) {
-    return enumValues.map(v => JSON.stringify(v)).join(' | ');
+    return enumValues.map((v) => JSON.stringify(v)).join(" | ");
   }
 
-  if (type === 'array' && items) {
+  if (type === "array" && items) {
     return `[${schemaDefToHint(items)}]`;
   }
 
-  if (type === 'object' && props && Object.keys(props).length > 0) {
-    const lines = Object.keys(props).map(k => `    "${k}": ${schemaDefToHint(props[k])}`);
-    return `{\n${lines.join(',\n')}\n  }`;
+  if (type === "object" && props && Object.keys(props).length > 0) {
+    const lines = Object.keys(props).map(
+      (k) => `    "${k}": ${schemaDefToHint(props[k])}`,
+    );
+    return `{\n${lines.join(",\n")}\n  }`;
   }
 
   if (type) return type;
-  return 'any';
+  return "any";
 }
 
-function filterMediaFiles(mediaFiles: MediaFile[], cfg: { media_types?: string[]; max_media?: number; mode?: string }): MediaFile[] {
+function filterMediaFiles(
+  mediaFiles: MediaFile[],
+  cfg: { media_types?: string[]; max_media?: number; mode?: string },
+): MediaFile[] {
   let result = mediaFiles;
   if (cfg.media_types && cfg.media_types.length > 0) {
-    result = result.filter(m => cfg.media_types!.includes(m.media_type));
+    result = result.filter((m) => cfg.media_types!.includes(m.media_type));
   }
-  if (cfg.mode === 'best_quality') {
+  if (cfg.mode === "best_quality") {
     result = result
-      .filter(m => m.width && m.height)
-      .sort((a, b) => (b.width! * b.height!) - (a.width! * a.height!));
+      .filter((m) => m.width && m.height)
+      .sort((a, b) => b.width! * b.height! - a.width! * a.height!);
   }
   if (cfg.max_media && cfg.max_media > 0) {
     result = result.slice(0, cfg.max_media);
