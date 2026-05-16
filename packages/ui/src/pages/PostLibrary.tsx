@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import * as icons from '@gravity-ui/icons';
 import { apiGet, apiPost, apiDelete } from '@/api/client';
 import { Card, Skeleton, Button, Select, ListBox, Modal } from '@heroui/react';
@@ -93,18 +92,6 @@ function timeAgo(dateStr: string | null): string {
   const diffDay = Math.floor(diffHr / 24);
   if (diffDay < 7) return `${diffDay} 天前`;
   return date.toLocaleDateString('zh-CN');
-}
-
-function NavLinkDetail({ postId }: { postId: string }) {
-  const navigate = useNavigate();
-  return (
-    <button
-      onClick={(e) => { e.stopPropagation(); navigate(`/posts/${postId}`); }}
-      className="text-xs text-muted-foreground hover:text-primary transition-colors"
-    >
-      详情
-    </button>
-  );
 }
 
 function PostCard({ post, onViewMedia, onToggleStar, onAddLabel, onRemoveLabel }: { post: Post; onViewMedia: (postId: string) => void; onToggleStar: (postId: string, currentStarred: boolean) => void; onAddLabel: (postId: string, labelName: string) => void; onRemoveLabel: (postId: string, labelId: string) => void }) {
@@ -1165,17 +1152,14 @@ export default function PostLibrary() {
                     {timeAgo(post.published_at || post.fetched_at)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <NavLinkDetail postId={post.id} />
-                      <a
-                        href={post.url ?? '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-primary hover:underline"
-                      >
-                        原帖
-                      </a>
-                    </div>
+                    <a
+                      href={post.url ?? '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline"
+                    >
+                      原帖
+                    </a>
                   </TableCell>
                 </TableRow>
               ))}
