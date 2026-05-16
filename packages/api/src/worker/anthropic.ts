@@ -128,7 +128,7 @@ async function callLLM(
       }
     }
 
-    const tools: OpenAI.Responses.Tool[] = [
+    const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       anthropicToolToOpenAI({
         name: "output_analysis",
         description:
@@ -144,10 +144,17 @@ async function callLLM(
   }
 
   // Anthropic format with optional prompt caching
+  // Note: Anthropic Messages API does not support video content blocks.
   const content: Anthropic.Messages.ContentBlockParam[] = [
     { type: "text", text: promptText },
   ];
   for (const m of mediaBlocks) {
+    if (m.type === "video") {
+      console.warn(
+        `[callLLM] Skipping video block for Anthropic API (not supported), media_type=${m.source.media_type}`,
+      );
+      continue;
+    }
     content.push({
       ...m,
       cache_control: options.useCache ? { type: "ephemeral" } : undefined,
