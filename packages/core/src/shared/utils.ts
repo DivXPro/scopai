@@ -106,7 +106,7 @@ export async function waitForTaskSteps(
 
   while (true) {
     const status = await pollFn(taskId);
-    const steps = status.phases?.steps ?? [];
+    const steps = status.steps ?? [];
     const completed = steps.filter((s: any) => s.status === 'completed').length;
     const failed = steps.filter((s: any) => s.status === 'failed').length;
     const skipped = steps.filter((s: any) => s.status === 'skipped').length;
