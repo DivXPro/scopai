@@ -92,6 +92,64 @@ const statusVariantMap: Record<string, BadgeVariant> = {
 
 const Check = icons.Check;
 
+function TaskHeader({ task }: { task: TaskDetail }) {
+  const total = task.stats?.total ?? 0;
+  const done = task.stats?.done ?? 0;
+  const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  return (
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="space-y-1">
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">{task.name}</h2>
+          <Badge variant={statusVariantMap[task.status] ?? 'outline'} size="lg">{task.status}</Badge>
+        </div>
+        {task.description && (
+          <p className="text-sm text-muted-foreground">{task.description}</p>
+        )}
+        <p className="text-xs text-muted-foreground">
+          创建于 {new Date(task.created_at).toLocaleString('zh-CN')}
+          {task.completed_at && ` · 完成于 ${new Date(task.completed_at).toLocaleString('zh-CN')}`}
+        </p>
+      </div>
+      <div className="flex items-center gap-4">
+        <div className="text-right">
+          <p className="text-3xl font-bold text-foreground">{progress}%</p>
+          <p className="text-xs text-muted-foreground">总进度</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KpiCards({ task }: { task: TaskDetail }) {
+  const processingJobs = task.jobs.filter((j) => j.status === 'processing').length;
+
+  const cards = [
+    { label: '总任务', value: task.stats?.total ?? 0, color: 'text-foreground' },
+    { label: '已完成', value: task.stats?.done ?? 0, color: 'text-success' },
+    { label: '失败', value: task.stats?.failed ?? 0, color: 'text-danger' },
+    { label: '进行中', value: processingJobs, color: 'text-primary' },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {cards.map((card) => (
+        <Card key={card.label}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">{card.label}</p>
+                <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 function DataPrepSection({ progress }: { progress?: TaskProgress }) {
   const dp = progress?.dataPreparation;
 
@@ -305,10 +363,6 @@ export default function TaskDetail() {
     return <div className="text-muted-foreground">任务不存在</div>;
   }
 
-  const totalJobs = task.jobs.length;
-  const completedJobs = task.jobs.filter((j) => j.status === 'completed').length;
-  const failedJobs = task.jobs.filter((j) => j.status === 'failed').length;
-
   return (
     <div className="space-y-6">
       {/* 顶部导航 */}
@@ -318,40 +372,10 @@ export default function TaskDetail() {
             <ArrowChevronLeft className="h-4 w-4" />
           </Button>
         </Link>
-        <h2 className="text-3xl font-bold tracking-tight text-foreground">{task.name}</h2>
-        <Badge variant={statusVariantMap[task.status] ?? 'outline'}>{task.status}</Badge>
       </div>
 
-      {/* 基本信息卡片 */}
-      <div className="grid grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">总任务</p>
-            <p className="text-2xl font-bold text-foreground">{task.stats?.total ?? 0}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">已完成</p>
-            <p className="text-2xl font-bold text-foreground">{task.stats?.done ?? 0}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">失败</p>
-            <p className="text-2xl font-bold text-foreground">{task.stats?.failed ?? 0}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">队列任务</p>
-            <p className="text-2xl font-bold text-foreground">{totalJobs}</p>
-            <p className="text-xs text-muted-foreground">
-              {completedJobs} 完成 · {failedJobs} 失败
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <TaskHeader task={task} />
+      <KpiCards task={task} />
 
       {/* 数据准备进度 */}
       <DataPrepSection progress={task.progress} />
