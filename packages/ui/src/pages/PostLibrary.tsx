@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import * as icons from '@gravity-ui/icons';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { apiGet, apiPost, apiDelete } from '@/api/client';
 import { Card, Skeleton, Button, Select, ListBox, Modal } from '@heroui/react';
 import Pagination from '@/components/Pagination';
@@ -347,8 +349,15 @@ function SchemaRenderer({
       return <span className="font-mono text-sm text-foreground">{String(value)}</span>;
     }
 
-    // string or fallback
-    return <span className="text-sm text-foreground">{String(value)}</span>;
+    // string or fallback — render as markdown
+    const rawHtml = marked.parse(String(value), { async: false }) as string;
+    const cleanHtml = DOMPurify.sanitize(rawHtml, { ALLOWED_TAGS: ['p', 'br', 'ul', 'ol', 'li', 'strong', 'em', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'] });
+    return (
+      <div
+        className="text-sm text-foreground prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5"
+        dangerouslySetInnerHTML={{ __html: cleanHtml }}
+      />
+    );
   }
 
   const entries = Object.entries(properties).filter(([key]) => key in data);
@@ -695,12 +704,13 @@ function PostAnalysisDetail({ postId }: { postId: string }) {
         const grouped = analysisData.reduce<
           Record<string, AnalysisResult[]>
         >((acc, r) => {
-          const key = r.strategy_name || r.strategy_id;
+          const strategy = strategyData.find((s) => s.id === r.strategy_id);
+          const key = r.strategy_name || strategy?.name || r.strategy_id || '未知策略';
           if (!acc[key]) acc[key] = [];
           acc[key].push(r);
           return acc;
         }, {});
-        const strategyNames = Object.keys(grouped);
+        const strategyNames = Object.keys(grouped).filter(Boolean);
         if (strategyNames.length > 0) {
           setSelectedStrategy(strategyNames[0]);
         }
@@ -732,13 +742,14 @@ function PostAnalysisDetail({ postId }: { postId: string }) {
   }
 
   const grouped = results.reduce<Record<string, AnalysisResult[]>>((acc, r) => {
-    const key = r.strategy_name || r.strategy_id;
+    const strategy = strategies.find((s) => s.id === r.strategy_id);
+    const key = r.strategy_name || strategy?.name || r.strategy_id || '未知策略';
     if (!acc[key]) acc[key] = [];
     acc[key].push(r);
     return acc;
   }, {});
 
-  const strategyNames = Object.keys(grouped);
+  const strategyNames = Object.keys(grouped).filter(Boolean);
   const selectedResults = grouped[selectedStrategy] ?? [];
   const selectedStrategyObj = strategies.find(
     (s) =>
