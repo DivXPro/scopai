@@ -158,12 +158,10 @@ async function callLLM(
       const isVideo = m.type === 'video';
       const url = `data:${m.source.media_type};base64,${m.source.data}`;
       if (isVideo) {
-        // Most OpenAI-compatible providers (e.g. Volces/Ark) do not support
-        // video_url content blocks. Skip videos to avoid 400 errors.
-        console.warn(`[callLLM] Skipping video block for OpenAI format: ${m.source.media_type}`);
-        continue;
+        content.push({ type: 'video_url', video_url: { url } });
+      } else {
+        content.push({ type: 'image_url', image_url: { url, detail: 'auto' } });
       }
-      content.push({ type: 'image_url', image_url: { url, detail: 'auto' } });
     }
 
     const tools: OpenAITool[] = [
