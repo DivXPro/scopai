@@ -5,7 +5,7 @@ import {
   getTargetStats,
   addTaskTargets, listTaskTargets,
   createTaskStep, getNextStepOrder, getTaskStepById, updateTaskStepStatus,
-  enqueueJob, enqueueJobs, getExistingJobTargets, deleteJobsByTaskAndStrategy,
+  deleteJobsByTaskAndStrategy,
   deleteStrategyResultsByTaskAndStrategy,
   getStrategyById,
   generateId, now,
@@ -18,6 +18,7 @@ import {
   checkpoint,
   getLogger,
 } from '@scopai/core';
+import { enqueueStepJobs } from '../daemon/task-helpers';
 import type { QueueJob } from '@scopai/core';
 import { getHandlers } from '../daemon/handlers';
 
@@ -45,18 +46,21 @@ export default async function tasksRoutes(app: FastifyInstance) {
     const postStatuses = await getTaskPostStatuses(id);
 
     const totalPosts = postStatuses.length;
+    const donePosts = postStatuses.filter(p => p.status === 'done').length;
+    const failedPosts = postStatuses.filter(p => p.status === 'failed').length;
+    const fetchingPosts = postStatuses.filter(p => p.status === 'fetching').length;
+    const pendingPosts = postStatuses.filter(p => p.status === 'pending').length;
     const commentsFetched = postStatuses.filter(p => p.comments_fetched).length;
     const mediaFetched = postStatuses.filter(p => p.media_fetched).length;
-    const failedPosts = postStatuses.filter(p => p.status === 'failed').length;
 
     let dataPrepStatus: 'pending' | 'fetching' | 'done' | 'failed' = 'done';
     if (totalPosts === 0) {
       dataPrepStatus = 'pending';
     } else if (failedPosts > 0 && failedPosts === totalPosts) {
       dataPrepStatus = 'failed';
-    } else if (postStatuses.some(p => p.status === 'fetching')) {
+    } else if (fetchingPosts > 0) {
       dataPrepStatus = 'fetching';
-    } else if (postStatuses.some(p => p.status === 'pending')) {
+    } else if (pendingPosts > 0) {
       dataPrepStatus = 'pending';
     }
 
@@ -69,17 +73,12 @@ export default async function tasksRoutes(app: FastifyInstance) {
       stepOrder: s.step_order,
     }));
 
-    const phase = dataPrepStatus !== 'done'
-      ? 'dataPreparation'
-      : stepDetails.some(s => s.status === 'pending' || s.status === 'running')
-        ? 'analysis'
-        : (task.status as string);
-
     const jobStats = {
       totalJobs: jobs.length,
       completedJobs: jobs.filter(j => j.status === 'completed').length,
       failedJobs: jobs.filter(j => j.status === 'failed').length,
       pendingJobs: jobs.filter(j => j.status === 'pending' || j.status === 'waiting_media').length,
+      processingJobs: jobs.filter(j => j.status === 'processing').length,
     };
 
     const recentErrors = jobs
@@ -94,27 +93,21 @@ export default async function tasksRoutes(app: FastifyInstance) {
     return {
       ...task,
       ...stats,
-      phase,
-      phases: {
+      progress: {
         dataPreparation: {
           status: dataPrepStatus,
           totalPosts,
+          donePosts,
+          failedPosts,
+          fetchingPosts,
+          pendingPosts,
           commentsFetched,
           mediaFetched,
-          failedPosts,
         },
-        steps: stepDetails,
         analysis: jobStats,
       },
+      steps: stepDetails,
       recentErrors,
-      steps: steps.map((s) => ({
-        id: s.id,
-        name: s.name,
-        status: s.status,
-        strategy_id: s.strategy_id,
-        step_order: s.step_order,
-        stats: s.stats,
-      })),
       jobs: jobs.map((j) => ({
         id: j.id,
         target_type: j.target_type,
@@ -168,15 +161,29 @@ export default async function tasksRoutes(app: FastifyInstance) {
     return { status: 'running' };
   });
 
-  app.post('/tasks/:id/pause', async (request) => {
+  app.post('/tasks/:id/pause', async (request, reply) => {
     const { id } = request.params as { id: string };
+    const task = await getTaskById(id);
+    if (!task) {
+      reply.code(404);
+      throw new Error(`Task not found: ${id}`);
+    }
+    if (task.status !== 'running') {
+      reply.code(400);
+      throw new Error(`Cannot pause task with status ${task.status}`);
+    }
     await updateTaskStatus(id, 'paused');
     return { status: 'paused' };
   });
 
-  app.post('/tasks/:id/cancel', async (request) => {
+  app.post('/tasks/:id/cancel', async (request, reply) => {
     const { id } = request.params as { id: string };
-    await updateTaskStatus(id, 'failed');
+    const task = await getTaskById(id);
+    if (!task) {
+      reply.code(404);
+      throw new Error(`Task not found: ${id}`);
+    }
+    await updateTaskStatus(id, 'cancelled');
     return { status: 'cancelled' };
   });
 
@@ -193,52 +200,6 @@ export default async function tasksRoutes(app: FastifyInstance) {
     const handlers = getHandlers();
     const result = await handlers['task.prepareData']({ task_id: id });
     return { ...(result as Record<string, unknown>), status: 'queued' };
-  });
-
-  app.get('/tasks/:id/prepare-jobs', async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const task = await getTaskById(id);
-    if (!task) {
-      reply.code(404);
-      throw new Error(`Task not found: ${id}`);
-    }
-
-    const allJobs = await listJobsByTask(id);
-    const prepareJobs = allJobs.filter(j => j.target_type === 'prepare');
-    const postStatuses = await getTaskPostStatuses(id);
-
-    const jobs = await Promise.all(prepareJobs.map(async (j) => {
-      const postStatus = postStatuses.find(p => p.post_id === j.target_id);
-      const post = j.target_id ? await getPostById(j.target_id) : null;
-      return {
-        id: j.id,
-        post_id: j.target_id,
-        post_title: post?.title ?? post?.content?.slice(0, 50) ?? '(untitled)',
-        status: j.status,
-        attempts: j.attempts,
-        max_attempts: j.max_attempts,
-        error: j.error ?? null,
-        steps: {
-          note: postStatus ? (postStatus.status !== 'pending' || j.status === 'completed') : null,
-          comments_fetched: postStatus?.comments_fetched ?? false,
-          media_fetched: postStatus?.media_fetched ?? false,
-        },
-      };
-    }));
-
-    const completed = jobs.filter(j => j.status === 'completed').length;
-    const processing = jobs.filter(j => j.status === 'processing').length;
-    const pending = jobs.filter(j => j.status === 'pending').length;
-    const failed = jobs.filter(j => j.status === 'failed').length;
-
-    return {
-      total: jobs.length,
-      completed,
-      processing,
-      pending,
-      failed,
-      jobs,
-    };
   });
 
   app.post('/tasks/:id/prepare-jobs/retry', async (request, reply) => {
@@ -295,7 +256,6 @@ export default async function tasksRoutes(app: FastifyInstance) {
     const body = request.body as Record<string, unknown>;
     const strategyId = body.strategy_id as string | undefined;
     const name = (body.name as string | undefined) ?? strategyId;
-    const dependsOnStepId = body.depends_on_step_id as string | undefined;
     const order = body.order as number | undefined;
 
     if (!strategyId) {
@@ -315,41 +275,10 @@ export default async function tasksRoutes(app: FastifyInstance) {
       throw new Error(`Strategy not found: ${strategyId}`);
     }
 
-    // Validate dependency
-    if (strategy.depends_on) {
-      if (!dependsOnStepId) {
-        reply.code(400);
-        throw new Error(`Strategy "${strategy.name}" requires depends_on_step_id (it depends on upstream results)`);
-      }
-      const upstreamStep = await getTaskStepById(dependsOnStepId);
-      if (!upstreamStep) {
-        reply.code(400);
-        throw new Error(`Upstream step not found: ${dependsOnStepId}`);
-      }
-      if (upstreamStep.task_id !== id) {
-        reply.code(400);
-        throw new Error('Upstream step does not belong to this task');
-      }
-      if (!upstreamStep.strategy_id) {
-        reply.code(400);
-        throw new Error('Upstream step has no strategy');
-      }
-      const upstreamStrategy = await getStrategyById(upstreamStep.strategy_id);
-      if (!upstreamStrategy) {
-        reply.code(400);
-        throw new Error(`Upstream strategy not found: ${upstreamStep.strategy_id}`);
-      }
-      if (upstreamStrategy.target !== strategy.depends_on) {
-        reply.code(400);
-        throw new Error(`Strategy depends_on="${strategy.depends_on}" but upstream strategy target="${upstreamStrategy.target}"`);
-      }
-    }
-
     const stepOrder = order ?? await getNextStepOrder(id);
     const step = await createTaskStep({
       task_id: id,
       strategy_id: strategyId,
-      depends_on_step_id: dependsOnStepId ?? null,
       name: name!,
       step_order: stepOrder,
       status: 'pending',
@@ -384,83 +313,7 @@ export default async function tasksRoutes(app: FastifyInstance) {
       return { status: 'skipped', enqueued: 0 };
     }
 
-    const strategy = await getStrategyById(step.strategy_id ?? '');
-    if (!strategy) {
-      reply.code(400);
-      throw new Error(`Strategy not found: ${step.strategy_id}`);
-    }
-
-    // Handle multi-post strategies
-    if (strategy.target === 'multi-post') {
-      const allJobs = await listJobsByTask(id);
-      const hasJob = allJobs.some(j => j.strategy_id === strategy.id);
-      if (!hasJob) {
-        const job: QueueJob = {
-          id: generateId(),
-          task_id: id,
-          strategy_id: strategy.id,
-          target_type: null,
-          target_id: null,
-          status: 'pending' as const,
-          priority: 0,
-          attempts: 0,
-          max_attempts: 3,
-          error: null,
-          created_at: new Date(),
-          processed_at: null,
-        };
-        await enqueueJob(job);
-        await updateTaskStepStatus(stepId, 'running', { total: 1, done: 0, failed: 0 });
-        return { status: 'running', enqueued: 1 };
-      }
-      if (step.status === 'pending') {
-        await updateTaskStepStatus(stepId, 'running', { total: 1, done: 0, failed: 0 });
-      }
-      return { status: 'running', enqueued: 0 };
-    }
-
-    const targets = await listTaskTargets(id);
-    const relevantTargets = targets.filter(t => {
-      if (strategy.target === 'post') return t.target_type === 'post';
-      if (strategy.target === 'comment') return t.target_type === 'comment';
-      return true;
-    });
-
-    if (relevantTargets.length === 0) {
-      await updateTaskStepStatus(stepId, 'skipped', { total: 0, done: 0, failed: 0 });
-      return { status: 'skipped', enqueued: 0 };
-    }
-
-    // Filter out targets already enqueued for this step
-    const existingTargets = await getExistingJobTargets(id, strategy.id);
-    const newTargets = relevantTargets.filter(t => !existingTargets.has(t.target_id));
-
-    if (newTargets.length === 0) {
-      if (step.status === 'pending') {
-        await updateTaskStepStatus(stepId, 'running', { total: existingTargets.size, done: 0, failed: 0 });
-      }
-      return { status: 'running', enqueued: 0 };
-    }
-
-    const jobs: QueueJob[] = newTargets.map(t => ({
-      id: generateId(),
-      task_id: id,
-      strategy_id: strategy.id,
-      target_type: strategy.target as 'post' | 'comment' | 'media',
-      target_id: t.target_id,
-      status: 'pending' as const,
-      priority: 0,
-      attempts: 0,
-      max_attempts: 3,
-      error: null,
-      created_at: new Date(),
-      processed_at: null,
-    }));
-
-    await enqueueJobs(jobs);
-    await updateTaskStepStatus(stepId, 'running', { total: newTargets.length, done: 0, failed: 0 });
-
-    return { status: 'running', enqueued: jobs.length };
+    return enqueueStepJobs(id, step);
   });
 
   app.post('/tasks/:id/run-all-steps', async (request, reply) => {
@@ -472,106 +325,22 @@ export default async function tasksRoutes(app: FastifyInstance) {
     }
 
     const steps = await listTaskSteps(id);
-
-    // Topological sort: steps with dependencies come after their upstream
-    const stepMap = new Map(steps.map(s => [s.id, s]));
-    const sorted = [...steps].sort((a, b) => {
-      if (a.depends_on_step_id === b.id) return 1;
-      if (b.depends_on_step_id === a.id) return -1;
-      return a.step_order - b.step_order;
-    });
-
-    const pendingSteps = sorted.filter(s => s.status === 'pending' || s.status === 'failed');
+    const pendingSteps = steps
+      .filter(s => s.status === 'pending' || s.status === 'failed')
+      .sort((a, b) => a.step_order - b.step_order);
 
     let completed = 0;
     let failed = 0;
     let skipped = 0;
 
     for (const step of pendingSteps) {
-      if (step.depends_on_step_id) {
-        const upstreamStep = stepMap.get(step.depends_on_step_id);
-        if (upstreamStep && upstreamStep.status !== 'completed') {
-          continue;
-        }
-      }
-
       try {
-        // Inline the step.run logic to avoid circular route calls
-        const strategy = await getStrategyById(step.strategy_id ?? '');
-        if (!strategy) {
-          await updateTaskStepStatus(step.id, 'failed', undefined, `Strategy not found: ${step.strategy_id}`);
-          failed++;
-          continue;
-        }
-
-        // Handle multi-post strategies
-        if (strategy.target === 'multi-post') {
-          const allJobs = await listJobsByTask(id);
-          const hasJob = allJobs.some(j => j.strategy_id === strategy.id);
-          if (!hasJob) {
-            const job: QueueJob = {
-              id: generateId(),
-              task_id: id,
-              strategy_id: strategy.id,
-              target_type: null,
-              target_id: null,
-              status: 'pending' as const,
-              priority: 0,
-              attempts: 0,
-              max_attempts: 3,
-              error: null,
-              created_at: new Date(),
-              processed_at: null,
-            };
-            await enqueueJob(job);
-          }
-          await updateTaskStepStatus(step.id, 'running', { total: 1, done: 0, failed: 0 });
-          completed++;
-          continue;
-        }
-
-        const targets = await listTaskTargets(id);
-        const relevantTargets = targets.filter(t => {
-          if (strategy.target === 'post') return t.target_type === 'post';
-          if (strategy.target === 'comment') return t.target_type === 'comment';
-          return true;
-        });
-
-        if (relevantTargets.length === 0) {
-          await updateTaskStepStatus(step.id, 'skipped', { total: 0, done: 0, failed: 0 });
+        const result = await enqueueStepJobs(id, step);
+        if (result.status === 'skipped') {
           skipped++;
-          continue;
-        }
-
-        const existingTargets = await getExistingJobTargets(id, strategy.id);
-        const newTargets = relevantTargets.filter(t => !existingTargets.has(t.target_id));
-
-        if (newTargets.length === 0) {
-          if (step.status === 'pending') {
-            await updateTaskStepStatus(step.id, 'running', { total: existingTargets.size, done: 0, failed: 0 });
-          }
+        } else {
           completed++;
-          continue;
         }
-
-        const jobs: QueueJob[] = newTargets.map(t => ({
-          id: generateId(),
-          task_id: id,
-          strategy_id: strategy.id,
-          target_type: strategy.target as 'post' | 'comment' | 'media',
-          target_id: t.target_id,
-          status: 'pending' as const,
-          priority: 0,
-          attempts: 0,
-          max_attempts: 3,
-          error: null,
-          created_at: new Date(),
-          processed_at: null,
-        }));
-
-        await enqueueJobs(jobs);
-        await updateTaskStepStatus(step.id, 'running', { total: newTargets.length, done: 0, failed: 0 });
-        completed++;
       } catch (err: unknown) {
         await updateTaskStepStatus(step.id, 'failed', undefined, err instanceof Error ? err.message : String(err));
         failed++;

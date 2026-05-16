@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     id          TEXT PRIMARY KEY,
     name        TEXT NOT NULL,
     description TEXT,
-    status      TEXT DEFAULT 'pending' CHECK(status IN ('pending','running','paused','completed','failed')),
+    status      TEXT DEFAULT 'pending' CHECK(status IN ('pending','running','paused','completed','failed','cancelled')),
     stats       JSON,
     created_at  TIMESTAMP DEFAULT NOW(),
     updated_at  TIMESTAMP DEFAULT NOW(),
@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE TABLE IF NOT EXISTS task_targets (
     id          TEXT PRIMARY KEY,
     task_id     TEXT NOT NULL REFERENCES tasks(id),
-    target_type TEXT NOT NULL CHECK(target_type IN ('post','comment','multi-post')),
+    target_type TEXT NOT NULL CHECK(target_type IN ('post','comment')),
     target_id   TEXT NOT NULL,
     status      TEXT DEFAULT 'pending' CHECK(status IN ('pending','processing','done','failed')),
     error       TEXT,
@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS strategies (
     name            TEXT NOT NULL,
     description     TEXT,
     version         TEXT NOT NULL DEFAULT '1.0.0',
-    target          TEXT NOT NULL CHECK(target IN ('post', 'comment', 'multi-post')),
+    target          TEXT NOT NULL CHECK(target IN ('post', 'comment')),
     needs_media     JSON,
     prompt          TEXT NOT NULL,
     output_schema   JSON NOT NULL,
@@ -166,15 +166,13 @@ CREATE TABLE IF NOT EXISTS task_steps (
     id              TEXT PRIMARY KEY,
     task_id         TEXT NOT NULL REFERENCES tasks(id),
     strategy_id     TEXT REFERENCES strategies(id),
-    depends_on_step_id TEXT,
     name            TEXT NOT NULL,
     step_order      INTEGER NOT NULL DEFAULT 0,
     status          TEXT DEFAULT 'pending' CHECK(status IN ('pending','running','completed','failed','skipped')),
     stats           JSON,
     error           TEXT,
     created_at      TIMESTAMP DEFAULT NOW(),
-    updated_at      TIMESTAMP DEFAULT NOW(),
-    UNIQUE(task_id, strategy_id)
+    updated_at      TIMESTAMP DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_task_steps_task ON task_steps(task_id);

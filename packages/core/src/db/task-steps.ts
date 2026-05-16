@@ -10,13 +10,12 @@ export async function createTaskStep(
   const id = generateId();
   const ts = now();
   await run(
-    `INSERT INTO task_steps (id, task_id, strategy_id, depends_on_step_id, name, step_order, status, stats, error, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO task_steps (id, task_id, strategy_id, name, step_order, status, stats, error, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       step.task_id,
       step.strategy_id ?? null,
-      step.depends_on_step_id ?? null,
       step.name,
       step.step_order,
       step.status,
@@ -36,7 +35,6 @@ export async function listTaskSteps(taskId: string): Promise<TaskStep[]> {
   );
   return rows.map(r => ({
     ...r,
-    depends_on_step_id: (r as any).depends_on_step_id ?? null,
     stats: typeof r.stats === 'string' ? JSON.parse(r.stats) : r.stats,
   }));
 }
@@ -45,7 +43,7 @@ export async function getTaskStepById(stepId: string): Promise<TaskStep | null> 
   const rows = await query<TaskStep>('SELECT * FROM task_steps WHERE id = ?', [stepId]);
   if (rows.length === 0) return null;
   const r = rows[0];
-  return { ...r, depends_on_step_id: (r as any).depends_on_step_id ?? null, stats: typeof r.stats === 'string' ? JSON.parse(r.stats) : r.stats };
+  return { ...r, stats: typeof r.stats === 'string' ? JSON.parse(r.stats) : r.stats };
 }
 
 export async function updateTaskStepStatus(

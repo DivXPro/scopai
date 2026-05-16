@@ -27,6 +27,7 @@ const statusVariantMap: Record<string, BadgeVariant> = {
   paused: 'secondary',
   completed: 'default',
   failed: 'destructive',
+  cancelled: 'destructive',
 };
 
 const statusLabelMap: Record<string, string> = {
@@ -35,6 +36,7 @@ const statusLabelMap: Record<string, string> = {
   paused: '已暂停',
   completed: '已完成',
   failed: '失败',
+  cancelled: '已取消',
 };
 
 const statusOptions = [
@@ -43,6 +45,7 @@ const statusOptions = [
   { value: 'paused', label: '已暂停' },
   { value: 'completed', label: '已完成' },
   { value: 'failed', label: '失败' },
+  { value: 'cancelled', label: '已取消' },
 ];
 
 const PAGE_SIZE = 20;

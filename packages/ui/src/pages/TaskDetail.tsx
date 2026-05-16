@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import * as icons from '@gravity-ui/icons';
-import { apiGet, apiPost, apiDelete } from '@/api/client';
+import { apiGet } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
@@ -9,8 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { PostDetailModal } from '@/pages/PostLibrary';
-import type { Post } from '@/pages/PostLibrary';
 
 const ArrowChevronLeft = icons.ArrowChevronLeft;
 const ArrowChevronDown = icons.ArrowChevronDown;
@@ -35,28 +33,24 @@ interface TaskJob {
   error: string | null;
 }
 
-interface PrepareJob {
-  id: string;
-  post_id: string;
-  post_title: string;
-  status: string;
-  attempts: number;
-  max_attempts: number;
-  error: string | null;
-  steps: {
-    note: boolean | null;
-    comments_fetched: boolean;
-    media_fetched: boolean;
+interface TaskProgress {
+  dataPreparation?: {
+    status: string;
+    totalPosts: number;
+    donePosts: number;
+    failedPosts: number;
+    fetchingPosts: number;
+    pendingPosts: number;
+    commentsFetched: number;
+    mediaFetched: number;
   };
-}
-
-interface PrepareJobsResponse {
-  total: number;
-  completed: number;
-  processing: number;
-  pending: number;
-  failed: number;
-  jobs: PrepareJob[];
+  analysis?: {
+    totalJobs: number;
+    completedJobs: number;
+    failedJobs: number;
+    pendingJobs: number;
+    processingJobs: number;
+  };
 }
 
 interface TaskDetail {
@@ -70,15 +64,7 @@ interface TaskDetail {
   completed_at: string | null;
   steps: TaskStep[];
   jobs: TaskJob[];
-  phases?: {
-    dataPreparation?: {
-      status: string;
-      totalPosts: number;
-      commentsFetched: number;
-      mediaFetched: number;
-      failedPosts: number;
-    };
-  };
+  progress?: TaskProgress;
 }
 
 interface AnalysisResult {
@@ -101,143 +87,62 @@ const statusVariantMap: Record<string, BadgeVariant> = {
   paused: 'secondary',
   completed: 'default',
   failed: 'destructive',
+  cancelled: 'destructive',
 };
 
 const Check = icons.Check;
-const Clock = icons.Clock;
 
-function DataPrepSection({ taskId }: { taskId: string }) {
-  const [data, setData] = useState<PrepareJobsResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [retrying, setRetrying] = useState(false);
-  const [viewingPost, setViewingPost] = useState<Post | null>(null);
-  const [postLoading, setPostLoading] = useState(false);
+function DataPrepSection({ progress }: { progress?: TaskProgress }) {
+  const dp = progress?.dataPreparation;
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const resp = await apiGet<PrepareJobsResponse>(`/api/tasks/${taskId}/prepare-jobs`);
-      setData(resp);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [taskId]);
-
-  const handleRetry = async () => {
-    setRetrying(true);
-    try {
-      await apiPost<{ retried: number }>(`/api/tasks/${taskId}/prepare-jobs/retry`);
-      loadData();
-    } catch {
-      // ignore
-    } finally {
-      setRetrying(false);
-    }
-  };
-
-  const handleViewPost = async (postId: string) => {
-    setPostLoading(true);
-    try {
-      const post = await apiGet<Post>(`/api/posts/${postId}`);
-      setViewingPost(post);
-    } catch {
-      // ignore
-    } finally {
-      setPostLoading(false);
-    }
-  };
-
-  const handleToggleStar = async (postId: string, currentStarred: boolean) => {
-    await apiPost(`/api/posts/${postId}/star`, { starred: !currentStarred });
-    if (viewingPost) {
-      setViewingPost({ ...viewingPost, is_starred: !currentStarred });
-    }
-  };
-
-  const handleDeletePost = async (postId: string) => {
-    await apiDelete(`/api/posts/${postId}`);
-    setViewingPost(null);
-    loadData();
-  };
+  if (!dp || dp.totalPosts === 0) {
+    return (
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold text-foreground">数据准备</h3>
+        <p className="text-sm text-muted-foreground py-4">暂无相关帖子</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
-      <h3 className="text-lg font-semibold text-foreground">相关帖子</h3>
-      {loading ? (
-        <div className="py-4 space-y-2">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-        </div>
-      ) : !data || data.total === 0 ? (
-        <p className="text-sm text-muted-foreground py-4">暂无相关帖子</p>
-      ) : (
-        <div className="space-y-3">
-          {data.failed > 0 && (
-            <Button variant="outline" size="sm" onClick={handleRetry} disabled={retrying}>
-              {retrying ? '重试中...' : `重试 ${data.failed} 个失败项`}
-            </Button>
-          )}
-          <Table aria-label="相关帖子">
-            <TableHeader>
-              <TableHead>帖子</TableHead>
-              <TableHead>数据准备</TableHead>
-              <TableHead>错误</TableHead>
-            </TableHeader>
-            <TableBody>
-              {data.jobs.map((job) => (
-                <TableRow key={job.id}>
-                  <TableCell className="text-sm text-foreground max-w-xs truncate">
-                    {postLoading ? (
-                      <span className="text-muted-foreground">加载中...</span>
-                    ) : (
-                      <button
-                        className="text-left hover:text-primary transition-colors cursor-pointer"
-                        onClick={() => handleViewPost(job.post_id)}
-                      >
-                        {job.post_title}
-                      </button>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    <span className="inline-flex items-center gap-1">
-                      {job.steps.note ? <Check className="h-3 w-3 text-green-600" /> : <Clock className="h-3 w-3 text-muted-foreground" />}
-                      note
-                    </span>
-                    {' · '}
-                    <span className="inline-flex items-center gap-1">
-                      {job.steps.comments_fetched ? <Check className="h-3 w-3 text-green-600" /> : <Clock className="h-3 w-3 text-muted-foreground" />}
-                      comments
-                    </span>
-                    {' · '}
-                    <span className="inline-flex items-center gap-1">
-                      {job.steps.media_fetched ? <Check className="h-3 w-3 text-green-600" /> : <Clock className="h-3 w-3 text-muted-foreground" />}
-                      media
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-xs text-destructive max-w-xs truncate">
-                    {job.error ?? ''}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      {viewingPost && (
-        <PostDetailModal
-          post={viewingPost}
-          onClose={() => setViewingPost(null)}
-          onToggleStar={handleToggleStar}
-          onDelete={handleDeletePost}
-        />
-      )}
+      <h3 className="text-lg font-semibold text-foreground">数据准备</h3>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground">总帖子</p>
+            <p className="text-xl font-bold text-foreground">{dp.totalPosts}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground">已完成</p>
+            <p className="text-xl font-bold text-green-600">{dp.donePosts}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground">获取中</p>
+            <p className="text-xl font-bold text-blue-600">{dp.fetchingPosts}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground">失败</p>
+            <p className="text-xl font-bold text-destructive">{dp.failedPosts}</p>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <span className="inline-flex items-center gap-1">
+          <Check className="h-3 w-3 text-green-600" />
+          评论已获取: {dp.commentsFetched}/{dp.totalPosts}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <Check className="h-3 w-3 text-green-600" />
+          媒体已获取: {dp.mediaFetched}/{dp.totalPosts}
+        </span>
+      </div>
     </div>
   );
 }
@@ -448,8 +353,8 @@ export default function TaskDetail() {
         </Card>
       </div>
 
-      {/* 相关帖子 */}
-      <DataPrepSection taskId={task.id} />
+      {/* 数据准备进度 */}
+      <DataPrepSection progress={task.progress} />
 
       {/* 步骤列表 */}
       <div className="space-y-3">

@@ -238,6 +238,11 @@ export function getHandlers(): Record<string, Handler> {
 
     async 'task.pause'(params) {
       const taskId = params.task_id as string;
+      const task = await getTaskById(taskId);
+      if (!task) throw new Error(`Task not found: ${taskId}`);
+      if (task.status !== 'running') {
+        throw new Error(`Cannot pause task with status ${task.status}`);
+      }
       await updateTaskStatus(taskId, 'paused');
       return { status: 'paused' };
     },
@@ -250,7 +255,7 @@ export function getHandlers(): Record<string, Handler> {
 
     async 'task.cancel'(params) {
       const taskId = params.task_id as string;
-      await updateTaskStatus(taskId, 'failed');
+      await updateTaskStatus(taskId, 'cancelled');
       return { status: 'cancelled' };
     },
 
@@ -345,35 +350,16 @@ export function getHandlers(): Record<string, Handler> {
       const taskId = params.task_id as string;
       const strategyId = params.strategy_id as string;
       const name = (params.name as string | undefined) ?? strategyId;
-      const dependsOnStepId = params.depends_on_step_id as string | undefined;
-      const { createTaskStep, getNextStepOrder, getTaskStepById } = await import('@scopai/core');
+      const { createTaskStep, getNextStepOrder } = await import('@scopai/core');
       const { getStrategyById } = await import('@scopai/core');
 
       const strategy = await getStrategyById(strategyId);
       if (!strategy) throw new Error(`Strategy not found: ${strategyId}`);
 
-      // Validate dependency
-      if (strategy.depends_on) {
-        if (!dependsOnStepId) {
-          throw new Error(`Strategy "${strategy.name}" requires depends_on_step_id (it depends on upstream results)`);
-        }
-        const upstreamStep = await getTaskStepById(dependsOnStepId);
-        if (!upstreamStep) throw new Error(`Upstream step not found: ${dependsOnStepId}`);
-        if (upstreamStep.task_id !== taskId) throw new Error('Upstream step does not belong to this task');
-        if (!upstreamStep.strategy_id) throw new Error('Upstream step has no strategy');
-
-        const upstreamStrategy = await getStrategyById(upstreamStep.strategy_id);
-        if (!upstreamStrategy) throw new Error(`Upstream strategy not found: ${upstreamStep.strategy_id}`);
-        if (upstreamStrategy.target !== strategy.depends_on) {
-          throw new Error(`Strategy depends_on="${strategy.depends_on}" but upstream strategy target="${upstreamStrategy.target}"`);
-        }
-      }
-
       const stepOrder = (params.order as number | undefined) ?? await getNextStepOrder(taskId);
       const step = await createTaskStep({
         task_id: taskId,
         strategy_id: strategyId,
-        depends_on_step_id: dependsOnStepId ?? null,
         name,
         step_order: stepOrder,
         status: 'pending',
@@ -392,11 +378,7 @@ export function getHandlers(): Record<string, Handler> {
     async 'task.step.run'(params) {
       const taskId = params.task_id as string;
       const stepId = params.step_id as string;
-      const { getTaskStepById, updateTaskStepStatus } = await import('@scopai/core');
-      const { listTaskTargets } = await import('@scopai/core');
-      const { getStrategyById } = await import('@scopai/core');
-      const { enqueueJobs } = await import('@scopai/core');
-      const { generateId } = await import('@scopai/core');
+      const { getTaskStepById } = await import('@scopai/core');
 
       const step = await getTaskStepById(stepId);
       if (!step) throw new Error(`Step not found: ${stepId}`);
@@ -408,53 +390,8 @@ export function getHandlers(): Record<string, Handler> {
         return { status: 'skipped', enqueued: 0 };
       }
 
-      const strategy = await getStrategyById(step.strategy_id ?? '');
-      if (!strategy) throw new Error(`Strategy not found: ${step.strategy_id}`);
-
-      const targets = await listTaskTargets(taskId);
-      const relevantTargets = targets.filter(t => {
-        if (strategy.target === 'post') return t.target_type === 'post';
-        if (strategy.target === 'comment') return t.target_type === 'comment';
-        return true;
-      });
-
-      if (relevantTargets.length === 0) {
-        await updateTaskStepStatus(stepId, 'skipped', { total: 0, done: 0, failed: 0 });
-        return { status: 'skipped', enqueued: 0 };
-      }
-
-      // Filter out targets already enqueued for this step by the stream scheduler
-      const { getExistingJobTargets } = await import('@scopai/core');
-      const existingTargets = await getExistingJobTargets(taskId, strategy.id);
-      const newTargets = relevantTargets.filter(t => !existingTargets.has(t.target_id));
-
-      if (newTargets.length === 0) {
-        // All targets already enqueued; ensure step is marked running
-        if (step.status === 'pending') {
-          await updateTaskStepStatus(stepId, 'running', { total: existingTargets.size, done: 0, failed: 0 });
-        }
-        return { status: 'running', enqueued: 0 };
-      }
-
-      const jobs = newTargets.map(t => ({
-        id: generateId(),
-        task_id: taskId,
-        strategy_id: strategy.id,
-        target_type: strategy.target as 'post' | 'comment' | 'media',
-        target_id: t.target_id,
-        status: 'pending' as const,
-        priority: 0,
-        attempts: 0,
-        max_attempts: 3,
-        error: null,
-        created_at: new Date(),
-        processed_at: null,
-      }));
-
-      await enqueueJobs(jobs);
-      await updateTaskStepStatus(stepId, 'running', { total: newTargets.length, done: 0, failed: 0 });
-
-      return { status: 'running', enqueued: jobs.length };
+      const { enqueueStepJobs } = await import('./task-helpers');
+      return enqueueStepJobs(taskId, step);
     },
 
     async 'task.runAllSteps'(params) {
@@ -462,30 +399,18 @@ export function getHandlers(): Record<string, Handler> {
       const { listTaskSteps, updateTaskStepStatus } = await import('@scopai/core');
       const steps = await listTaskSteps(taskId);
 
-      // Topological sort: steps with dependencies come after their upstream
-      const stepMap = new Map(steps.map(s => [s.id, s]));
-      const sorted = [...steps].sort((a, b) => {
-        if (a.depends_on_step_id === b.id) return 1;
-        if (b.depends_on_step_id === a.id) return -1;
-        return a.step_order - b.step_order;
-      });
-
-      const pendingSteps = sorted.filter(s => s.status === 'pending' || s.status === 'failed');
+      const pendingSteps = steps
+        .filter(s => s.status === 'pending' || s.status === 'failed')
+        .sort((a, b) => a.step_order - b.step_order);
 
       let completed = 0;
       let failed = 0;
       let skipped = 0;
 
+      const { enqueueStepJobs } = await import('./task-helpers');
       for (const step of pendingSteps) {
-        if (step.depends_on_step_id) {
-          const upstreamStep = stepMap.get(step.depends_on_step_id);
-          if (upstreamStep && upstreamStep.status !== 'completed') {
-            continue;
-          }
-        }
-
         try {
-          const result = await (this as any)['task.step.run']({ task_id: taskId, step_id: step.id });
+          const result = await enqueueStepJobs(taskId, step);
           if (result.status === 'skipped') {
             skipped++;
           } else {

@@ -140,24 +140,68 @@ export function taskCommands(program: Command): void {
         console.log(JSON.stringify(full, null, 2));
         return;
       }
+      const statusColor = (s: string) => {
+        switch (s) {
+          case 'completed': return pc.green(s);
+          case 'running': return pc.cyan(s);
+          case 'failed': return pc.red(s);
+          case 'cancelled': return pc.red(s);
+          case 'paused': return pc.yellow(s);
+          default: return pc.gray(s);
+        }
+      };
+
       console.log(pc.bold(`\nTask: ${full.name}`));
       console.log(`  ID:          ${full.id}`);
-      console.log(`  Status:      ${full.status}`);
-      console.log(`  Phase:       ${full.phase}`);
+      console.log(`  Status:      ${statusColor(full.status)}`);
       console.log(`  Created:     ${full.created_at}`);
       if (full.completed_at) console.log(`  Completed:   ${full.completed_at}`);
 
+      const progress = full.progress as {
+        dataPreparation?: {
+          status: string;
+          totalPosts: number;
+          donePosts: number;
+          failedPosts: number;
+          fetchingPosts: number;
+          pendingPosts: number;
+          commentsFetched: number;
+          mediaFetched: number;
+        };
+        analysis?: {
+          totalJobs: number;
+          completedJobs: number;
+          failedJobs: number;
+          pendingJobs: number;
+          processingJobs: number;
+        };
+      } | undefined;
+
       console.log(`\n  Data Preparation:`);
-      const dp = full.phases?.dataPreparation ?? {};
-      console.log(`    Status:          ${dp.status ?? 'N/A'}`);
-      console.log(`    Total Posts:     ${dp.totalPosts ?? 0}`);
-      console.log(`    Comments Fetched:${dp.commentsFetched ?? 0}`);
-      console.log(`    Media Fetched:   ${dp.mediaFetched ?? 0}`);
-      console.log(`    Failed Posts:    ${dp.failedPosts ?? 0}`);
+      const dp = progress?.dataPreparation;
+      if (dp) {
+        console.log(`    Status:          ${dp.status}`);
+        console.log(`    Total Posts:     ${dp.totalPosts}`);
+        console.log(`    Done:            ${dp.donePosts}`);
+        console.log(`    Fetching:        ${dp.fetchingPosts}`);
+        console.log(`    Pending:         ${dp.pendingPosts}`);
+        console.log(`    Failed:          ${dp.failedPosts}`);
+        console.log(`    Comments Fetched:${dp.commentsFetched}`);
+        console.log(`    Media Fetched:   ${dp.mediaFetched}`);
+      } else {
+        console.log(`    (No data)`);
+      }
 
       console.log(`\n  Steps:`);
-      const steps = full.phases?.steps ?? [];
-      if (steps.length === 0) {
+      const steps = full.steps as Array<{
+        stepId: string;
+        strategyId: string | null;
+        name: string;
+        status: string;
+        stats: { total: number; done: number; failed: number } | null;
+        stepOrder: number;
+      }> | undefined;
+      if (!steps || steps.length === 0) {
         console.log(`    (No steps added)`);
       } else {
         for (const s of steps) {
@@ -171,11 +215,16 @@ export function taskCommands(program: Command): void {
       }
 
       console.log(`\n  Analysis Jobs:`);
-      const aj = full.phases?.analysis ?? {};
-      console.log(`    Total:     ${aj.totalJobs ?? 0}`);
-      console.log(`    Completed: ${aj.completedJobs ?? 0}`);
-      console.log(`    Failed:    ${aj.failedJobs ?? 0}`);
-      console.log(`    Pending:   ${aj.pendingJobs ?? 0}`);
+      const aj = progress?.analysis;
+      if (aj) {
+        console.log(`    Total:      ${aj.totalJobs}`);
+        console.log(`    Completed:  ${aj.completedJobs}`);
+        console.log(`    Failed:     ${aj.failedJobs}`);
+        console.log(`    Pending:    ${aj.pendingJobs}`);
+        console.log(`    Processing: ${aj.processingJobs}`);
+      } else {
+        console.log(`    (No data)`);
+      }
 
       const recentErrors = full.recentErrors as { target_type: string; target_id: string; error: string }[] | undefined;
       if (recentErrors && recentErrors.length > 0) {
@@ -196,13 +245,11 @@ export function taskCommands(program: Command): void {
     .description('Add an analysis step to a task')
     .requiredOption('--task-id <id>', 'Task ID')
     .requiredOption('--strategy-id <id>', 'Strategy ID')
-    .option('--depends-on-step-id <id>', 'Upstream step ID (for secondary strategies)')
     .option('--name <name>', 'Step name')
     .option('--order <n>', 'Step order (auto-increment if omitted)')
-    .action(async (opts: { taskId: string; strategyId: string; dependsOnStepId?: string; name?: string; order?: string }) => {
+    .action(async (opts: { taskId: string; strategyId: string; name?: string; order?: string }) => {
       const result = await apiPost<CreateTaskStepResponse>('/tasks/' + opts.taskId + '/steps', {
         strategy_id: opts.strategyId,
-        depends_on_step_id: opts.dependsOnStepId,
         name: opts.name,
         order: opts.order ? parseInt(opts.order, 10) : undefined,
       });

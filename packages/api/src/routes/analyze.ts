@@ -140,7 +140,6 @@ export default async function analyzeRoutes(app: FastifyInstance) {
       step = await createTaskStep({
         task_id: task.id,
         strategy_id: strategyId,
-        depends_on_step_id: null,
         name: strategy.name,
         step_order: steps.length,
         status: 'pending',

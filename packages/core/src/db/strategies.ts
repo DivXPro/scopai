@@ -78,8 +78,8 @@ export function validateStrategyJson(data: unknown): { valid: boolean; error?: s
       return { valid: false, error: `Missing required field: ${key}` };
     }
   }
-  if (obj.target !== 'post' && obj.target !== 'comment' && obj.target !== 'multi-post') {
-    return { valid: false, error: `Invalid target: ${obj.target}. Must be 'post', 'comment', or 'multi-post'` };
+  if (obj.target !== 'post' && obj.target !== 'comment') {
+    return { valid: false, error: `Invalid target: ${obj.target}. Must be 'post' or 'comment'` };
   }
   if (obj.batch_config !== undefined && obj.batch_config !== null) {
     const bc = obj.batch_config as Record<string, unknown>;

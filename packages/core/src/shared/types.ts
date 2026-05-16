@@ -107,7 +107,7 @@ export interface MediaFile {
 }
 
 // === Task ===
-export type TaskStatus = 'pending' | 'running' | 'paused' | 'completed' | 'failed';
+export type TaskStatus = 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
 export type TargetStatus = 'pending' | 'processing' | 'done' | 'failed';
 
 export interface Task {
@@ -149,7 +149,6 @@ export interface TaskStep {
   id: string;
   task_id: string;
   strategy_id: string | null;
-  depends_on_step_id: string | null;
   name: string;
   step_order: number;
   status: TaskStepStatus;
@@ -162,7 +161,7 @@ export interface TaskStep {
 export interface TaskTarget {
   id: string;
   task_id: string;
-  target_type: 'post' | 'comment' | 'multi-post';
+  target_type: 'post' | 'comment';
   target_id: string;
   status: TargetStatus;
   error: string | null;
@@ -288,7 +287,7 @@ export interface Strategy {
   name: string;
   description: string | null;
   version: string;
-  target: 'post' | 'comment' | 'multi-post';
+  target: 'post' | 'comment';
   needs_media: NeedsMediaConfig | null;
   prompt: string;
   output_schema: Record<string, unknown>;
@@ -305,7 +304,7 @@ export interface AnalysisResult {
   task_id: string;
   strategy_id: string;
   strategy_version: string;
-  target_type: 'post' | 'comment' | 'multi-post';
+  target_type: 'post' | 'comment';
   target_id: string;
   post_id: string | null;
   raw_response: Record<string, unknown> | null;

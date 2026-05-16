@@ -43,6 +43,7 @@ export { loadClaudeConfig } from './config/claude-config';
 export * from './shared/types';
 export * from './shared/constants';
 export * from './shared/utils';
+export { canTransitionStatus } from './shared/task-state-machine';
 export { downloadImage } from './shared/media-download';
 export { getLogger, initLogger } from './shared/logger';
 export type { NormalizedPostItem, NormalizedCommentItem } from './shared/utils';

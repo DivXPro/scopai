@@ -238,13 +238,11 @@ export async function startMcpServer(): Promise<void> {
       strategy_id: z.string().describe('Strategy ID (required)'),
       name: z.string().optional().describe('Step name (optional, defaults to strategy name)'),
       order: z.number().optional().describe('Step order (optional, auto-incremented if omitted)'),
-      depends_on_step_id: z.string().optional().describe('Upstream step ID for secondary strategies'),
     }),
   }, async (args) => {
     const body: Record<string, unknown> = { strategy_id: args.strategy_id };
     if (args.name) body.name = args.name;
     if (args.order !== undefined) body.order = args.order;
-    if (args.depends_on_step_id) body.depends_on_step_id = args.depends_on_step_id;
     const result = await apiPost(`/tasks/${args.task_id}/steps`, body);
     return makeTextResult(result);
   });
@@ -369,27 +367,14 @@ export async function startMcpServer(): Promise<void> {
       { strategy_id: 'creative-topic-angle', name: '话题角度' },
     ];
 
-    let prevStepId: string | undefined;
     for (const config of stepConfigs) {
-      const body: Record<string, unknown> = {
+      await apiPost(`/tasks/${taskId}/steps`, {
         strategy_id: config.strategy_id,
         name: config.name,
-      };
-      if (prevStepId) body.depends_on_step_id = prevStepId;
-      const stepResult = await apiPost(`/tasks/${taskId}/steps`, body);
-      prevStepId = (stepResult as Record<string, unknown>).stepId as string;
-    }
-
-    // 4. Add creative-brief step (depends on the last step)
-    if (prevStepId) {
-      await apiPost(`/tasks/${taskId}/steps`, {
-        strategy_id: 'creative-brief',
-        name: '综合创作简报',
-        depends_on_step_id: prevStepId,
       });
     }
 
-    // 5. Run all steps
+    // 4. Run all steps
     await apiPost(`/tasks/${taskId}/run-all-steps`);
 
     return makeTextResult({

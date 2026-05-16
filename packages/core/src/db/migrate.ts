@@ -108,6 +108,57 @@ async function migrateTaskStepsDependsOn(): Promise<void> {
   }
 }
 
+async function migrateTaskStatusCheck(): Promise<void> {
+  // DuckDB does not support ALTER COLUMN or DROP CONSTRAINT.
+  // Test if 'cancelled' is already accepted; if not, rebuild the table.
+  try {
+    await exec("UPDATE tasks SET status = 'cancelled' WHERE status = 'failed' AND 1=0");
+  } catch {
+    await exec('CREATE TABLE tasks_backup AS SELECT * FROM tasks');
+    await exec('DROP TABLE tasks');
+    await exec(`CREATE TABLE tasks (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      status TEXT DEFAULT 'pending' CHECK(status IN ('pending','running','paused','completed','failed','cancelled')),
+      stats JSON,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      completed_at TIMESTAMP
+    )`);
+    await exec('INSERT INTO tasks SELECT * FROM tasks_backup');
+    await exec('DROP TABLE tasks_backup');
+  }
+}
+
+async function migrateTaskStepsRemoveDependsOn(): Promise<void> {
+  const columns = await query<{ name: string }>(
+    "SELECT column_name as name FROM information_schema.columns WHERE table_name = 'task_steps'"
+  );
+  const hasDependsOn = columns.some(c => c.name === 'depends_on_step_id');
+  if (!hasDependsOn) return;
+
+  await exec(`CREATE TABLE task_steps_backup AS
+    SELECT id, task_id, strategy_id, name, step_order, status, stats, error, created_at, updated_at
+    FROM task_steps`);
+  await exec('DROP TABLE task_steps');
+  await exec(`CREATE TABLE task_steps (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES tasks(id),
+    strategy_id TEXT REFERENCES strategies(id),
+    name TEXT NOT NULL,
+    step_order INTEGER NOT NULL DEFAULT 0,
+    status TEXT DEFAULT 'pending' CHECK(status IN ('pending','running','completed','failed','skipped')),
+    stats JSON,
+    error TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+  )`);
+  await exec('INSERT INTO task_steps SELECT * FROM task_steps_backup');
+  await exec('DROP TABLE task_steps_backup');
+  await exec('CREATE INDEX idx_task_steps_task ON task_steps(task_id)');
+}
+
 async function migratePlatformSyncTemplates(): Promise<void> {
   const columns = await query<{ name: string }>(
     "SELECT column_name as name FROM information_schema.columns WHERE table_name = 'platforms'"
@@ -136,15 +187,23 @@ async function migrateCreatorSyncJobType(): Promise<void> {
   // Actually we need to test a real row that would trigger CHECK.
   // Use a subquery that would fail CHECK if constraint is old:
   try {
+    // Ensure a dummy creator exists so FK check passes and we only test CHECK.
+    await exec(`
+      INSERT INTO creators (id, platform_id, platform_author_id, author_name, created_at, updated_at)
+      SELECT 'check-migrate-creator', 'check-platform', 'check-author', 'check', NOW(), NOW()
+      ON CONFLICT DO NOTHING
+    `);
     await exec(`
       INSERT INTO creator_sync_jobs (id, creator_id, sync_type, status, posts_imported, posts_updated, posts_skipped, posts_failed, cursor, progress, error, created_at, processed_at)
-      SELECT 'check-migrate-0001', 'check-trigger', 'profile_sync', 'pending', 0, 0, 0, 0, NULL, NULL, NULL, NOW(), NULL
+      SELECT 'check-migrate-0001', 'check-migrate-creator', 'profile_sync', 'pending', 0, 0, 0, 0, NULL, NULL, NULL, NOW(), NULL
     `);
     // Success - cleanup the test row
     await exec("DELETE FROM creator_sync_jobs WHERE id = 'check-migrate-0001'");
+    await exec("DELETE FROM creators WHERE id = 'check-migrate-creator'");
     return; // CHECK already accepts profile_sync
   } catch (err: unknown) {
     const msg = String(err);
+    await exec("DELETE FROM creators WHERE id = 'check-migrate-creator'").catch(() => {});
     if (!msg.includes('CHECK constraint') && !msg.includes('creator_sync_jobs')) {
       return; // unexpected error, don't risk data loss
     }
@@ -153,8 +212,22 @@ async function migrateCreatorSyncJobType(): Promise<void> {
     await exec('CREATE TABLE creator_sync_jobs_backup AS SELECT * FROM creator_sync_jobs');
     // 2. Drop old table (CHECK is now gone)
     await exec('DROP TABLE creator_sync_jobs');
-    // 3. Recreate from backup with new CHECK (CREATE TABLE IF NOT EXISTS from schema.sql will NOT override
-    //    because table now exists; use INSERT ... SELECT to restore with schema-compatible values)
+    // 3. Recreate table with new CHECK
+    await exec(`CREATE TABLE creator_sync_jobs (
+      id TEXT PRIMARY KEY,
+      creator_id TEXT NOT NULL REFERENCES creators(id),
+      sync_type TEXT NOT NULL CHECK(sync_type IN ('initial','periodic','profile_sync')),
+      status TEXT DEFAULT 'pending' CHECK(status IN ('pending','processing','completed','completed_with_errors','failed')),
+      posts_imported INTEGER DEFAULT 0,
+      posts_updated INTEGER DEFAULT 0,
+      posts_skipped INTEGER DEFAULT 0,
+      posts_failed INTEGER DEFAULT 0,
+      cursor TEXT,
+      progress JSON,
+      error TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      processed_at TIMESTAMP
+    )`);
     await exec('INSERT INTO creator_sync_jobs SELECT * FROM creator_sync_jobs_backup');
     await exec('DROP TABLE creator_sync_jobs_backup');
     // Recreate indexes (they don't survive CREATE TABLE AS SELECT)
@@ -218,53 +291,38 @@ async function migrateSearchIndexTable(): Promise<void> {
   }
 }
 
-// Expand target_type CHECK to allow 'multi-post' value for task_targets and strategies
+// Remove 'multi-post' values from task_targets and strategies.
 // DuckDB does not support DROP CONSTRAINT or ALTER COLUMN type.
-// Migration strategy: if 'multi-post' INSERT fails due to CHECK, recreate the table.
+// We simply delete any 'multi-post' rows; the old CHECK may still list the value,
+// but with no data present it will never be exercised.  Rebuilding the table
+// is avoided because task_steps has a FK to strategies and the backup/restore
+// dance is fragile.
 async function migrateTargetTypeCheck(): Promise<void> {
-  // Migrate task_targets
   const taskTargetsTables = await query<{ name: string }>(
     "SELECT table_name as name FROM information_schema.tables WHERE table_name = 'task_targets'"
   );
   if (taskTargetsTables.length > 0) {
-    try {
-      await exec(`
-        INSERT INTO task_targets (id, task_id, target_type, target_id, status, created_at)
-        SELECT 'check-migrate-0002', 'check-trigger', 'multi-post', 'check-trigger', 'pending', NOW()
-      `);
-      await exec("DELETE FROM task_targets WHERE id = 'check-migrate-0002'");
-    } catch (err: unknown) {
-      const msg = String(err);
-      if (msg.includes('CHECK constraint') || msg.includes('task_targets')) {
-        await exec('CREATE TABLE task_targets_backup AS SELECT * FROM task_targets');
-        await exec('DROP TABLE task_targets');
-        await exec('INSERT INTO task_targets SELECT * FROM task_targets_backup');
-        await exec('DROP TABLE task_targets_backup');
-        await exec('CREATE INDEX IF NOT EXISTS idx_task_targets_task ON task_targets(task_id)');
-      }
-    }
+    await exec("DELETE FROM task_targets WHERE target_type = 'multi-post'");
   }
 
-  // Migrate strategies
   const strategiesTables = await query<{ name: string }>(
     "SELECT table_name as name FROM information_schema.tables WHERE table_name = 'strategies'"
   );
   if (strategiesTables.length > 0) {
-    try {
-      await exec(`
-        INSERT INTO strategies (id, name, version, target, prompt, output_schema, created_at, updated_at)
-        SELECT 'check-migrate-0003', 'check-trigger', '1.0.0', 'multi-post', 'check', '{}', NOW(), NOW()
-      `);
-      await exec("DELETE FROM strategies WHERE id = 'check-migrate-0003'");
-    } catch (err: unknown) {
-      const msg = String(err);
-      if (msg.includes('CHECK constraint') || msg.includes('strategies')) {
-        await exec('CREATE TABLE strategies_backup AS SELECT * FROM strategies');
-        await exec('DROP TABLE strategies');
-        await exec('INSERT INTO strategies SELECT * FROM strategies_backup');
-        await exec('DROP TABLE strategies_backup');
-      }
+    // Remove referencing rows first to avoid FK constraint violations
+    const queueJobsTables = await query<{ name: string }>(
+      "SELECT table_name as name FROM information_schema.tables WHERE table_name = 'queue_jobs'"
+    );
+    if (queueJobsTables.length > 0) {
+      await exec("DELETE FROM queue_jobs WHERE strategy_id IN (SELECT id FROM strategies WHERE target = 'multi-post')");
     }
+    const taskStepsTables = await query<{ name: string }>(
+      "SELECT table_name as name FROM information_schema.tables WHERE table_name = 'task_steps'"
+    );
+    if (taskStepsTables.length > 0) {
+      await exec("DELETE FROM task_steps WHERE strategy_id IN (SELECT id FROM strategies WHERE target = 'multi-post')");
+    }
+    await exec("DELETE FROM strategies WHERE target = 'multi-post'");
   }
 }
 
@@ -287,6 +345,8 @@ export async function runMigrations(): Promise<void> {
   await migrateLabelsTables();
   await migrateSearchIndexTable();
   await migrateTargetTypeCheck();
+  await migrateTaskStatusCheck();
+  await migrateTaskStepsRemoveDependsOn();
 
   // Migration: drop legacy analysis_results table if present
   const hasAnalysisResults = await query<{ name: string }>(

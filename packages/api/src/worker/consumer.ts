@@ -159,6 +159,14 @@ export async function processJobWithLifecycle(job: QueueJob, workerId: number | 
     logger.info(`[Worker-${workerId}] Job ${job.id} completed`);
   } catch (err) {
     const error = String(err);
+
+    // 任务暂停时重新入队，不增加 attempts
+    if (error.includes('TASK_PAUSED')) {
+      logger.info(`[Worker-${workerId}] Job ${job.id} skipped: task ${job.task_id} is paused`);
+      await requeueJob(job.id, 'Task is paused');
+      return;
+    }
+
     const isRateLimit = /429|rate_limit|engine is currently overloaded/i.test(error);
 
     if (job.attempts < job.max_attempts) {
@@ -182,13 +190,18 @@ export async function processJobWithLifecycle(job: QueueJob, workerId: number | 
 }
 
 async function processJob(job: QueueJob, workerId: number | string): Promise<void> {
+  const task = await getTaskById(job.task_id);
+  if (!task) throw new Error(`Task ${job.task_id} not found`);
+
+  // 如果任务已暂停，抛出特殊错误以便外层重新入队
+  if (task.status === 'paused') {
+    throw new Error('TASK_PAUSED');
+  }
+
   if (job.target_type === 'prepare') {
     await processPrepareJob(job, workerId);
     return;
   }
-
-  const task = await getTaskById(job.task_id);
-  if (!task) throw new Error(`Task ${job.task_id} not found`);
 
   if (!job.strategy_id) {
     throw new Error(`Job ${job.id} has no strategy_id — legacy analysis is no longer supported`);
@@ -462,18 +475,8 @@ async function resolveUpstreamResult(
   strategyId: string,
   targetId: string,
 ): Promise<Record<string, unknown> | null> {
-  const { listTaskSteps } = await import('@scopai/core');
-  const { getStrategyById } = await import('@scopai/core');
-  const { getUpstreamResult } = await import('@scopai/core');
-
-  const steps = await listTaskSteps(taskId);
-  const currentStep = steps.find(s => s.strategy_id === strategyId);
-  if (!currentStep || !currentStep.depends_on_step_id) return null;
-
-  const upstreamStep = steps.find(s => s.id === currentStep.depends_on_step_id);
-  if (!upstreamStep || !upstreamStep.strategy_id) return null;
-
-  return getUpstreamResult(upstreamStep.strategy_id, taskId, targetId);
+  // Step dependency mechanism removed; upstream results no longer resolved here
+  return null;
 }
 
 async function processStrategyJob(
@@ -487,17 +490,14 @@ async function processStrategyJob(
   const strategy = await getStrategyById(job.strategy_id);
   if (!strategy) throw new Error(`Strategy ${job.strategy_id} not found`);
 
-  if (!job.target_id && strategy.target !== 'multi-post') {
+  if (!job.target_id) {
     throw new Error('Job has no target_id');
   }
 
   logger.info(`[Worker-${workerId}] Strategy ${strategy.id} (target=${strategy.target}, media=${strategy.needs_media?.enabled ?? false})`);
 
-  // Resolve upstream result for secondary strategies
-  let upstreamResult: Record<string, unknown> | null = null;
-  if (strategy.depends_on) {
-    upstreamResult = await resolveUpstreamResult(job.task_id, job.strategy_id!, job.target_id!);
-  }
+  // Step dependency mechanism removed; upstream results no longer resolved
+  const upstreamResult: Record<string, unknown> | null = null;
 
   if (strategy.target === 'post') {
     const post = await getPostById(job.target_id);
@@ -591,8 +591,6 @@ async function processStrategyJob(
       error: null,
       analyzed_at: new Date(),
     }, dynamicColumns, dynamicValues);
-  } else if (strategy.target === 'multi-post') {
-    await processMultiPostStrategyJob(job, task, strategy, workerId);
   } else {
     throw new Error(`Unknown strategy target: ${strategy.target}`);
   }
@@ -732,88 +730,3 @@ async function syncStepStats(taskId: string, strategyId: string): Promise<void> 
   await updateTaskStepStatus(step.id, status, { total, done, failed });
 }
 
-async function processMultiPostStrategyJob(
-  job: QueueJob,
-  task: { id: string; name: string },
-  strategy: { id: string; version: string; target: string; output_schema: Record<string, unknown>; prompt: string },
-  workerId: number | string,
-): Promise<void> {
-  const logger = getLogger();
-  const { listTaskTargets } = await import('@scopai/core');
-  const { getUpstreamResult } = await import('@scopai/core');
-  const { getPostById } = await import('@scopai/core');
-  const { analyzeMultiPostWithStrategy } = await import('./anthropic');
-  const { parseStrategyResult } = await import('./parser');
-
-  // Get all post targets for this task
-  const targets = await listTaskTargets(job.task_id);
-  const postTargets = targets.filter(t => t.target_type === 'post');
-
-  if (postTargets.length === 0) {
-    throw new Error('No post targets found for multi-post strategy');
-  }
-
-  // Query upstream analysis results for each post
-  // Depends on the first three creative strategies being available
-  const references = [];
-  for (const target of postTargets) {
-    const post = await getPostById(target.target_id);
-    if (!post) continue;
-
-    const copyAnalysis = await getUpstreamResult('creative-copy-deconstruct', job.task_id, target.target_id);
-    const visualAnalysis = await getUpstreamResult('creative-visual-style', job.task_id, target.target_id);
-    const topicAnalysis = await getUpstreamResult('creative-topic-angle', job.task_id, target.target_id);
-
-    references.push({
-      post_id: target.target_id,
-      post_content: post.content,
-      copy_analysis: copyAnalysis ?? {},
-      visual_analysis: visualAnalysis ?? {},
-      topic_analysis: topicAnalysis ?? {},
-    });
-  }
-
-  if (references.length === 0) {
-    throw new Error('No references with analysis results found');
-  }
-
-  // Build prompt with references
-  const promptText = strategy.prompt
-    .replace('{{references}}', JSON.stringify(references, null, 2))
-    .replace('{{requirements}}', '');
-
-  logger.info(`[Worker-${workerId}] Calling analyzeMultiPostWithStrategy for ${references.length} references`);
-  const rawResponse = await analyzeMultiPostWithStrategy(promptText, strategy as any);
-  logger.info(`[Worker-${workerId}] analyzeMultiPostWithStrategy returned ${rawResponse.length} chars`);
-  const parsed = parseStrategyResult(rawResponse, strategy.output_schema);
-
-  const dynamicColumns = Object.keys(parsed.values);
-  const schemaProperties = (strategy.output_schema.properties || {}) as Record<string, Record<string, unknown>>;
-  const dynamicValues = dynamicColumns.map((k) => {
-    const val = parsed.values[k];
-    const def = schemaProperties[k];
-    if (def?.type === 'array' && Array.isArray(val)) {
-      const items = val.map((v: unknown) => {
-        if (typeof v === 'string') return `'${String(v).replace(/'/g, "''")}'`;
-        return String(v);
-      });
-      return `[${items.join(',')}]`;
-    }
-    if (def?.type === 'object' && val !== null && val !== undefined) {
-      return JSON.stringify(val);
-    }
-    return val;
-  });
-
-  // For multi-post, target_type is 'multi-post' and target_id is the task_id
-  await insertStrategyResult(strategy.id, {
-    task_id: task.id,
-    target_type: 'multi-post',
-    target_id: job.task_id,
-    post_id: null,
-    strategy_version: strategy.version,
-    raw_response: parsed.raw,
-    error: null,
-    analyzed_at: new Date(),
-  }, dynamicColumns, dynamicValues);
-}

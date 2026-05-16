@@ -8,7 +8,6 @@ export interface EnqueueResult {
 export interface StepInfo {
   id: string;
   strategy_id: string | null;
-  depends_on_step_id: string | null;
   status: string;
   stats?: { total: number; done: number; failed: number } | null;
 }
@@ -46,7 +45,7 @@ export function buildJobsForPost(
   generateIdFn: () => string,
 ): { jobs: QueueJob[]; stepUpdates: StepUpdate[] } {
   const pendingSteps = steps.filter(s =>
-    (s.status === 'pending' || s.status === 'running') && !s.depends_on_step_id
+    s.status === 'pending' || s.status === 'running'
   );
   const jobs: QueueJob[] = [];
   const stepUpdates: StepUpdate[] = [];
