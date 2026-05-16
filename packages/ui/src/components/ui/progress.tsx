@@ -8,6 +8,7 @@ export interface ProgressProps {
   className?: string;
   label?: string;
   showValueLabel?: boolean;
+  ariaLabel?: string;
 }
 
 export function Progress({
@@ -18,16 +19,21 @@ export function Progress({
   className = "",
   label,
   showValueLabel = false,
+  ariaLabel,
 }: ProgressProps) {
+  const safeMax = Math.max(0, max);
+  const safeValue = safeMax === 0 ? 0 : Math.min(Math.max(0, value), safeMax);
+
   return (
     <HeroProgressBar
-      value={value}
-      maxValue={max}
+      value={safeValue}
+      maxValue={safeMax}
       color={color}
       size={size}
       className={className}
+      aria-label={label || ariaLabel || "Progress"}
     >
-      {({ percentage, valueText }) => (
+      {({ percentage }) => (
         <>
           {(label || showValueLabel) && (
             <div className="flex justify-between mb-1">
@@ -37,9 +43,7 @@ export function Progress({
                 </span>
               )}
               {showValueLabel && (
-                <span className="text-sm text-default-500">
-                  {valueText}
-                </span>
+                <HeroProgressBar.Output className="text-sm text-default-500" />
               )}
             </div>
           )}
