@@ -63,7 +63,7 @@ export const TaskTimeline = memo(function TaskTimeline({ phases }: TaskTimelineP
                 aria-current={phase.status === 'running' || phase.status === 'processing' ? 'step' : undefined}
               >
                 {/* 左侧：连接线 + 圆点 */}
-                <div className="w-5 shrink-0 relative flex justify-center">
+                <div className="w-5 shrink-0 relative flex justify-center pb-4">
                   {/* 贯穿连接线 */}
                   <div
                     className={`absolute left-1/2 -translate-x-1/2 w-0.5 ${
