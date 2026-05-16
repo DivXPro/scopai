@@ -1,5 +1,8 @@
-import { memo } from 'react';
+import { memo, Suspense } from 'react';
 import { PlatformIcon } from './PlatformIcon';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 
 export interface MatrixColumn {
   key: string;
@@ -44,64 +47,71 @@ function StatusCell({ status, onClick }: { status: string; onClick?: () => void 
   );
 }
 
-export const PipelineMatrix = memo(function PipelineMatrix({
+function MatrixTable({
   columns,
   rows,
   onCellClick,
   onRowClick,
 }: PipelineMatrixProps) {
+  return (
+    <Table aria-label="相关帖子">
+      <TableHeader>
+        <TableHead className="sticky left-0 bg-background z-10 min-w-[200px]" isRowHeader>
+          帖子
+        </TableHead>
+        {columns.map((col) => (
+          <TableHead key={col.key} className="text-center min-w-[100px]">
+            {col.name}
+          </TableHead>
+        ))}
+      </TableHeader>
+      <TableBody>
+        {rows.map((row) => (
+          <TableRow key={row.rowId}>
+            <TableCell className="sticky left-0 bg-background z-10">
+              <button
+                onClick={onRowClick ? () => onRowClick(row.rowId) : undefined}
+                className={`flex items-center gap-2 text-left ${onRowClick ? 'cursor-pointer hover:opacity-70' : ''}`}
+              >
+                {row.platformId && (
+                  <PlatformIcon platformId={row.platformId} size={16} />
+                )}
+                <span className="font-medium truncate max-w-[180px]">
+                  {row.title || row.rowLabel}
+                </span>
+              </button>
+            </TableCell>
+            {columns.map((col) => {
+              const cell = row.cells[col.key];
+              return (
+                <TableCell key={col.key} className="text-center">
+                  <StatusCell
+                    status={cell?.status ?? 'pending'}
+                    onClick={onCellClick ? () => onCellClick(row.rowId, col.key) : undefined}
+                  />
+                </TableCell>
+              );
+            })}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+export const PipelineMatrix = memo(function PipelineMatrix(props: PipelineMatrixProps) {
+  const { rows } = props;
   if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground">暂无数据</p>;
   }
 
   return (
     <div className="space-y-3">
-      <h3 className="text-lg font-semibold text-foreground">执行矩阵</h3>
+      <h3 className="text-lg font-semibold text-foreground">相关帖子</h3>
       <div className="rounded-xl border bg-card text-card-foreground shadow-sm overflow-auto">
-        <table className="w-full text-sm" aria-label="Pipeline 矩阵">
-            <thead>
-              <tr className="border-b">
-                <th className="sticky left-0 bg-background z-10 min-w-[200px] text-left font-medium text-muted-foreground px-4 py-3">
-                  帖子
-                </th>
-                {columns.map((col) => (
-                  <th key={col.key} className="text-center font-medium text-muted-foreground min-w-[100px] px-4 py-3">
-                    {col.name}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.rowId} className="border-b last:border-b-0">
-                  <td className="sticky left-0 bg-background z-10 px-4 py-3">
-                    <button
-                      onClick={onRowClick ? () => onRowClick(row.rowId) : undefined}
-                      className={`flex items-center gap-2 text-left ${onRowClick ? 'cursor-pointer hover:opacity-70' : ''}`}
-                    >
-                      {row.platformId && (
-                        <PlatformIcon platformId={row.platformId} size={16} />
-                      )}
-                      <span className="font-medium truncate max-w-[180px]">
-                        {row.title || row.rowLabel}
-                      </span>
-                    </button>
-                  </td>
-                  {columns.map((col) => {
-                    const cell = row.cells[col.key];
-                    return (
-                      <td key={col.key} className="text-center px-4 py-3">
-                        <StatusCell
-                          status={cell?.status ?? 'pending'}
-                          onClick={onCellClick ? () => onCellClick(row.rowId, col.key) : undefined}
-                        />
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">加载中…</div>}>
+          <MatrixTable {...props} />
+        </Suspense>
       </div>
     </div>
   );

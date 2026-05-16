@@ -63,21 +63,24 @@ export const TaskTimeline = memo(function TaskTimeline({ phases }: TaskTimelineP
                 aria-current={phase.status === 'running' || phase.status === 'processing' ? 'step' : undefined}
               >
                 {/* 左侧：连接线 + 圆点 */}
-                <div className="flex flex-col items-center w-5 shrink-0">
-                  {/* 上方连接线 */}
-                  {!isFirst && <div className="w-0.5 flex-1 bg-border min-h-[8px]" />}
-                  {isFirst && <div className="w-0.5 flex-1 bg-transparent min-h-[8px]" />}
-
-                  {/* 状态圆点 */}
+                <div className="w-5 shrink-0 relative flex justify-center">
+                  {/* 贯穿连接线 */}
                   <div
-                    className={`h-5 w-5 rounded-full border-2 border-background flex items-center justify-center shrink-0 my-0.5 ${statusColorMap[phase.status] ?? 'bg-muted'}`}
+                    className={`absolute left-1/2 -translate-x-1/2 w-0.5 ${
+                      isFirst && isLast ? 'bg-transparent' : 'bg-border'
+                    }`}
+                    style={{
+                      top: isFirst ? '50%' : '0',
+                      bottom: isLast ? '50%' : '0',
+                    }}
+                  />
+
+                  {/* 状态圆点 — 绝对定位在垂直中心 */}
+                  <div
+                    className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-5 w-5 rounded-full border-2 border-background flex items-center justify-center z-10 ${statusColorMap[phase.status] ?? 'bg-muted'}`}
                   >
                     {statusIconMap[phase.status] ?? null}
                   </div>
-
-                  {/* 下方连接线 */}
-                  {!isLast && <div className="w-0.5 flex-1 bg-border min-h-[8px]" />}
-                  {isLast && <div className="w-0.5 flex-1 bg-transparent min-h-[8px]" />}
                 </div>
 
                 {/* 右侧：卡片 */}
