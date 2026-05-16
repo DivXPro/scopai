@@ -6,16 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
 import { TaskTimeline } from '@/components/TaskTimeline';
 import { PipelineMatrix } from '@/components/PipelineMatrix';
 
 const ArrowChevronLeft = icons.ArrowChevronLeft;
-const ArrowChevronDown = icons.ArrowChevronDown;
-const ArrowChevronUp = icons.ArrowChevronUp;
-const ChartBar = icons.ChartBar;
 
 interface TaskStep {
   id: string;
@@ -75,20 +69,6 @@ interface TaskDetail {
     mediaFetched: boolean;
     error: string | null;
   }[];
-}
-
-interface AnalysisResult {
-  id: string;
-  target_type: string;
-  target_id: string | null;
-  summary: string | null;
-  raw_response: Record<string, unknown> | null;
-  analyzed_at: string;
-}
-
-interface ResultStats {
-  total: number;
-  [key: string]: unknown;
 }
 
 const statusVariantMap: Record<string, BadgeVariant> = {
@@ -169,121 +149,6 @@ const KpiCards = memo(function KpiCards({ task }: { task: TaskDetail }) {
     </div>
   );
 });
-
-/*
-// Keep for later cleanup task
-function StepRow({ step, taskId }: { step: TaskStep; taskId: string }) {
-*/
-// @ts-expect-error StepRow kept for later cleanup
-function StepRow({ step, taskId }: { step: TaskStep; taskId: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const [results, setResults] = useState<AnalysisResult[]>([]);
-  const [resultStats, setResultStats] = useState<ResultStats | null>(null);
-  const [loadingResults, setLoadingResults] = useState(false);
-
-  const loadResults = async () => {
-    if (!step.strategy_id) return;
-    setLoadingResults(true);
-    try {
-      const data = await apiGet<{ results: AnalysisResult[]; stats: ResultStats }>(
-        `/api/tasks/${taskId}/results?strategy_id=${step.strategy_id}`
-      );
-      setResults(data.results);
-      setResultStats(data.stats);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingResults(false);
-    }
-  };
-
-  const toggleExpanded = () => {
-    if (!expanded && step.strategy_id && results.length === 0) {
-      loadResults();
-    }
-    setExpanded(!expanded);
-  };
-
-  const total = step.stats?.total ?? 0;
-  const done = step.stats?.done ?? 0;
-  const failed = step.stats?.failed ?? 0;
-  const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-
-  return (
-    <Card>
-      <button
-        onClick={toggleExpanded}
-        className="w-full flex items-center justify-between p-4 hover:bg-default/50 transition-colors text-left"
-      >
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium text-foreground">步骤 {step.step_order}</span>
-          <span className="font-semibold text-foreground">{step.name}</span>
-          <Badge variant={statusVariantMap[step.status] ?? 'outline'}>{step.status}</Badge>
-          {total > 0 && (
-            <span className="text-xs text-muted-foreground">
-              {done}/{total} ({progress}%)
-              {failed > 0 && ` · ${failed} 失败`}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {step.strategy_id && (
-            <span className="text-xs text-muted-foreground">
-              {results.length > 0 ? `${results.length} 条结果` : '点击查看结果'}
-            </span>
-          )}
-          {expanded ? <ArrowChevronUp className="h-4 w-4" /> : <ArrowChevronDown className="h-4 w-4" />}
-        </div>
-      </button>
-
-      {expanded && (
-        <CardContent className="border-t">
-          {step.strategy_id ? (
-            loadingResults ? (
-              <div className="py-4 space-y-2">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4" />
-              </div>
-            ) : results.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">暂无分析结果</p>
-            ) : (
-              <div className="space-y-4 pt-4">
-                {resultStats && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <ChartBar className="h-4 w-4" />
-                    分析结果
-                  </div>
-                )}
-                <Table aria-label="分析结果">
-                  <TableHeader>
-                    <TableHead>目标</TableHead>
-                    <TableHead>摘要</TableHead>
-                    <TableHead>分析时间</TableHead>
-                  </TableHeader>
-                  <TableBody>
-                    {results.map((r) => (
-                      <TableRow key={r.id}>
-                        <TableCell className="text-xs font-mono text-foreground">{r.target_id ?? '-'}</TableCell>
-                        <TableCell className="text-sm max-w-md truncate text-foreground">
-                          {r.summary || (r.raw_response ? JSON.stringify(r.raw_response).slice(0, 100) + '...' : '-')}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                          {new Date(r.analyzed_at).toLocaleString('zh-CN')}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )
-          ) : (
-            <p className="text-sm text-muted-foreground py-4">此步骤无关联策略</p>
-          )}
-        </CardContent>
-      )}
-    </Card>
-  );
-}
 
 export default function TaskDetail() {
   const { id } = useParams<{ id: string }>();
