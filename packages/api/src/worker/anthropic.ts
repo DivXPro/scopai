@@ -75,23 +75,43 @@ async function callOpenAI(
   toolChoice: OpenAI.Chat.Completions.ChatCompletionToolChoiceOption,
 ): Promise<string> {
   const client = getOpenAIClient(cfg);
-  const response = await client.chat.completions.create({
-    model: cfg.model,
-    max_tokens: cfg.max_tokens,
-    temperature: cfg.temperature,
-    messages,
-    tools: tools.length > 0 ? tools : undefined,
-    tool_choice: tools.length > 0 ? toolChoice : undefined,
-  });
 
-  // Prefer tool call result
-  const msg = response.choices[0]?.message;
-  if (msg?.tool_calls && msg.tool_calls.length > 0) {
-    return msg.tool_calls[0].function.arguments;
+  // Calculate request size for diagnostics
+  const requestSize = JSON.stringify({ model: cfg.model, messages, tools }).length;
+  const mediaSizes = messages.flatMap(m =>
+    Array.isArray(m.content)
+      ? m.content.filter(c => c.type === 'image_url' || c.type === 'video_url').map(c => c.image_url?.url.length ?? c.video_url?.url.length ?? 0)
+      : []
+  );
+
+  try {
+    const response = await client.chat.completions.create({
+      model: cfg.model,
+      max_tokens: cfg.max_tokens,
+      temperature: cfg.temperature,
+      messages,
+      tools: tools.length > 0 ? tools : undefined,
+      tool_choice: tools.length > 0 ? toolChoice : undefined,
+    });
+
+    // Prefer tool call result
+    const msg = response.choices[0]?.message;
+    if (msg?.tool_calls && msg.tool_calls.length > 0) {
+      return msg.tool_calls[0].function.arguments;
+    }
+
+    // Fallback to text content
+    return msg?.content ?? "";
+  } catch (err: any) {
+    console.error(
+      `[callOpenAI] Request failed: size=${requestSize} chars, media_blocks=${mediaSizes.length}, media_sizes=[${mediaSizes.join(',')}], model=${cfg.model}, provider=${cfg.type}`,
+    );
+    console.error(`[callOpenAI] Error: ${err.message}`);
+    if (err.error) {
+      console.error(`[callOpenAI] Error detail: ${JSON.stringify(err.error)}`);
+    }
+    throw err;
   }
-
-  // Fallback to text content
-  return msg?.content ?? "";
 }
 
 function anthropicToolToOpenAI(tool: {

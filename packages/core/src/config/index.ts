@@ -86,19 +86,22 @@ function resolveEnvVariables(obj: unknown): unknown {
 }
 
 export function loadConfig(): Config {
-  // Load file config first (highest priority)
   const configPath = expandPath('~/.scopai/config.json');
-  let fileConfig: Partial<Config> = {};
+
+  // If config.json exists, use it exclusively with defaults as fallback only
   if (fs.existsSync(configPath)) {
     try {
       const content = fs.readFileSync(configPath, 'utf-8');
-      fileConfig = JSON.parse(content) as Partial<Config>;
+      const fileConfig = JSON.parse(content) as Partial<Config>;
+      const merged = deepMerge(DEFAULT_CONFIG, fileConfig);
+      const config = resolveEnvVariables(merged) as Config;
+      return normalizeLlmConfig(config);
     } catch {
-      // ignore parse errors
+      // ignore parse errors, fall through to fallback
     }
   }
 
-  // Claude Code config fallback (lowest priority)
+  // Fallback chain only used when config.json does not exist
   const claudeConfig = loadClaudeConfig();
   const claudeFallback: Partial<Config> = {
     llm_apis: [
@@ -114,7 +117,6 @@ export function loadConfig(): Config {
     ],
   };
 
-  // Environment variable overrides
   const envLlmApis: LLMApiConfig[] = [];
   if (process.env.ANTHROPIC_API_KEY) {
     envLlmApis.push({
@@ -160,13 +162,9 @@ export function loadConfig(): Config {
     },
   };
 
-  // Priority: config.json (highest) > claude settings > env vars > defaults (lowest)
   const withEnv = deepMerge(DEFAULT_CONFIG, envConfig);
   const withClaude = deepMerge(withEnv, claudeFallback);
-  const resolved = deepMerge(withClaude, fileConfig);
-  const config = resolveEnvVariables(resolved) as Config;
-
-  // Backward compatibility: migrate legacy api_format + anthropic/openai to llm_apis
+  const config = resolveEnvVariables(withClaude) as Config;
   return normalizeLlmConfig(config);
 }
 
