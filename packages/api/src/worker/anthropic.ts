@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
@@ -17,6 +18,11 @@ const client = new Anthropic({
 
 // === OpenAI-compatible API client ===
 
+const openai = new OpenAI({
+  apiKey: config.openai.api_key,
+  baseURL: config.openai.base_url,
+});
+
 interface OpenAIMessage {
   role: 'user' | 'assistant' | 'system';
   content: string | OpenAIContentBlock[];
@@ -29,66 +35,21 @@ interface OpenAIContentBlock {
   video_url?: { url: string };
 }
 
-interface OpenAITool {
-  type: 'function';
-  function: {
-    name: string;
-    description: string;
-    parameters: Record<string, unknown>;
-  };
-}
-
-interface OpenAIResponse {
-  choices: Array<{
-    message: {
-      content: string | null;
-      tool_calls?: Array<{
-        function: {
-          name: string;
-          arguments: string;
-        };
-      }>;
-    };
-  }>;
-}
-
 async function callOpenAI(
   messages: OpenAIMessage[],
-  tools: OpenAITool[],
-  toolChoice: { type: 'function'; function: { name: string } },
+  tools: OpenAI.Chat.Completions.ChatCompletionTool[],
+  toolChoice: OpenAI.Chat.Completions.ChatCompletionToolChoiceOption,
 ): Promise<string> {
-  let baseUrl = config.openai.base_url?.replace(/\/$/, '') || 'https://api.openai.com';
-  // Append /v3 if base_url does not already include a version path
-  if (!baseUrl.match(/\/v\d+$/)) {
-    baseUrl += '/v3';
-  }
-  const url = `${baseUrl}/chat/completions`;
-
-  const payload = {
+  const response = await openai.chat.completions.create({
     model: config.openai.model,
     max_tokens: config.openai.max_tokens,
     temperature: config.openai.temperature,
-    messages,
+    messages: messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
     tools: tools.length > 0 ? tools : undefined,
     tool_choice: tools.length > 0 ? toolChoice : undefined,
-  };
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.openai.api_key}`,
-    },
-    body: JSON.stringify(payload),
   });
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`OpenAI API error ${response.status}: ${text.slice(0, 500)}`);
-  }
-
-  const data = await response.json() as OpenAIResponse;
-  const choice = data.choices?.[0];
+  const choice = response.choices[0];
 
   // Prefer tool call result
   const toolCall = choice?.message?.tool_calls?.[0];
@@ -105,13 +66,13 @@ async function callOpenAI(
   return '';
 }
 
-function anthropicToolToOpenAI(tool: { name: string; description: string; input_schema: Record<string, unknown> }): OpenAITool {
+function anthropicToolToOpenAI(tool: { name: string; description: string; input_schema: Record<string, unknown> }): OpenAI.Chat.Completions.ChatCompletionTool {
   return {
     type: 'function',
     function: {
       name: tool.name,
       description: tool.description,
-      parameters: tool.input_schema,
+      parameters: tool.input_schema as Record<string, unknown>,
     },
   };
 }
