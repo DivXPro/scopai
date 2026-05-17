@@ -7,8 +7,6 @@ const FileText = icons.FileText;
 const TargetDart = icons.TargetDart;
 const Thunderbolt = icons.Thunderbolt;
 const Persons = icons.Persons;
-const CircleQuestion = icons.CircleQuestion;
-const ArrowRightFromLine = icons.ArrowRightFromLine;
 
 const navItems = [
   { path: '/', label: '概览', icon: Tachometer },
@@ -49,22 +47,6 @@ export default function Sidebar() {
           );
         })}
       </nav>
-      <div className="px-6 pb-6 pt-4 border-t border-outline-variant space-y-0.5">
-        <a
-          href="#"
-          className="flex items-center gap-3 text-slate-500 px-2 py-2 hover:text-slate-900 transition-all text-sm"
-        >
-          <CircleQuestion className="h-4 w-4" />
-          <span>帮助中心</span>
-        </a>
-        <a
-          href="#"
-          className="flex items-center gap-3 text-slate-500 px-2 py-2 hover:text-slate-900 transition-all text-sm"
-        >
-          <ArrowRightFromLine className="h-4 w-4" />
-          <span>退出登录</span>
-        </a>
-      </div>
     </aside>
   );
 }
