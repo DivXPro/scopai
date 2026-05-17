@@ -5,7 +5,7 @@ import path from "path";
 import { spawn } from "child_process";
 import { promisify } from "util";
 import { config } from "@scopai/core";
-import type { Comment, MediaFile, Strategy, Post, LLMApiConfig } from "@scopai/core";
+import type { Comment, MediaFile, Strategy, Post, LLMApiConfig, RoutingConfig } from "@scopai/core";
 import { listMediaFilesByPost } from "@scopai/core";
 import { getPlatformById } from "@scopai/core";
 import { getCommentById } from "@scopai/core";
@@ -648,4 +648,138 @@ export async function analyzeMultiPostWithStrategy(
   strategy: { output_schema: Record<string, unknown> },
 ): Promise<string> {
   return callLLM(promptText, [], strategy.output_schema);
+}
+
+// === Router analysis ===
+
+export interface RouterDecision {
+  strategy_id: string;
+  applicable: boolean;
+  confidence: number;
+  checks: Array<{ check_id: string; passed: boolean; evidence?: string }>;
+  rejection_reason?: string;
+}
+
+export interface RouterOutput {
+  decisions: RouterDecision[];
+}
+
+export async function analyzeRouter(
+  post: Post,
+  candidateStrategies: Array<{ id: string; name: string; routing: RoutingConfig | null }>,
+): Promise<RouterOutput> {
+  const platform = post.platform_id
+    ? await getPlatformById(post.platform_id)
+    : null;
+
+  // Count media types
+  const mediaFiles = await listMediaFilesByPost(post.id);
+  const imageCount = mediaFiles.filter((m) => m.media_type === "image").length;
+  const videoCount = mediaFiles.filter((m) => m.media_type === "video").length;
+
+  // Build strategy list with checks
+  const strategyBlocks: string[] = [];
+  for (const s of candidateStrategies) {
+    if (!s.routing) continue;
+    const lines: string[] = [];
+    lines.push(`\n## 策略: ${s.name} (${s.id})`);
+    if (s.routing.applicability_checks.length > 0) {
+      lines.push(" applicability_checks:");
+      for (const check of s.routing.applicability_checks) {
+        lines.push(`   - [${check.id}] ${check.question} (${check.kind})`);
+      }
+    }
+    if (s.routing.boundary_false_positives.length > 0) {
+      lines.push(" boundary_false_positives:");
+      for (const bf of s.routing.boundary_false_positives) {
+        lines.push(`   - ${bf}`);
+      }
+    }
+    strategyBlocks.push(lines.join("\n"));
+  }
+
+  const mediaUrlLines = mediaFiles.map((m, i) => {
+    const filePath = m.local_path ?? m.url ?? "";
+    return `[媒体 ${i + 1}] ${filePath}`;
+  });
+
+  const promptText = `你是一个内容质量评估器。你的任务是逐条判断一个帖子是否具备被某个下游分析策略「解构」的原材料。
+
+对下面列出的每个策略，你必须：
+1. 逐条检查该策略声明的 applicability_checks
+2. 从帖子中找到具体证据
+3. 输出 { applicable: true/false, confidence: 0-1, checks: [...], rejection_reason }
+
+判断原则：
+- "有原材料" ≠ "分析结果会好"。你只判断内容是否具备可分析的基本元素
+- 宁可漏判（漏一个策略），不要误判（把一个没有图片的帖子判给图片分析策略）
+- 检查 boundary_false_positives——如果帖子命中负样本描述，应判不适用
+- 如果帖子正文或元信息不足以做出判断，confidence 应降低，但 applicable 可留为 true（交给下游策略自行判断）
+
+各策略判据清单：
+${strategyBlocks.join("\n")}
+
+---
+帖子内容:
+标题: ${post.title ?? ""}
+正文: ${post.content ?? ""}
+作者: ${post.author_name ?? "匿名"}
+平台: ${platform?.name ?? "unknown"}
+媒体数量: 图片 ${imageCount} 张，视频 ${videoCount} 个
+媒体 URL 列表: ${mediaUrlLines.length > 0 ? "\n" + mediaUrlLines.join("\n") : "无"}
+
+严格按 JSON schema 输出。不要附加任何解释或 Markdown。`;
+
+  const outputSchema: Record<string, unknown> = {
+    type: "object",
+    required: ["decisions"],
+    properties: {
+      decisions: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["strategy_id", "applicable", "confidence"],
+          properties: {
+            strategy_id: { type: "string" },
+            applicable: { type: "boolean" },
+            confidence: { type: "number", minimum: 0, maximum: 1 },
+            checks: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["check_id", "passed"],
+                properties: {
+                  check_id: { type: "string" },
+                  passed: { type: "boolean" },
+                  evidence: { type: "string" },
+                },
+              },
+            },
+            rejection_reason: { type: "string" },
+          },
+        },
+      },
+    },
+  };
+
+  const rawResponse = await callLLM(promptText, [], outputSchema);
+
+  let parsed: RouterOutput;
+  try {
+    parsed = JSON.parse(rawResponse) as RouterOutput;
+  } catch {
+    // Try extracting JSON from markdown code block
+    const match = rawResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (match) {
+      parsed = JSON.parse(match[1].trim()) as RouterOutput;
+    } else {
+      throw new Error(`Router output is not valid JSON: ${rawResponse.slice(0, 200)}`);
+    }
+  }
+
+  if (!parsed.decisions || !Array.isArray(parsed.decisions)) {
+    throw new Error(`Router output missing decisions array`);
+  }
+
+  return parsed;
 }

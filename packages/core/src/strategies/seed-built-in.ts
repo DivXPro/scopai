@@ -75,6 +75,8 @@ export async function seedBuiltInStrategies(): Promise<SeedBuiltInResult> {
         depends_on: (data.depends_on ?? null) as 'post' | 'comment' | null,
         include_original: (data.include_original ?? false) as boolean,
         is_default: (data.is_default ?? false) as boolean,
+        is_router: (data.is_router ?? false) as boolean,
+        routing: (data.routing ?? null) as any,
         file_path: null,
       };
 

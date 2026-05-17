@@ -21,6 +21,8 @@
 - `2026-04-21-ui-monorepo-architecture.md` — UI + Monorepo 架构设计：Web Dashboard + Fastify API + pnpm workspace，将 CLI 重构为 monorepo 结构以支持小团队共享和 AI Agent 客户端嵌入
 - `2026-05-06-post-delete-design.md` — 帖子级联删除设计：事务包裹删除关联数据（评论、媒体文件、标签、分析结果），同步清理磁盘媒体文件
 - `2026-05-16-prompt-style-library-design.md` — Prompt Style Library 设计：引入结构化提示词风格资产，DuckDB FTS 独立全文检索，与社媒分析链路打通
+- `2026-05-17-dynamic-strategy-routing-design.md` — 动态策略路由：Router 策略预先判定内容适用性，按需触发下游分析，避免不适用策略浪费 LLM 调用
+- `2026-05-17-comment-quality-gate-design.md` — 评论质量门控：规则预筛 + LLM 批量精分，仅以评论文本内容为信源，将评论分为 shallow/signal/insight 三类，作为下游情感/意图分析的前置过滤器
 
 ## 如何使用
 

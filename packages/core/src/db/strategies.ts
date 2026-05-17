@@ -7,8 +7,8 @@ export async function createStrategy(strategy: Omit<Strategy, 'created_at' | 'up
   await createStrategyResultTable(strategy.id, columnDefs);
 
   await run(
-    `INSERT INTO strategies (id, name, description, version, target, needs_media, prompt, output_schema, batch_config, depends_on, include_original, is_default, file_path, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO strategies (id, name, description, version, target, needs_media, prompt, output_schema, batch_config, depends_on, include_original, is_default, is_router, routing, file_path, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       strategy.id, strategy.name ?? null, strategy.description ?? null, strategy.version, strategy.target,
       strategy.needs_media != null ? JSON.stringify(strategy.needs_media) : null,
@@ -17,6 +17,8 @@ export async function createStrategy(strategy: Omit<Strategy, 'created_at' | 'up
       strategy.depends_on ?? null,
       strategy.include_original ?? false,
       strategy.is_default ?? false,
+      strategy.is_router ?? false,
+      strategy.routing != null ? JSON.stringify(strategy.routing) : null,
       strategy.file_path ?? null,
       now(), now(),
     ]
@@ -40,7 +42,7 @@ export async function listDefaultStrategies(): Promise<Strategy[]> {
   return rows.map(parseStrategyRow);
 }
 
-export async function updateStrategy(id: string, updates: Partial<Pick<Strategy, 'name' | 'description' | 'version' | 'prompt' | 'output_schema' | 'needs_media' | 'batch_config' | 'depends_on' | 'include_original' | 'is_default' | 'file_path'>>): Promise<void> {
+export async function updateStrategy(id: string, updates: Partial<Pick<Strategy, 'name' | 'description' | 'version' | 'prompt' | 'output_schema' | 'needs_media' | 'batch_config' | 'depends_on' | 'include_original' | 'is_default' | 'is_router' | 'routing' | 'file_path'>>): Promise<void> {
   const sets: string[] = [];
   const values: unknown[] = [];
   if (updates.name !== undefined) { sets.push('name = ?'); values.push(updates.name); }
@@ -53,6 +55,8 @@ export async function updateStrategy(id: string, updates: Partial<Pick<Strategy,
   if (updates.depends_on !== undefined) { sets.push('depends_on = ?'); values.push(updates.depends_on ?? null); }
   if (updates.include_original !== undefined) { sets.push('include_original = ?'); values.push(updates.include_original); }
   if (updates.is_default !== undefined) { sets.push('is_default = ?'); values.push(updates.is_default); }
+  if (updates.is_router !== undefined) { sets.push('is_router = ?'); values.push(updates.is_router); }
+  if (updates.routing !== undefined) { sets.push('routing = ?'); values.push(updates.routing ? JSON.stringify(updates.routing) : null); }
   if (updates.file_path !== undefined) { sets.push('file_path = ?'); values.push(updates.file_path); }
   if (sets.length === 0) return;
   sets.push('updated_at = ?');
@@ -74,6 +78,8 @@ function parseStrategyRow(row: Strategy): Strategy {
     depends_on: (row as any).depends_on ?? null,
     include_original: (row as any).include_original ?? false,
     is_default: (row as any).is_default ?? false,
+    is_router: (row as any).is_router ?? false,
+    routing: typeof (row as any).routing === 'string' ? JSON.parse((row as any).routing) : (row as any).routing ?? null,
   } as Strategy;
 }
 
@@ -116,6 +122,36 @@ export function validateStrategyJson(data: unknown): { valid: boolean; error?: s
   }
   if (obj.is_default !== undefined && typeof obj.is_default !== 'boolean') {
     return { valid: false, error: 'is_default must be a boolean' };
+  }
+  if (obj.is_router !== undefined && typeof obj.is_router !== 'boolean') {
+    return { valid: false, error: 'is_router must be a boolean' };
+  }
+  if (obj.routing !== undefined && obj.routing !== null) {
+    const routing = obj.routing as Record<string, unknown>;
+    if (typeof routing !== 'object' || routing === null) {
+      return { valid: false, error: 'routing must be an object' };
+    }
+    if (routing.applicability_checks !== undefined) {
+      const checks = routing.applicability_checks as unknown[];
+      if (!Array.isArray(checks)) {
+        return { valid: false, error: 'routing.applicability_checks must be an array' };
+      }
+      for (const check of checks) {
+        const c = check as Record<string, unknown>;
+        if (typeof c.id !== 'string') {
+          return { valid: false, error: 'routing.applicability_checks item must have id:string' };
+        }
+        if (typeof c.question !== 'string') {
+          return { valid: false, error: 'routing.applicability_checks item must have question:string' };
+        }
+        if (c.kind !== 'boolean' && c.kind !== 'text' && c.kind !== 'enum') {
+          return { valid: false, error: 'routing.applicability_checks item kind must be boolean|text|enum' };
+        }
+      }
+    }
+    if (routing.boundary_false_positives !== undefined && !Array.isArray(routing.boundary_false_positives)) {
+      return { valid: false, error: 'routing.boundary_false_positives must be an array of strings' };
+    }
   }
   const schema = obj.output_schema as Record<string, unknown>;
   if (typeof schema !== 'object' || schema === null) {

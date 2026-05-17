@@ -99,6 +99,41 @@ async function migrateDependsOnColumns(): Promise<void> {
   }
 }
 
+async function migrateRouterColumns(): Promise<void> {
+  const columns = await query<{ name: string }>(
+    "SELECT column_name as name FROM information_schema.columns WHERE table_name = 'strategies'"
+  );
+  if (!columns.some(c => c.name === 'is_router')) {
+    await exec('ALTER TABLE strategies ADD COLUMN is_router BOOLEAN DEFAULT FALSE');
+  }
+  if (!columns.some(c => c.name === 'routing')) {
+    await exec('ALTER TABLE strategies ADD COLUMN routing JSON');
+  }
+}
+
+async function migrateRouterResultsTable(): Promise<void> {
+  const hasTable = await query<{ name: string }>(
+    "SELECT table_name as name FROM information_schema.tables WHERE table_name = 'router_results'"
+  );
+  if (hasTable.length === 0) {
+    await exec(`CREATE TABLE router_results (
+      id TEXT PRIMARY KEY,
+      router_step_id TEXT NOT NULL,
+      strategy_id TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      post_id TEXT NOT NULL,
+      applicable_strategy_ids JSON NOT NULL,
+      skipped_strategies JSON NOT NULL,
+      checks JSON NOT NULL,
+      confidence REAL NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(router_step_id, post_id)
+    )`);
+    await exec('CREATE INDEX idx_router_results_task ON router_results(task_id)');
+    await exec('CREATE INDEX idx_router_results_step ON router_results(router_step_id)');
+  }
+}
+
 async function migrateIsDefaultColumn(): Promise<void> {
   const columns = await query<{ name: string }>(
     "SELECT column_name as name FROM information_schema.columns WHERE table_name = 'strategies'"
@@ -357,6 +392,8 @@ export async function runMigrations(): Promise<void> {
   await migrateTargetTypeCheck();
   await migrateTaskStatusCheck();
   await migrateTaskStepsRemoveDependsOn();
+  await migrateRouterColumns();
+  await migrateRouterResultsTable();
 
   // Migration: drop legacy analysis_results table if present
   const hasAnalysisResults = await query<{ name: string }>(

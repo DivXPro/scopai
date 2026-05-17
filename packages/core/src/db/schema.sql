@@ -158,6 +158,8 @@ CREATE TABLE IF NOT EXISTS strategies (
     depends_on      TEXT,
     include_original BOOLEAN DEFAULT false,
     file_path       TEXT,
+    is_router       BOOLEAN DEFAULT FALSE,
+    routing         JSON,
     created_at      TIMESTAMP DEFAULT NOW(),
     updated_at      TIMESTAMP DEFAULT NOW()
 );
@@ -281,4 +283,21 @@ CREATE TABLE IF NOT EXISTS search_index (
 
 CREATE INDEX IF NOT EXISTS idx_search_index_post ON search_index(post_id);
 CREATE INDEX IF NOT EXISTS idx_search_index_type ON search_index(source_type);
+
+CREATE TABLE IF NOT EXISTS router_results (
+    id              TEXT PRIMARY KEY,
+    router_step_id  TEXT NOT NULL,
+    strategy_id     TEXT NOT NULL,
+    task_id         TEXT NOT NULL,
+    post_id         TEXT NOT NULL,
+    applicable_strategy_ids JSON NOT NULL,
+    skipped_strategies      JSON NOT NULL,
+    checks          JSON NOT NULL,
+    confidence      REAL NOT NULL,
+    created_at      TIMESTAMP DEFAULT NOW(),
+    UNIQUE(router_step_id, post_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_router_results_task ON router_results(task_id);
+CREATE INDEX IF NOT EXISTS idx_router_results_step ON router_results(router_step_id);
 

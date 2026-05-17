@@ -49,6 +49,7 @@ export function buildJobsForPost(
   mediaReady: boolean,
   generateIdFn: () => string,
   postMediaTypes: string[] = [],
+  routerResults?: Map<string, Set<string>>,
 ): { jobs: QueueJob[]; stepUpdates: StepUpdate[] } {
   const pendingSteps = steps.filter(s =>
     s.status === 'pending' || s.status === 'running'
@@ -58,11 +59,18 @@ export function buildJobsForPost(
 
   const availableMediaSet = new Set(postMediaTypes);
 
+  const applicableSet = routerResults?.get(postId);
+
   for (const step of pendingSteps) {
     if (!step.strategy_id) continue;
 
     const strategy = strategies.get(step.strategy_id);
     if (!strategy) continue;
+
+    // Router filtering: skip strategies not applicable for this post
+    if (applicableSet && !applicableSet.has(step.strategy_id)) {
+      continue;
+    }
 
     // Check media dependency
     if (strategy.needs_media && strategy.needs_media.enabled && !mediaReady) {

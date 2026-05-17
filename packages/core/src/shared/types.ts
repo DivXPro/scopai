@@ -294,6 +294,27 @@ export interface BatchConfig {
   size: number;
 }
 
+export interface RoutingCheck {
+  id: string;
+  question: string;
+  evidence_field?: string;
+  kind: 'boolean' | 'text' | 'enum';
+  enum_values?: string[];
+}
+
+export interface RoutingConfig {
+  availability?: {
+    requires_media?: Record<string, number>;
+    requires_text?: {
+      min_sentences?: number;
+      min_chars?: number;
+    };
+    requires_data?: string[];
+  };
+  applicability_checks: RoutingCheck[];
+  boundary_false_positives: string[];
+}
+
 export interface Strategy {
   id: string;
   name: string;
@@ -307,6 +328,8 @@ export interface Strategy {
   depends_on: 'post' | 'comment' | null;
   include_original: boolean;
   is_default: boolean;
+  is_router: boolean;
+  routing: RoutingConfig | null;
   file_path: string | null;
   created_at: Date;
   updated_at: Date;

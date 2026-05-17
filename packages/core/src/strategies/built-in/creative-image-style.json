@@ -6,6 +6,17 @@
   "target": "post",
   "is_default": true,
   "needs_media": { "enabled": true, "media_types": ["image"] },
+  "routing": {
+    "availability": { "requires_media": { "image": 1 } },
+    "applicability_checks": [
+      { "id": "has_image_mention", "question": "正文中是否讨论或暗示了图片的视觉设计（提到排版/配色/构图/字体/风格等词）？", "evidence_field": "image_description", "kind": "text" },
+      { "id": "not_meme_only", "question": "图片是否为有视觉设计的创作（而非表情包/gif贴纸/聊天截图/白底图）？", "kind": "boolean" }
+    ],
+    "boundary_false_positives": [
+      "帖子图片是表情包/gif 贴纸/聊天截图 — 不构成视觉设计体系",
+      "帖子图片是纯产品白底图 — 无可提取风格"
+    ]
+  },
   "prompt": "你不是在描述这组图片的视觉效果,你在把它们拆解为一份可复用的图像生成模板——下游创作者拿到你的产物后,应当能填空就用 AI 生图产出同款风格作品。\n\n输出原则:\n1. 视觉骨架 visual_prompt_skeleton 是核心交付物:一段完整的英文 image-gen prompt,保留所有让这套风格成立的固定描述符(材质、滤镜、构图法则、印刷质感、字体处理...),把人物/动作/场景/服装/道具/主文字/副文字等可变部分写成 {SLOT_NAME} 占位符。所有出现的 {SLOT_NAME} 都必须在 slots[] 中定义。\n2. negative_prompt:列出所有会破坏这套风格的反向描述符(逗号分隔,英文),这是模板能否被复用的关键守门员。\n3. style_identity:把这套风格的「身份卡」结构化抽出来——主色调(尽量给 HEX)、构图法则、光影处理、纹理/印刷处理、字体处理(若有)、美学关键词。这部分**不能**变,变了就不是这套风格。\n4. frames(多图必填):当帖子含 2 张及以上图片且各图承担不同角色(封面/产品图/对比图/CTA...)时,逐张给出 role / scene_description / extra_slots,显式描述图与图之间的「叙事节奏」。单图可省略。\n5. 复用边界:applicable_scenarios 给出 1-3 个 (vertical, audience, platform) 组合及置信度;non_applicable_scenarios 至少 1 个套上去会翻车的场景。\n6. required_assets.must_have:写明下游创作者要拍/找的素材清单(主体照片、道具、场景参考等),每项 kind/spec/count。\n7. source_evidence:列出本次分析参考的具体 media_urls,以及 3-5 条原图最关键的视觉观察(直接观察到的事实,不是推测)。\n\n骨架示意(仅参考结构,内容必须基于原图重写):\n\"Create a {ASPECT_RATIO} {STYLE_DESCRIPTOR} poster featuring {SUBJECT} {SUBJECT_ACTION}, wearing {WARDROBE_STYLE}, holding {PRODUCT_OR_PROP}, in {LOCATION}. Use {BACKGROUND_TREATMENT}. Add {MAIN_TEXT_DESCRIPTOR} reading \\\"{MAIN_TEXT}\\\". Apply {TEXTURE_TREATMENT}. {FIXED_STYLE_TAILS}.\"\n\n---\n帖子内容:\n标题:{{title}}\n正文:{{content}}\n作者:{{author_name}}\n平台:{{platform}}\n媒体文件:{{media_urls}}\n\n严格按 JSON schema 输出。visual_prompt_skeleton 与 negative_prompt 使用英文(便于直接喂给主流图像生成模型),其余字段使用中文。slot 名保留英文大写下划线。不要附加任何解释或 Markdown。\n",
   "output_schema": {
     "type": "object",

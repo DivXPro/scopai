@@ -19,7 +19,7 @@ import { importCommentsToDb, importMediaToDb, getDefaultFetchMediaTemplate } fro
 // concurrent browser requests from cross-contaminating data
 let browserFetchLock: Promise<unknown> = Promise.resolve();
 import { buildJobsForPost } from '../daemon/scheduler';
-import { analyzeWithStrategy, analyzeBatchWithStrategy } from './anthropic';
+import { analyzeWithStrategy, analyzeBatchWithStrategy, analyzeRouter } from './anthropic';
 import { processCreatorSyncJob } from './creator-sync';
 import { parseStrategyResult, parseBatchStrategyResult } from './parser';
 import type { QueueJob, Comment } from '@scopai/core';
@@ -34,6 +34,7 @@ import {
 import { config } from '@scopai/core';
 import { getLogger } from '@scopai/core';
 import { getPendingCreatorSyncJobs, checkpoint } from '@scopai/core';
+import { createRouterResult } from '@scopai/core';
 import * as path from 'node:path';
 
 const POLL_INTERVAL_MS = 2000;
@@ -205,6 +206,13 @@ async function processJob(job: QueueJob, workerId: number | string): Promise<voi
 
   if (!job.strategy_id) {
     throw new Error(`Job ${job.id} has no strategy_id — legacy analysis is no longer supported`);
+  }
+
+  const strategy = await getStrategyById(job.strategy_id);
+  if (!strategy) throw new Error(`Strategy ${job.strategy_id} not found`);
+  if (strategy.is_router) {
+    await processRouterJob(job, strategy, task, workerId);
+    return;
   }
 
   await processStrategyJob(job, task, workerId);
@@ -407,6 +415,7 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
     const { listTaskTargets } = await import('@scopai/core');
     const { getExistingJobTargets } = await import('@scopai/core');
     const { createTaskTarget } = await import('@scopai/core');
+    const { hasRouterResultForPost } = await import('@scopai/core');
 
     const steps = await listTaskSteps(taskId);
     const strategies = new Map();
@@ -453,25 +462,57 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
         taskTargets = await listTaskTargets(taskId);
       }
 
-      const { jobs: analysisJobs, stepUpdates } = buildJobsForPost(
-        taskId,
-        postId,
-        steps,
-        strategies,
-        taskTargets,
-        await getExistingJobTargets(taskId, strategies.keys().next().value ?? ''),
-        comments,
-        mediaReady,
-        generateId,
-        postMediaTypes,
-      );
+      // Check if there's a router step
+      const routerStep = steps.find(s => {
+        const st = strategies.get(s.strategy_id ?? '');
+        return st?.is_router === true;
+      });
 
-      if (analysisJobs.length > 0) {
-        await enqueueJobs(analysisJobs);
-        for (const update of stepUpdates) {
-          await updateTaskStepStatus(update.stepId, update.status, update.stats);
+      if (routerStep) {
+        // Router mode: enqueue a router job for this post instead of analysis jobs
+        const alreadyRouted = await hasRouterResultForPost(routerStep.id, postId);
+        if (!alreadyRouted) {
+          const routerJob = {
+            id: generateId(),
+            task_id: taskId,
+            strategy_id: routerStep.strategy_id,
+            target_type: 'post' as const,
+            target_id: postId,
+            status: 'pending' as const,
+            priority: 0,
+            attempts: 0,
+            max_attempts: 3,
+            error: null,
+            created_at: new Date(),
+            processed_at: null,
+          };
+          await enqueueJobs([routerJob]);
+          logger.info(`[Worker-${workerId}] Post ${postId}: enqueued router job ${routerJob.id}`);
+        } else {
+          logger.info(`[Worker-${workerId}] Post ${postId}: router result already exists, skipping router job`);
         }
-        logger.info(`[Worker-${workerId}] Post ${postId}: enqueued ${analysisJobs.length} analysis jobs`);
+      } else {
+        // No router: generate analysis jobs directly (legacy path)
+        const { jobs: analysisJobs, stepUpdates } = buildJobsForPost(
+          taskId,
+          postId,
+          steps,
+          strategies,
+          taskTargets,
+          await getExistingJobTargets(taskId, strategies.keys().next().value ?? ''),
+          comments,
+          mediaReady,
+          generateId,
+          postMediaTypes,
+        );
+
+        if (analysisJobs.length > 0) {
+          await enqueueJobs(analysisJobs);
+          for (const update of stepUpdates) {
+            await updateTaskStepStatus(update.stepId, update.status, update.stats);
+          }
+          logger.info(`[Worker-${workerId}] Post ${postId}: enqueued ${analysisJobs.length} analysis jobs`);
+        }
       }
     }
   } catch (schedErr: unknown) {
@@ -741,5 +782,222 @@ async function syncStepStats(taskId: string, strategyId: string): Promise<void> 
   else if (failed > 0 && done + failed === total) status = 'failed';
 
   await updateTaskStepStatus(step.id, status, { total, done, failed });
+}
+
+async function processRouterJob(
+  job: QueueJob,
+  strategy: { id: string; name: string; prompt: string; output_schema: Record<string, unknown> },
+  task: { id: string; name: string },
+  workerId: number | string,
+): Promise<void> {
+  const logger = getLogger();
+  const postId = job.target_id;
+  if (!postId) throw new Error(`Router job ${job.id} has no target_id`);
+
+  logger.info(`[Worker-${workerId}] Router job ${job.id} for post ${postId}, task ${task.id}`);
+
+  // 1. Get post content
+  const post = await getPostById(postId);
+  if (!post) throw new Error(`Post ${postId} not found`);
+
+  // 2. Collect candidate strategies (all non-router strategies in this task's steps)
+  const steps = await listTaskSteps(task.id);
+  const { getStrategyById } = await import('@scopai/core');
+  const candidateStrategies: Array<{ id: string; name: string; routing: import('@scopai/core').RoutingConfig | null }> = [];
+  for (const step of steps) {
+    if (!step.strategy_id || step.strategy_id === strategy.id) continue;
+    const st = await getStrategyById(step.strategy_id);
+    if (st && !st.is_router && st.routing) {
+      candidateStrategies.push({ id: st.id, name: st.name, routing: st.routing });
+    }
+  }
+
+  if (candidateStrategies.length === 0) {
+    logger.info(`[Worker-${workerId}] Router job ${job.id}: no candidate strategies with routing, storing empty result`);
+    await createRouterResult({
+      router_step_id: job.id,
+      strategy_id: strategy.id,
+      task_id: task.id,
+      post_id: postId,
+      applicable_strategy_ids: [],
+      skipped_strategies: [],
+      checks: [],
+      confidence: 1,
+    });
+    return;
+  }
+
+  // 3. Call LLM router
+  const routerOutput = await analyzeRouter(post, candidateStrategies);
+
+  // 4. Apply hard-filters (availability checks) after LLM decision
+  const mediaFiles = await listMediaFilesByPost(postId);
+  const mediaTypes = new Set(mediaFiles.map(m => m.media_type));
+  const text = post.content ?? '';
+  const sentenceCount = text.split(/[。.！!？?\n]+/).filter(s => s.trim().length > 0).length;
+
+  const applicableStrategyIds: string[] = [];
+  const skippedStrategies: Array<{ strategy_id: string; reason: string }> = [];
+  const checks: Array<{ check_id: string; strategy_id: string; passed: boolean; evidence?: string }> = [];
+  let overallConfidence = 0;
+
+  for (const decision of routerOutput.decisions) {
+    const candidate = candidateStrategies.find(s => s.id === decision.strategy_id);
+    if (!candidate) continue;
+
+    // Merge LLM checks into overall checks list
+    for (const check of decision.checks) {
+      checks.push({
+        check_id: check.check_id,
+        strategy_id: decision.strategy_id,
+        passed: check.passed,
+        evidence: check.evidence,
+      });
+    }
+
+    overallConfidence += decision.confidence;
+
+    // Hard-filter: availability checks
+    let hardFilterPassed = true;
+    let hardFilterReason = '';
+    const availability = candidate.routing?.availability;
+    if (availability) {
+      if (availability.requires_media) {
+        for (const [mediaType, minCount] of Object.entries(availability.requires_media)) {
+          const actualCount = mediaFiles.filter(m => m.media_type === mediaType).length;
+          if (actualCount < minCount) {
+            hardFilterPassed = false;
+            hardFilterReason = `缺少所需媒体类型: ${mediaType} (需要 ${minCount}, 实际 ${actualCount})`;
+            break;
+          }
+        }
+      }
+      if (hardFilterPassed && availability.requires_text) {
+        const minSentences = availability.requires_text.min_sentences ?? 0;
+        const minChars = availability.requires_text.min_chars ?? 0;
+        if (sentenceCount < minSentences) {
+          hardFilterPassed = false;
+          hardFilterReason = `文本不足: 需要至少 ${minSentences} 句, 实际 ${sentenceCount} 句`;
+        } else if (text.length < minChars) {
+          hardFilterPassed = false;
+          hardFilterReason = `文本不足: 需要至少 ${minChars} 字符, 实际 ${text.length} 字符`;
+        }
+      }
+      if (hardFilterPassed && availability.requires_data) {
+        for (const field of availability.requires_data) {
+          const postAny = post as Record<string, unknown>;
+          const val = postAny[field];
+          if (val === null || val === undefined || val === '' || (typeof val === 'number' && val === 0)) {
+            hardFilterPassed = false;
+            hardFilterReason = `缺少所需数据字段: ${field}`;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!hardFilterPassed) {
+      skippedStrategies.push({ strategy_id: decision.strategy_id, reason: hardFilterReason });
+      continue;
+    }
+
+    if (decision.applicable) {
+      applicableStrategyIds.push(decision.strategy_id);
+    } else {
+      skippedStrategies.push({
+        strategy_id: decision.strategy_id,
+        reason: decision.rejection_reason ?? 'LLM 判定不适用',
+      });
+    }
+  }
+
+  const avgConfidence = routerOutput.decisions.length > 0
+    ? overallConfidence / routerOutput.decisions.length
+    : 1;
+
+  // 5. Store router result
+  await createRouterResult({
+    router_step_id: job.id,
+    strategy_id: strategy.id,
+    task_id: task.id,
+    post_id: postId,
+    applicable_strategy_ids: applicableStrategyIds,
+    skipped_strategies: skippedStrategies,
+    checks,
+    confidence: avgConfidence,
+  });
+
+  logger.info(`[Worker-${workerId}] Router job ${job.id}: applicable=${applicableStrategyIds.length}, skipped=${skippedStrategies.length}, confidence=${avgConfidence.toFixed(2)}`);
+
+  // 6. Enqueue analysis jobs for applicable strategies
+  const { listTaskTargets } = await import('@scopai/core');
+  const { getExistingJobTargets } = await import('@scopai/core');
+  const { createTaskTarget } = await import('@scopai/core');
+  const { enqueueJobs } = await import('@scopai/core');
+
+  let taskTargets = await listTaskTargets(task.id);
+  const comments = await query<{ id: string }>(
+    `SELECT id FROM comments WHERE post_id = ?`,
+    [postId],
+  );
+
+  const mediaStatus = await query<{ media_fetched: boolean }>(
+    `SELECT media_fetched FROM task_post_status WHERE task_id = ? AND post_id = ?`,
+    [task.id, postId],
+  );
+  const mediaReady = mediaStatus[0]?.media_fetched === true;
+
+  let postMediaTypes: string[] = [];
+  if (mediaReady) {
+    postMediaTypes = Array.from(new Set(mediaFiles.map((m) => m.media_type)));
+  }
+
+  // Ensure comments are task targets for comment-level strategies
+  const strategies = new Map();
+  for (const step of steps) {
+    if (step.strategy_id && !strategies.has(step.strategy_id)) {
+      const st = await getStrategyById(step.strategy_id);
+      if (st) strategies.set(step.strategy_id, st);
+    }
+  }
+  const hasCommentStrategy = Array.from(strategies.values()).some((s: any) => s.target === 'comment');
+  if (hasCommentStrategy && comments.length > 0) {
+    const existingIds = new Set(taskTargets.map(t => t.target_id));
+    for (const c of comments) {
+      if (!existingIds.has(c.id)) {
+        await createTaskTarget(task.id, 'comment', c.id);
+        existingIds.add(c.id);
+      }
+    }
+    taskTargets = await listTaskTargets(task.id);
+  }
+
+  // Build router results map for buildJobsForPost
+  const routerResults = new Map<string, Set<string>>();
+  routerResults.set(postId, new Set(applicableStrategyIds));
+
+  const { jobs: analysisJobs, stepUpdates } = buildJobsForPost(
+    task.id,
+    postId,
+    steps,
+    strategies,
+    taskTargets,
+    await getExistingJobTargets(task.id, strategies.keys().next().value ?? ''),
+    comments,
+    mediaReady,
+    generateId,
+    postMediaTypes,
+    routerResults,
+  );
+
+  if (analysisJobs.length > 0) {
+    await enqueueJobs(analysisJobs);
+    for (const update of stepUpdates) {
+      await updateTaskStepStatus(update.stepId, update.status, update.stats);
+    }
+    logger.info(`[Worker-${workerId}] Post ${postId}: enqueued ${analysisJobs.length} analysis jobs after routing`);
+  } else {
+    logger.info(`[Worker-${workerId}] Post ${postId}: no analysis jobs generated after routing`);
+  }
 }
 
