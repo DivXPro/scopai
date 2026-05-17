@@ -18,6 +18,7 @@ import {
   query,
   checkpoint,
   getLogger,
+  getRouterResultsByTask,
 } from '@scopai/core';
 import type { Strategy } from '@scopai/core';
 import { enqueueStepJobs } from '../daemon/task-helpers';
@@ -116,6 +117,86 @@ export default async function tasksRoutes(app: FastifyInstance) {
       ? JSON.parse(task.stats)
       : task.stats ?? { total: 0, done: 0, failed: 0 };
 
+    // Compute strategy_stats if task has a router step
+    const routerStep = steps.find(s => {
+      const st = stepDetails.find(d => d.stepId === s.id);
+      return st?.strategyId ? false : false; // placeholder, will resolve below
+    });
+
+    // Find router step by checking strategies
+    let hasRouterStep = false;
+    let routerStepId: string | null = null;
+    for (const step of steps) {
+      if (step.strategy_id) {
+        const st = await getStrategyById(step.strategy_id);
+        if (st?.is_router) {
+          hasRouterStep = true;
+          routerStepId = step.id;
+          break;
+        }
+      }
+    }
+
+    let strategyStats: Array<{
+      strategyId: string;
+      strategyName: string;
+      applicableCount: number;
+      doneCount: number;
+      processingCount: number;
+      failedCount: number;
+    }> = [];
+
+    let routerResultsMap = new Map<string, { applicable: string[]; skipped: Array<{ strategy_id: string; reason: string }> }>();
+
+    if (hasRouterStep && routerStepId) {
+      const routerResults = await getRouterResultsByTask(id);
+      for (const r of routerResults) {
+        routerResultsMap.set(r.post_id, {
+          applicable: r.applicable_strategy_ids,
+          skipped: r.skipped_strategies,
+        });
+      }
+
+      // Build per-strategy stats
+      const strategyMap = new Map<string, { name: string; applicable: number; done: number; processing: number; failed: number }>();
+      for (const step of steps) {
+        if (!step.strategy_id) continue;
+        const st = await getStrategyById(step.strategy_id);
+        if (!st || st.is_router) continue;
+        if (!strategyMap.has(st.id)) {
+          strategyMap.set(st.id, { name: st.name, applicable: 0, done: 0, processing: 0, failed: 0 });
+        }
+      }
+
+      for (const [postId, result] of routerResultsMap) {
+        for (const sid of result.applicable) {
+          const entry = strategyMap.get(sid);
+          if (entry) entry.applicable++;
+        }
+      }
+
+      // Cross-reference with jobs for done/processing/failed counts
+      for (const job of jobs) {
+        if (!job.strategy_id || job.target_type !== 'post') continue;
+        const entry = strategyMap.get(job.strategy_id);
+        if (!entry) continue;
+        const postResult = routerResultsMap.get(job.target_id);
+        if (!postResult?.applicable.includes(job.strategy_id)) continue;
+        if (job.status === 'completed') entry.done++;
+        else if (job.status === 'failed') entry.failed++;
+        else if (job.status === 'processing' || job.status === 'pending') entry.processing++;
+      }
+
+      strategyStats = Array.from(strategyMap.entries()).map(([strategyId, data]) => ({
+        strategyId,
+        strategyName: data.name,
+        applicableCount: data.applicable,
+        doneCount: data.done,
+        processingCount: data.processing,
+        failedCount: data.failed,
+      }));
+    }
+
     return {
       ...task,
       stats: taskStats,
@@ -134,9 +215,11 @@ export default async function tasksRoutes(app: FastifyInstance) {
         analysis: jobStats,
       },
       steps: stepDetails,
+      strategyStats,
       recentErrors,
       postStatuses: postStatuses.map(p => {
         const postDetail = postDetailsMap.get(p.post_id);
+        const routerResult = routerResultsMap.get(p.post_id);
         return {
           postId: p.post_id,
           status: p.status,
@@ -145,6 +228,8 @@ export default async function tasksRoutes(app: FastifyInstance) {
           error: p.error,
           title: postDetail?.title ?? null,
           platformId: postDetail?.platform_id ?? '',
+          routerStatus: routerResult ? 'routed' : (hasRouterStep ? 'pending' : null),
+          routerApplicableCount: routerResult?.applicable.length ?? null,
         };
       }),
       jobs: jobs.map((j) => ({
@@ -171,6 +256,69 @@ export default async function tasksRoutes(app: FastifyInstance) {
     const stats = await getStrategyResultStats(strategy_id, id);
 
     return { results, stats };
+  });
+
+  app.get('/tasks/:id/routing', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const task = await getTaskById(id);
+    if (!task) {
+      reply.code(404);
+      throw new Error(`Task not found: ${id}`);
+    }
+
+    const steps = await listTaskSteps(id);
+    let routerStepId: string | null = null;
+    let routerStrategyId: string | null = null;
+    for (const step of steps) {
+      if (step.strategy_id) {
+        const st = await getStrategyById(step.strategy_id);
+        if (st?.is_router) {
+          routerStepId = step.id;
+          routerStrategyId = st.id;
+          break;
+        }
+      }
+    }
+
+    if (!routerStepId) {
+      return {
+        task_id: id,
+        router_step_id: null,
+        router_strategy_id: null,
+        decisions: [],
+      };
+    }
+
+    const routerResults = await getRouterResultsByTask(id);
+    const strategyMap = new Map<string, string>();
+    for (const step of steps) {
+      if (step.strategy_id && !strategyMap.has(step.strategy_id)) {
+        const st = await getStrategyById(step.strategy_id);
+        if (st) strategyMap.set(step.strategy_id, st.name);
+      }
+    }
+
+    const decisions = routerResults.map(r => ({
+      post_id: r.post_id,
+      applicable: r.applicable_strategy_ids.map(sid => ({
+        strategy_id: sid,
+        strategy_name: strategyMap.get(sid) ?? sid,
+      })),
+      skipped: r.skipped_strategies.map(s => ({
+        strategy_id: s.strategy_id,
+        strategy_name: strategyMap.get(s.strategy_id) ?? s.strategy_id,
+        reason: s.reason,
+      })),
+      checks: r.checks,
+      confidence: r.confidence,
+    }));
+
+    return {
+      task_id: id,
+      router_step_id: routerStepId,
+      router_strategy_id: routerStrategyId,
+      decisions,
+    };
   });
 
   app.post('/tasks', async (request, reply) => {
