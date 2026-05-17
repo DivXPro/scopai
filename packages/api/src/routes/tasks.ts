@@ -173,7 +173,7 @@ export default async function tasksRoutes(app: FastifyInstance) {
     return { results, stats };
   });
 
-  app.post('/tasks', async (request) => {
+  app.post('/tasks', async (request, reply) => {
     const data = request.body as Record<string, unknown>;
     const id = (data.id as string) ?? generateId();
     const cliTemplates = data.cli_templates;
@@ -192,34 +192,90 @@ export default async function tasksRoutes(app: FastifyInstance) {
       completed_at: null,
     });
 
-    // step_strategy_ids 语义：
-    //   - 字段缺失（undefined）→ 用所有 is_default=true 的策略
-    //   - 字段是数组（含 []）→ 原样使用，未知 id 静默跳过
-    const stepStrategyIds = data.step_strategy_ids;
-    let strategies: Strategy[];
-    if (Array.isArray(stepStrategyIds)) {
-      strategies = [];
-      for (const sid of stepStrategyIds as string[]) {
-        const s = await getStrategyById(sid);
-        if (s) strategies.push(s);
-      }
-    } else {
-      strategies = await listDefaultStrategies();
-    }
-
     const stepIds: string[] = [];
     let order = 0;
-    for (const s of strategies) {
-      const step = await createTaskStep({
+
+    const routerStrategyId = data.router_strategy_id as string | undefined;
+    if (routerStrategyId) {
+      // Router mode: validate router strategy and create router step + candidate steps
+      const routerStrategy = await getStrategyById(routerStrategyId);
+      if (!routerStrategy) {
+        reply.code(400);
+        throw new Error(`Router strategy not found: ${routerStrategyId}`);
+      }
+      if (!routerStrategy.is_router) {
+        reply.code(400);
+        throw new Error(`Strategy ${routerStrategyId} is not a router strategy`);
+      }
+
+      // Create router step first
+      const routerStep = await createTaskStep({
         task_id: id,
-        strategy_id: s.id,
-        name: s.name,
+        strategy_id: routerStrategy.id,
+        name: routerStrategy.name,
         step_order: order++,
         status: 'pending',
         stats: { total: 0, done: 0, failed: 0 },
         error: null,
       });
-      stepIds.push(step.id);
+      stepIds.push(routerStep.id);
+
+      // Resolve candidate strategies
+      const candidateIds = data.candidate_strategy_ids as string[] | undefined;
+      const candidates: Strategy[] = [];
+      if (Array.isArray(candidateIds)) {
+        for (const sid of candidateIds) {
+          const s = await getStrategyById(sid);
+          if (s && !s.is_router) candidates.push(s);
+        }
+      } else {
+        // Default: all non-router default strategies
+        const defaults = await listDefaultStrategies();
+        for (const s of defaults) {
+          if (!s.is_router) candidates.push(s);
+        }
+      }
+
+      for (const s of candidates) {
+        const step = await createTaskStep({
+          task_id: id,
+          strategy_id: s.id,
+          name: s.name,
+          step_order: order++,
+          status: 'pending',
+          stats: { total: 0, done: 0, failed: 0 },
+          error: null,
+        });
+        stepIds.push(step.id);
+      }
+    } else {
+      // step_strategy_ids 语义：
+      //   - 字段缺失（undefined）→ 用所有 is_default=true 的策略
+      //   - 字段是数组（含 []）→ 原样使用，未知 id 静默跳过
+      const stepStrategyIds = data.step_strategy_ids;
+      let strategies: Strategy[];
+      if (Array.isArray(stepStrategyIds)) {
+        strategies = [];
+        for (const sid of stepStrategyIds as string[]) {
+          const s = await getStrategyById(sid);
+          if (s) strategies.push(s);
+        }
+      } else {
+        strategies = await listDefaultStrategies();
+      }
+
+      for (const s of strategies) {
+        const step = await createTaskStep({
+          task_id: id,
+          strategy_id: s.id,
+          name: s.name,
+          step_order: order++,
+          status: 'pending',
+          stats: { total: 0, done: 0, failed: 0 },
+          error: null,
+        });
+        stepIds.push(step.id);
+      }
     }
 
     return { id, step_ids: stepIds };
