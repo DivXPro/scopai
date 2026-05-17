@@ -26,7 +26,8 @@ export function analyzeCommands(program: Command): void {
     .option('--post-ids <ids>', 'Comma-separated post IDs')
     .option('--comment-ids <ids>', 'Comma-separated comment IDs')
     .option('--force', 'Re-analyze targets that already have results')
-    .action(async (opts: { strategyId: string; taskId?: string; postIds?: string; commentIds?: string; force?: boolean }) => {
+    .option('--auto-route', 'Enable dynamic strategy routing (content-strategy-router)')
+    .action(async (opts: { strategyId: string; taskId?: string; postIds?: string; commentIds?: string; force?: boolean; autoRoute?: boolean }) => {
       const payload: Record<string, unknown> = {
         strategy_id: opts.strategyId,
         force: opts.force ?? false,
@@ -34,6 +35,10 @@ export function analyzeCommands(program: Command): void {
       if (opts.taskId) payload.task_id = opts.taskId;
       if (opts.postIds) payload.post_ids = opts.postIds.split(',').map(s => s.trim());
       if (opts.commentIds) payload.comment_ids = opts.commentIds.split(',').map(s => s.trim());
+      if (opts.autoRoute) {
+        payload.router_strategy_id = 'content-strategy-router';
+        payload.candidate_strategy_ids = [opts.strategyId];
+      }
 
       const result = await apiPost('/analyze/submit', payload);
       console.log(pc.green(`Task: ${result.task_id}`));
