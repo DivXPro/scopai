@@ -60,6 +60,8 @@ export async function startMcpServer(): Promise<void> {
       const params = new URLSearchParams();
       params.set('query', args.query);
       params.set('limit', String(args.limit ?? 5));
+      if (args.platform) params.set('platform', args.platform);
+      if (args.starred) params.set('starred', 'true');
       const result = await apiGet('/search?' + params.toString());
       return makeTextResult(result);
     }

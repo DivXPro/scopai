@@ -23,8 +23,8 @@ export default function Sidebar() {
   return (
     <aside className="flex w-64 flex-col bg-white border-r border-outline-variant h-screen">
       <div className="px-6 py-6 mb-2">
-        <h1 className="text-lg font-extrabold tracking-tighter text-secondary">ScopeAI</h1>
-        <p className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-widest mt-1">
+        <h1 className="text-lg font-bold tracking-tight text-foreground">ScopeAI</h1>
+        <p className="text-xs font-medium text-secondary uppercase tracking-wider mt-0.5">
           Analyze Platform
         </p>
       </div>

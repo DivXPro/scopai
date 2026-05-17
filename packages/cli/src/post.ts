@@ -172,39 +172,39 @@ export function postCommands(program: Command): void {
 
   post
     .command('search')
-    .description('Search posts by keyword')
+    .description('Search posts by keyword across post content and analysis results')
     .requiredOption('--platform <id>', 'Platform ID')
     .requiredOption('--query <text>', 'Search query')
-    .option('--author-id <id>', 'Filter by author ID')
     .option('--starred', 'Only show starred posts')
-    .option('--label <name>', 'Filter by label name')
     .option('--limit <n>', 'Max results', '50')
-    .option('--offset <n>', 'Offset', '0')
     .option('--json', 'Output raw JSON')
-    .action(async (opts: { platform: string; query: string; authorId?: string; starred?: boolean; label?: string; limit: string; offset: string; json?: boolean }) => {
+    .action(async (opts: { platform: string; query: string; starred?: boolean; limit: string; json?: boolean }) => {
       const params = new URLSearchParams();
       params.set('query', opts.query);
       params.set('platform', opts.platform);
-      if (opts.authorId) params.set('author_id', opts.authorId);
       if (opts.starred) params.set('starred', 'true');
-      if (opts.label) params.set('label', opts.label);
       params.set('limit', opts.limit);
-      params.set('offset', opts.offset);
-      const result = await apiGet<ListPostsResponse>('/posts?' + params.toString());
+      const result = await apiGet<{ posts: Array<{ post_id: string; title: string | null; content: string; author_name: string | null; platform_id: string; reference_summary: string }>; total: number }>('/search?' + params.toString());
       if (opts.json) {
         console.log(JSON.stringify(result, null, 2));
         return;
       }
-      const posts = result.posts ?? (result as any);
+      const posts = result.posts ?? [];
       if (posts.length === 0) {
         console.log(pc.yellow('No posts found'));
         return;
       }
       console.log(pc.bold(`\nSearch results (${posts.length}):`));
+      console.log(pc.dim('─'.repeat(80)));
       for (const p of posts) {
-        const title = p.title ?? (p.content ?? '').slice(0, 40);
-        console.log(`  ${pc.green(p.id.slice(0, 8))} ${title}`);
+        const title = p.title ?? p.content.slice(0, 40);
+        console.log(`  ${pc.green(p.post_id.slice(0, 8))} ${pc.cyan(p.platform_id)} ${title}`);
+        if (p.reference_summary) {
+          const snippet = p.reference_summary.length > 60 ? p.reference_summary.slice(0, 60) + '...' : p.reference_summary;
+          console.log(`    ${pc.dim('Match: ' + snippet)}`);
+        }
       }
+      console.log(pc.dim('─'.repeat(80)));
       console.log();
     });
 

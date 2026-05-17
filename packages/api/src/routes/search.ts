@@ -3,9 +3,14 @@ import { searchPostsByQueryWithPostJoin } from '@scopai/core';
 
 export default async function searchRoutes(app: FastifyInstance) {
   app.get('/search', async (request) => {
-    const { query: queryText, limit = '5' } = request.query as Record<string, string>;
+    const { query: queryText, limit = '5', platform, starred } = request.query as Record<string, string>;
     if (!queryText) return { posts: [], total: 0 };
-    const results = await searchPostsByQueryWithPostJoin(queryText, parseInt(limit, 10));
+    const results = await searchPostsByQueryWithPostJoin(
+      queryText,
+      parseInt(limit, 10),
+      platform || undefined,
+      starred === 'true',
+    );
     return {
       posts: results.map(r => ({
         post_id: r.post_id,

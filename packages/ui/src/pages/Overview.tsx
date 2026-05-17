@@ -58,11 +58,11 @@ function StatCard({ title, value, icon, colorClass }: { title: string; value: nu
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-foreground">{title}</CardTitle>
+        <CardTitle className="text-sm font-medium text-secondary">{title}</CardTitle>
         <span className={colorClass}>{icon}</span>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold text-foreground">{value}</div>
+        <div className="text-2xl font-bold text-foreground tabular-nums">{value}</div>
       </CardContent>
     </Card>
   );
@@ -198,7 +198,7 @@ export default function Overview() {
                       {statusLabelMap[task.status] ?? task.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="text-sm text-muted-foreground tabular-nums">
                     {new Date(task.created_at).toLocaleDateString('zh-CN')}
                   </TableCell>
                   <TableCell className="text-right">

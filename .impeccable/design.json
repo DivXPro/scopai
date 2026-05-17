@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-17T00:00:00Z",
+  "title": "Design System: ScopeAI",
+  "extensions": {
+    "colorMeta": {
+      "accent": { "role": "primary", "displayName": "Soft Blue", "canonical": "oklch(0.55 0.18 264)", "tonalRamp": ["oklch(0.20 0.08 264)", "oklch(0.30 0.12 264)", "oklch(0.40 0.15 264)", "oklch(0.50 0.17 264)", "oklch(0.55 0.18 264)", "oklch(0.65 0.15 264)", "oklch(0.75 0.12 264)", "oklch(0.85 0.08 264)"] },
+      "surface": { "role": "neutral", "displayName": "Cloud Gray", "canonical": "oklch(0.975 0.005 250)", "tonalRamp": ["oklch(0.15 0.005 250)", "oklch(0.25 0.005 250)", "oklch(0.40 0.005 250)", "oklch(0.55 0.005 250)", "oklch(0.70 0.005 250)", "oklch(0.85 0.005 250)", "oklch(0.92 0.005 250)", "oklch(0.975 0.005 250)"] },
+      "text-primary": { "role": "neutral", "displayName": "Ink Gray", "canonical": "oklch(0.18 0.01 250)", "tonalRamp": ["oklch(0.10 0.01 250)", "oklch(0.18 0.01 250)", "oklch(0.30 0.01 250)", "oklch(0.45 0.01 250)", "oklch(0.60 0.01 250)", "oklch(0.75 0.01 250)", "oklch(0.85 0.01 250)", "oklch(0.95 0.01 250)"] },
+      "success": { "role": "semantic", "displayName": "Fresh Green", "canonical": "oklch(0.65 0.20 145)" },
+      "danger": { "role": "semantic", "displayName": "Signal Red", "canonical": "oklch(0.55 0.22 25)" },
+      "warning": { "role": "semantic", "displayName": "Amber", "canonical": "oklch(0.75 0.18 80)" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Page-level titles only. 2rem/32px, 700 weight." },
+      "title": { "displayName": "Title", "purpose": "Section headers, card titles. 1.5rem/24px, 600 weight." },
+      "heading": { "displayName": "Heading", "purpose": "Sub-section headers, form groups. 1.25rem/20px, 600 weight." },
+      "subheading": { "displayName": "Subheading", "purpose": "Card internal titles, list item titles. 1.125rem/18px, 600 weight." },
+      "body": { "displayName": "Body", "purpose": "Content, data, descriptions. 1rem/16px, 400 weight." },
+      "label": { "displayName": "Label", "purpose": "Buttons, form labels, table cells. 0.875rem/14px, 500 weight." },
+      "caption": { "displayName": "Caption", "purpose": "Timestamps, auxiliary info, badge text. 0.75rem/12px, 500 weight." }
+    },
+    "shadows": [
+      { "name": "subtle", "value": "0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03)", "purpose": "Default card shadow, barely visible." },
+      { "name": "hover", "value": "0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04)", "purpose": "Hover feedback on interactive cards." },
+      { "name": "overlay", "value": "0 8px 24px rgba(0,0,0,0.12), 0 4px 8px rgba(0,0,0,0.06)", "purpose": "Dropdowns, modals, floating panels." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.25, 0.1, 0.25, 1)", "purpose": "Default easing for state transitions." },
+      { "name": "duration-fast", "value": "150ms", "purpose": "Micro-interactions: hover, focus, color change." },
+      { "name": "duration-normal", "value": "200ms", "purpose": "Layout transitions, expand/collapse." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main action button. Used sparingly, one per view when possible.",
+      "html": "<button class=\"ds-btn-primary\">开始分析</button>",
+      "css": ".ds-btn-primary { background: #4a6cf7; color: #ffffff; padding: 8px 20px; border: none; border-radius: 6px; font-size: 14px; font-weight: 500; font-family: Inter, system-ui, sans-serif; letter-spacing: -0.01em; cursor: pointer; transition: background 150ms ease; } .ds-btn-primary:hover { background: #3b5ce6; } .ds-btn-primary:focus-visible { outline: 2px solid #4a6cf7; outline-offset: 2px; } .ds-btn-primary:disabled { background: #f1f3f5; color: #8c939e; cursor: not-allowed; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action button. Used for cancel, dismiss, or less important actions.",
+      "html": "<button class=\"ds-btn-ghost\">取消</button>",
+      "css": ".ds-btn-ghost { background: transparent; color: #5f6670; padding: 8px 16px; border: none; border-radius: 6px; font-size: 14px; font-weight: 500; font-family: Inter, system-ui, sans-serif; cursor: pointer; transition: background 150ms ease; } .ds-btn-ghost:hover { background: #f1f3f5; } .ds-btn-ghost:focus-visible { outline: 2px solid #4a6cf7; outline-offset: 2px; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Content container with subtle elevation. Used for data display, task items, stats.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-content\">Card content here</div></div>",
+      "css": ".ds-card { background: #ffffff; border: 1px solid #e2e5ea; border-radius: 14px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03); transition: box-shadow 200ms ease; } .ds-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04); } .ds-card-content { font-size: 14px; color: #1a1d21; }"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Text input field. Used for search, form fields.",
+      "html": "<input type=\"text\" class=\"ds-input\" placeholder=\"搜索帖子、任务、策略...\" />",
+      "css": ".ds-input { background: #ffffff; border: 1px solid #e2e5ea; border-radius: 6px; padding: 8px 14px; font-size: 14px; font-family: Inter, system-ui, sans-serif; color: #1a1d21; outline: none; transition: border-color 150ms ease, box-shadow 150ms ease; width: 100%; } .ds-input::placeholder { color: #8c939e; } .ds-input:focus { border-color: #4a6cf7; box-shadow: 0 0 0 2px rgba(74,108,247,0.15); }"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Status indicator. Used for task status, labels, tags.",
+      "html": "<span class=\"ds-badge ds-badge-success\">已完成</span> <span class=\"ds-badge ds-badge-danger\">失败</span> <span class=\"ds-badge ds-badge-warning\">已暂停</span> <span class=\"ds-badge\">待处理</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 10px; font-weight: 500; font-family: Inter, system-ui, sans-serif; background: #f1f3f5; color: #5f6670; border: 1px solid transparent; } .ds-badge-success { background: #f0fdf4; color: #22c55e; border-color: rgba(34,197,94,0.2); } .ds-badge-danger { background: #fef2f2; color: #ef4444; border-color: rgba(239,68,68,0.2); } .ds-badge-warning { background: #fffbeb; color: #f59e0b; border-color: rgba(245,158,11,0.2); }"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "sidebar",
+      "description": "Primary navigation. Fixed left sidebar with icon + label items.",
+      "html": "<nav class=\"ds-sidebar\"><a class=\"ds-nav-item ds-nav-active\" href=\"#\"><svg class=\"ds-nav-icon\" viewBox=\"0 0 16 16\" width=\"16\" height=\"16\"><rect x=\"1\" y=\"1\" width=\"14\" height=\"14\" rx=\"2\" fill=\"currentColor\"/></svg><span>概览</span></a><a class=\"ds-nav-item\" href=\"#\"><svg class=\"ds-nav-icon\" viewBox=\"0 0 16 16\" width=\"16\" height=\"16\"><rect x=\"1\" y=\"1\" width=\"14\" height=\"14\" rx=\"2\" fill=\"currentColor\"/></svg><span>任务</span></a></nav>",
+      "css": ".ds-sidebar { width: 256px; background: #ffffff; border-right: 1px solid #e2e5ea; padding: 24px 0; } .ds-nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 24px; font-size: 14px; color: #5f6670; text-decoration: none; transition: color 150ms ease, background 150ms ease; } .ds-nav-item:hover { color: #1a1d21; background: #f1f3f5; } .ds-nav-active { color: #4a6cf7; background: #eef2ff; border-left: 3px solid #4a6cf7; font-weight: 500; } .ds-nav-icon { width: 16px; height: 16px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Modern SaaS Tool",
+    "overview": "ScopeAI 的设计系统以现代 SaaS 工具（Linear、Notion、Figma）为标杆：工具应该消失在任务中，而不是强调自己的存在。界面追求的是'拿起来就会用'的熟悉感，不是'看起来很酷'的新鲜感。\n\n这是一个为内容创作者和运营人员设计的分析工具。用户打开页面是为了获取洞察，不是为了欣赏设计。所以每个视觉决策都应该服务于'让用户更快找到答案'这个目标。\n\n配色走中性灰调路线，减少品牌感，让数据本身成为焦点。蓝色仅用于交互元素（按钮、链接、选中状态），不用于装饰。整体视觉层次靠轻量阴影和间距变化建立，不用颜色堆叠。",
+    "keyCharacteristics": [
+      "工具感优先，装饰为零",
+      "中性灰调配色，蓝色仅限交互",
+      "轻量阴影建立层次，不用重色块",
+      "间距变化创造节奏，不用卡片嵌套",
+      "状态用语义色（绿/红/黄）清晰表达，不用图标装饰"
+    ],
+    "rules": [
+      { "name": "The ≤10% Rule", "body": "蓝色（accent）仅用于需要用户行动的元素：主按钮、链接、选中状态、进度条。装饰性使用蓝色是被禁止的。", "section": "colors" },
+      { "name": "The No Pure Black/White Rule", "body": "禁止使用 #000000 和 #ffffff 作为文本或大面积背景。所有中性色都带蓝灰色调，保持视觉温度一致。", "section": "colors" },
+      { "name": "The Semantic Clarity Rule", "body": "语义色（success/danger/warning）仅用于状态表达，不用于装饰。", "section": "colors" },
+      { "name": "The Single Family Rule", "body": "只用 Inter 一个字体族。产品 UI 不需要 display/body 配对。", "section": "typography" },
+      { "name": "The Fixed Scale Rule", "body": "使用固定 rem 缩放（14px → 18px → 24px），不用 clamp() 流体缩放。", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "静态元素不用阴影。阴影是状态响应（hover、focus、elevation），不是默认装饰。", "section": "elevation" },
+      { "name": "The Subtle Gradient Rule", "body": "阴影用两层（ambient + direct），不用单层硬阴影。", "section": "elevation" }
+    ],
+    "dos": [
+      "用蓝色 (#4a6cf7) 仅限交互元素：主按钮、链接、选中状态、进度指示。",
+      "用语义色（success/danger/warning）清晰表达状态，让用户一眼看出什么完成了、什么出错了。",
+      "用间距变化创造节奏：标题区块用 24px，列表项用 12px，紧密元素用 8px。",
+      "用轻量阴影建立层次，静态元素扁平，状态变化时阴影加深。",
+      "用中性灰调让数据成为焦点，界面消失在任务中。"
+    ],
+    "donts": [
+      "用蓝色做装饰。PRODUCT.md 说'不要过度使用渐变、毛玻璃、霓虹色等 AI 感视觉元素'，蓝色仅限交互。",
+      "用 #000000 和 #ffffff。所有中性色都带蓝灰色调。",
+      "嵌套卡片。卡片是内容容器，不是布局手段。",
+      "用渐变文字（background-clip: text + gradient）。这是装饰，不是信息。",
+      "用侧边彩色条（border-left > 1px 作为强调）。用完整边框、背景色或前导图标。",
+      "堆砌信息到一个仪表盘。PRODUCT.md 说'不要把所有信息堆在一个仪表盘上，造成信息过载'。",
+      "用对话气泡呈现分析结果。PRODUCT.md 说'分析结果用结构化视图呈现，不用对话气泡'。"
+    ]
+  }
+}

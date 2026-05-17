@@ -15,6 +15,8 @@ export async function insertSearchIndex(
 export async function searchPostsByQueryWithPostJoin(
   queryText: string,
   limit = 5,
+  platformId?: string,
+  starred?: boolean,
 ): Promise<
   Array<{
     post_id: string;
@@ -26,14 +28,23 @@ export async function searchPostsByQueryWithPostJoin(
   }>
 > {
   const likePattern = `%${queryText}%`;
+  const conditions = ['s.searchable_text LIKE ?'];
+  const params: unknown[] = [likePattern];
+  if (platformId) {
+    conditions.push('p.platform_id = ?');
+    params.push(platformId);
+  }
+  if (starred) {
+    conditions.push('p.is_starred = true');
+  }
   return query(
     `SELECT DISTINCT s.post_id, p.title, p.content, p.author_name, p.platform_id, s.searchable_text as matched_snippet
      FROM search_index s
      JOIN posts p ON s.post_id = p.id
-     WHERE s.searchable_text LIKE ?
+     WHERE ${conditions.join(' AND ')}
      ORDER BY s.weight DESC
      LIMIT ?`,
-    [likePattern, limit],
+    [...params, limit],
   );
 }
 
