@@ -17,6 +17,7 @@ export interface EnqueueStepResult {
 export async function enqueueStepJobs(
   taskId: string,
   step: TaskStep,
+  routerContext?: { routerStepId: string; routerResults?: Map<string, Set<string>> },
 ): Promise<EnqueueStepResult> {
   const strategy = await getStrategyById(step.strategy_id ?? '');
   if (!strategy) {
@@ -25,6 +26,15 @@ export async function enqueueStepJobs(
 
   const targets = await listTaskTargets(taskId);
   let relevantTargets = targets.filter(t => t.target_type === strategy.target);
+
+  // Router filtering: if router results exist and this is a post-level strategy,
+  // only keep targets where the strategy is applicable
+  if (routerContext?.routerResults && strategy.target === 'post') {
+    relevantTargets = relevantTargets.filter(t => {
+      const applicableSet = routerContext.routerResults!.get(t.target_id);
+      return applicableSet?.has(strategy.id) ?? false;
+    });
+  }
 
   // Media-type routing: if the strategy demands specific media types,
   // filter out post targets whose available media doesn't intersect.
