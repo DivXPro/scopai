@@ -8,6 +8,7 @@ import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { TaskTimeline } from '@/components/TaskTimeline';
 import { PipelineMatrix } from '@/components/PipelineMatrix';
+import { StrategyStats } from '@/components/StrategyStats';
 import { PostDetailModal, type Post } from '@/pages/PostLibrary';
 
 const ArrowChevronLeft = icons.ArrowChevronLeft;
@@ -56,6 +57,15 @@ interface TaskProgress {
   };
 }
 
+interface StrategyStat {
+  strategyId: string;
+  strategyName: string;
+  applicableCount: number;
+  doneCount: number;
+  processingCount: number;
+  failedCount: number;
+}
+
 interface TaskDetail {
   id: string;
   name: string;
@@ -68,6 +78,7 @@ interface TaskDetail {
   steps: TaskStep[];
   jobs: TaskJob[];
   progress?: TaskProgress;
+  strategyStats?: StrategyStat[];
   postStatuses?: {
     postId: string;
     status: string;
@@ -76,6 +87,8 @@ interface TaskDetail {
     error: string | null;
     title: string | null;
     platformId: string;
+    routerStatus: string | null;
+    routerApplicableCount: number | null;
   }[];
 }
 
@@ -251,39 +264,105 @@ export default function TaskDetail() {
     return step.name;
   };
 
-  const phases = [
-    {
-      id: 'data-prep',
-      name: '数据准备',
-      status: task.progress?.dataPreparation?.status ?? 'pending',
-      progress: task.progress?.dataPreparation?.totalPosts
-        ? Math.round((task.progress.dataPreparation.donePosts / task.progress.dataPreparation.totalPosts) * 100)
-        : 0,
-      total: task.progress?.dataPreparation?.totalPosts ?? 0,
-      done: task.progress?.dataPreparation?.donePosts ?? 0,
-    },
-    ...task.steps.map((step) => {
-      const total = step.stats?.total ?? 0;
-      const done = step.stats?.done ?? 0;
-      return {
-        id: step.id,
-        name: getStrategyDisplayName(step),
-        status: step.status,
-        progress: total > 0 ? Math.round((done / total) * 100) : 0,
-        stepOrder: step.step_order,
-        total,
-        done,
-      };
-    }),
-  ];
+  // Determine if we're in router mode by checking strategyStats presence
+  const isRouterMode = !!task.strategyStats && task.strategyStats.length > 0;
 
-  const matrixColumns = [
-    { key: 'data-prep', name: '数据准备' },
-    ...task.steps.map((step) => ({
-      key: step.id,
-      name: getStrategyDisplayName(step),
-    })),
-  ];
+  const phases = isRouterMode
+    ? [
+        {
+          id: 'data-prep',
+          name: '数据准备',
+          status: task.progress?.dataPreparation?.status ?? 'pending',
+          progress: task.progress?.dataPreparation?.totalPosts
+            ? Math.round((task.progress.dataPreparation.donePosts / task.progress.dataPreparation.totalPosts) * 100)
+            : 0,
+          total: task.progress?.dataPreparation?.totalPosts ?? 0,
+          done: task.progress?.dataPreparation?.donePosts ?? 0,
+        },
+        {
+          id: 'router',
+          name: '内容路由',
+          status: task.steps.find((s) => s.strategy_id?.includes('router'))?.status ?? 'pending',
+          progress: (() => {
+            const routerStep = task.steps.find((s) => s.strategy_id?.includes('router'));
+            const total = routerStep?.stats?.total ?? 0;
+            const done = routerStep?.stats?.done ?? 0;
+            return total > 0 ? Math.round((done / total) * 100) : 0;
+          })(),
+          total: (() => {
+            const routerStep = task.steps.find((s) => s.strategy_id?.includes('router'));
+            return routerStep?.stats?.total ?? 0;
+          })(),
+          done: (() => {
+            const routerStep = task.steps.find((s) => s.strategy_id?.includes('router'));
+            return routerStep?.stats?.done ?? 0;
+          })(),
+        },
+        {
+          id: 'analysis',
+          name: '策略分析',
+          status: (() => {
+            const analysisSteps = task.steps.filter((s) => !s.strategy_id?.includes('router'));
+            if (analysisSteps.every((s) => s.status === 'completed')) return 'completed';
+            if (analysisSteps.some((s) => s.status === 'running')) return 'running';
+            if (analysisSteps.some((s) => s.status === 'failed')) return 'failed';
+            return 'pending';
+          })(),
+          progress: (() => {
+            const analysisSteps = task.steps.filter((s) => !s.strategy_id?.includes('router'));
+            const total = analysisSteps.reduce((sum, s) => sum + (s.stats?.total ?? 0), 0);
+            const done = analysisSteps.reduce((sum, s) => sum + (s.stats?.done ?? 0), 0);
+            return total > 0 ? Math.round((done / total) * 100) : 0;
+          })(),
+          total: (() => {
+            const analysisSteps = task.steps.filter((s) => !s.strategy_id?.includes('router'));
+            return analysisSteps.reduce((sum, s) => sum + (s.stats?.total ?? 0), 0);
+          })(),
+          done: (() => {
+            const analysisSteps = task.steps.filter((s) => !s.strategy_id?.includes('router'));
+            return analysisSteps.reduce((sum, s) => sum + (s.stats?.done ?? 0), 0);
+          })(),
+        },
+      ]
+    : [
+        {
+          id: 'data-prep',
+          name: '数据准备',
+          status: task.progress?.dataPreparation?.status ?? 'pending',
+          progress: task.progress?.dataPreparation?.totalPosts
+            ? Math.round((task.progress.dataPreparation.donePosts / task.progress.dataPreparation.totalPosts) * 100)
+            : 0,
+          total: task.progress?.dataPreparation?.totalPosts ?? 0,
+          done: task.progress?.dataPreparation?.donePosts ?? 0,
+        },
+        ...task.steps.map((step) => {
+          const total = step.stats?.total ?? 0;
+          const done = step.stats?.done ?? 0;
+          return {
+            id: step.id,
+            name: getStrategyDisplayName(step),
+            status: step.status,
+            progress: total > 0 ? Math.round((done / total) * 100) : 0,
+            stepOrder: step.step_order,
+            total,
+            done,
+          };
+        }),
+      ];
+
+  const matrixColumns = isRouterMode
+    ? [
+        { key: 'data-prep', name: '数据准备' },
+        { key: 'router', name: '内容路由' },
+        { key: 'analysis', name: '分析进度' },
+      ]
+    : [
+        { key: 'data-prep', name: '数据准备' },
+        ...task.steps.map((step) => ({
+          key: step.id,
+          name: getStrategyDisplayName(step),
+        })),
+      ];
 
   const postStatusMap = new Map(
     task.postStatuses?.map((p) => [p.postId, p]) ?? []
@@ -302,13 +381,34 @@ export default function TaskDetail() {
   const matrixRows = allPostIds.map((postId) => {
     const postStatus = postStatusMap.get(postId);
     const cells: Record<string, { status: string }> = {};
-    cells['data-prep'] = { status: postStatus?.status ?? 'pending' };
-    for (const step of task.steps) {
-      const job = task.jobs.find(
-        (j) => j.target_id === postId && j.strategy_id === step.strategy_id
-      );
-      cells[step.id] = { status: job?.status ?? 'pending' };
+
+    if (isRouterMode) {
+      cells['data-prep'] = { status: postStatus?.status ?? 'pending' };
+      cells['router'] = { status: postStatus?.routerStatus ?? 'pending' };
+      // Analysis progress: done / applicable
+      const applicableCount = postStatus?.routerApplicableCount ?? 0;
+      const doneCount = task.jobs.filter(
+        (j) => j.target_id === postId && j.status === 'completed' && !j.strategy_id?.includes('router')
+      ).length;
+      let analysisStatus = 'pending';
+      if (applicableCount === 0) {
+        analysisStatus = 'skipped';
+      } else if (doneCount >= applicableCount) {
+        analysisStatus = 'completed';
+      } else if (doneCount > 0) {
+        analysisStatus = 'processing';
+      }
+      cells['analysis'] = { status: analysisStatus };
+    } else {
+      cells['data-prep'] = { status: postStatus?.status ?? 'pending' };
+      for (const step of task.steps) {
+        const job = task.jobs.find(
+          (j) => j.target_id === postId && j.strategy_id === step.strategy_id
+        );
+        cells[step.id] = { status: job?.status ?? 'pending' };
+      }
     }
+
     return {
       rowId: postId,
       rowLabel: postId.slice(0, 12) + (postId.length > 12 ? '...' : ''),
@@ -333,6 +433,9 @@ export default function TaskDetail() {
       <TaskHeader task={task} />
       <KpiCards task={task} />
       <TaskTimeline phases={phases} />
+      {isRouterMode && task.strategyStats && (
+        <StrategyStats stats={task.strategyStats} />
+      )}
       <PipelineMatrix
         columns={matrixColumns}
         rows={matrixRows}
