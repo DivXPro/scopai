@@ -10,7 +10,7 @@ describe('validateStrategyJson', () => {
       version: '1.0.0',
       target: 'post',
       prompt: 'Analyze {{content}}',
-      output_schema: { type: 'object', properties: { sentiment: { type: 'string' } } },
+      output_schema: { type: 'object', properties: { sentiment: { type: 'string', title: '情感' } } },
     });
     assert.equal(result.valid, true);
   });
@@ -24,7 +24,7 @@ describe('validateStrategyJson', () => {
       depends_on: 'post',
       include_original: true,
       prompt: 'Based on: {{upstream_result}}\n\nOriginal: {{original_content}}',
-      output_schema: { type: 'object', properties: { risk_level: { type: 'string' } } },
+      output_schema: { type: 'object', properties: { risk_level: { type: 'string', title: '风险等级' } } },
     });
     assert.equal(result.valid, true);
   });
@@ -38,7 +38,7 @@ describe('validateStrategyJson', () => {
       depends_on: 'comment',
       include_original: false,
       prompt: 'Based on: {{upstream_result}}',
-      output_schema: { type: 'object', properties: { category: { type: 'string' } } },
+      output_schema: { type: 'object', properties: { category: { type: 'string', title: '分类' } } },
     });
     assert.equal(result.valid, true);
   });
@@ -51,7 +51,7 @@ describe('validateStrategyJson', () => {
       target: 'post',
       depends_on: null,
       prompt: 'Analyze {{content}}',
-      output_schema: { type: 'object', properties: { x: { type: 'string' } } },
+      output_schema: { type: 'object', properties: { x: { type: 'string', title: 'X' } } },
     });
     assert.equal(result.valid, true);
   });
@@ -64,7 +64,7 @@ describe('validateStrategyJson', () => {
       target: 'post',
       depends_on: 'invalid',
       prompt: 'test',
-      output_schema: { type: 'object', properties: { x: { type: 'string' } } },
+      output_schema: { type: 'object', properties: { x: { type: 'string', title: 'X' } } },
     });
     assert.equal(result.valid, false);
     assert.ok(result.error?.includes('depends_on'));
@@ -78,7 +78,7 @@ describe('validateStrategyJson', () => {
       target: 'post',
       include_original: 'yes',
       prompt: 'test',
-      output_schema: { type: 'object', properties: { x: { type: 'string' } } },
+      output_schema: { type: 'object', properties: { x: { type: 'string', title: 'X' } } },
     });
     assert.equal(result.valid, false);
     assert.ok(result.error?.includes('include_original'));
@@ -92,7 +92,7 @@ describe('validateStrategyJson', () => {
       target: 'post',
       include_original: false,
       prompt: 'test',
-      output_schema: { type: 'object', properties: { x: { type: 'string' } } },
+      output_schema: { type: 'object', properties: { x: { type: 'string', title: 'X' } } },
     });
     assert.equal(result.valid, true);
   });
@@ -105,8 +105,91 @@ describe('validateStrategyJson', () => {
       target: 'post',
       include_original: true,
       prompt: 'test',
-      output_schema: { type: 'object', properties: { x: { type: 'string' } } },
+      output_schema: { type: 'object', properties: { x: { type: 'string', title: 'X' } } },
     });
     assert.equal(result.valid, true);
+  });
+
+  it('should accept strategy with routing config', () => {
+    const result = validateStrategyJson({
+      id: 'test-routing',
+      name: 'Routing Strategy',
+      version: '1.0.0',
+      target: 'post',
+      prompt: 'Analyze {{content}}',
+      output_schema: { type: 'object', properties: { x: { type: 'string', title: 'X' } } },
+      is_router: false,
+      routing: {
+        applicability_checks: [
+          { id: 'has-image', question: 'Does the post have images?', kind: 'boolean' },
+          { id: 'style', question: 'What style?', kind: 'enum', enum_values: ['modern', 'classic'] },
+        ],
+        boundary_false_positives: ['screenshots without artistic value'],
+      },
+    });
+    assert.equal(result.valid, true);
+  });
+
+  it('should accept router strategy with is_router: true', () => {
+    const result = validateStrategyJson({
+      id: 'test-router',
+      name: 'Router Strategy',
+      version: '1.0.0',
+      target: 'post',
+      prompt: 'Route content',
+      output_schema: { type: 'object', properties: { decisions: { type: 'array', title: '决策' } } },
+      is_router: true,
+    });
+    assert.equal(result.valid, true);
+  });
+
+  it('should reject invalid routing.applicability_checks kind', () => {
+    const result = validateStrategyJson({
+      id: 'test-bad-check-kind',
+      name: 'Bad Check Kind',
+      version: '1.0.0',
+      target: 'post',
+      prompt: 'test',
+      output_schema: { type: 'object', properties: { x: { type: 'string', title: 'X' } } },
+      routing: {
+        applicability_checks: [
+          { id: 'bad', question: 'Q', kind: 'invalid_kind' },
+        ],
+        boundary_false_positives: [],
+      },
+    });
+    assert.equal(result.valid, false);
+    assert.ok(result.error?.includes('kind'));
+  });
+
+  it('should reject non-array routing.boundary_false_positives', () => {
+    const result = validateStrategyJson({
+      id: 'test-bad-bfp',
+      name: 'Bad Boundary False Positives',
+      version: '1.0.0',
+      target: 'post',
+      prompt: 'test',
+      output_schema: { type: 'object', properties: { x: { type: 'string', title: 'X' } } },
+      routing: {
+        applicability_checks: [],
+        boundary_false_positives: 'not-an-array',
+      },
+    });
+    assert.equal(result.valid, false);
+    assert.ok(result.error?.includes('boundary_false_positives'));
+  });
+
+  it('should reject non-boolean is_router', () => {
+    const result = validateStrategyJson({
+      id: 'test-bad-router',
+      name: 'Bad Router',
+      version: '1.0.0',
+      target: 'post',
+      prompt: 'test',
+      output_schema: { type: 'object', properties: { x: { type: 'string', title: 'X' } } },
+      is_router: 'yes',
+    });
+    assert.equal(result.valid, false);
+    assert.ok(result.error?.includes('is_router'));
   });
 });

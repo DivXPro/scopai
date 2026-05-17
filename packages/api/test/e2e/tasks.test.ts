@@ -326,4 +326,88 @@ describe('Tasks routes', () => {
       assert.equal(typeof body.skipped, 'number');
     });
   });
+
+  describe('Router task creation', () => {
+    it('POST /api/tasks with router_strategy_id creates router + candidate steps', async () => {
+      // Ensure router strategy exists (create if not present)
+      const existing = await fetchApi(ctx.baseUrl, '/api/strategies/content-strategy-router');
+      if (existing.status === 404) {
+        const stratRes = await fetchApi(ctx.baseUrl, '/api/strategies', {
+          method: 'POST',
+          body: JSON.stringify({
+            id: 'content-strategy-router',
+            name: 'Content Strategy Router',
+            version: '1.0.0',
+            target: 'post',
+            needs_media: { enabled: false },
+            prompt: 'Route content',
+            output_schema: { type: 'object', properties: { decisions: { type: 'array', title: '决策' } } },
+            is_router: true,
+          }),
+        });
+        const stratBody = await stratRes.json().catch(() => ({}));
+        assert.ok(stratRes.status === 200, `router strategy should be created, got ${stratRes.status}: ${JSON.stringify(stratBody)}`);
+      }
+
+      const res = await fetchApi(ctx.baseUrl, '/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'Router Task',
+          router_strategy_id: 'content-strategy-router',
+          candidate_strategy_ids: ['creative-copy-deconstruct'],
+        }),
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.ok(body.id);
+      assert.equal(body.step_ids.length, 2); // router + 1 candidate
+
+      const detail = await fetchApi(ctx.baseUrl, `/api/tasks/${body.id}`);
+      const detailBody = await detail.json();
+      assert.equal(detailBody.steps.length, 2);
+      const strategyIds = detailBody.steps.map((s: { strategyId: string }) => s.strategyId);
+      assert.ok(strategyIds.includes('content-strategy-router'));
+      assert.ok(strategyIds.includes('creative-copy-deconstruct'));
+    });
+
+    it('POST /api/tasks rejects non-router strategy as router_strategy_id', async () => {
+      const res = await fetchApi(ctx.baseUrl, '/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'Bad Router Task',
+          router_strategy_id: 'creative-copy-deconstruct',
+        }),
+      });
+      assert.equal(res.status, 400);
+    });
+
+    it('POST /api/tasks rejects unknown router_strategy_id', async () => {
+      const res = await fetchApi(ctx.baseUrl, '/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'Unknown Router Task',
+          router_strategy_id: 'definitely-not-real',
+        }),
+      });
+      assert.equal(res.status, 400);
+    });
+  });
+
+  describe('GET /api/tasks/:id routing endpoint', () => {
+    it('returns empty decisions for non-router task', async () => {
+      const res = await fetchApi(ctx.baseUrl, '/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'No Router Task' }),
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+
+      const routingRes = await fetchApi(ctx.baseUrl, `/api/tasks/${body.id}/routing`);
+      assert.equal(routingRes.status, 200);
+      const routingBody = await routingRes.json();
+      assert.equal(routingBody.task_id, body.id);
+      assert.equal(routingBody.router_step_id, null);
+      assert.deepEqual(routingBody.decisions, []);
+    });
+  });
 });

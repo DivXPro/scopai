@@ -1,0 +1,42 @@
+{
+  "id": "content-strategy-router",
+  "name": "内容策略路由",
+  "description": "根据帖子内容特征判定适合的下游分析策略",
+  "version": "1.0.0",
+  "target": "post",
+  "is_router": true,
+  "is_default": false,
+  "prompt": "你是一个内容质量评估器。你的任务是逐条判断一个帖子是否具备被某个下游分析策略「解构」的原材料。\n\n对下面列出的每个策略，你必须：\n1. 逐条检查该策略声明的 applicability_checks\n2. 从帖子中找到具体证据\n3. 输出 { applicable: true/false, confidence: 0-1, checks: [...], rejection_reason }\n\n判断原则：\n- \"有原材料\" ≠ \"分析结果会好\"。你只判断内容是否具备可分析的基本元素\n- 宁可漏判（漏一个策略），不要误判（把一个没有图片的帖子判给图片分析策略）\n- 检查 boundary_false_positives——如果帖子命中负样本描述，应判不适用\n- 如果帖子正文或元信息不足以做出判断，confidence 应降低，但 applicable 可留为 true（交给下游策略自行判断）\n\n各策略判据清单：\n\n{{strategy_list_with_checks}}\n\n---\n帖子内容:\n标题: {{title}}\n正文: {{content}}\n作者: {{author_name}}\n平台: {{platform}}\n媒体数量: 图片 {{image_count}} 张，视频 {{video_count}} 个\n媒体 URL 列表: {{media_urls}}\n\n严格按 JSON schema 输出。不要附加任何解释或 Markdown。",
+  "output_schema": {
+    "type": "object",
+    "required": ["decisions"],
+    "properties": {
+      "decisions": {
+        "type": "array",
+        "title": "策略决策",
+        "items": {
+          "type": "object",
+          "required": ["strategy_id", "applicable", "confidence"],
+          "properties": {
+            "strategy_id": { "type": "string" },
+            "applicable": { "type": "boolean" },
+            "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+            "checks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["check_id", "passed"],
+                "properties": {
+                  "check_id": { "type": "string" },
+                  "passed": { "type": "boolean" },
+                  "evidence": { "type": "string" }
+                }
+              }
+            },
+            "rejection_reason": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}
