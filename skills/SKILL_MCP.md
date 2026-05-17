@@ -21,7 +21,7 @@ You operate the `scopai` MCP server for social media content analysis. This serv
 |------|-------------|----------------|
 | `list_posts` | List imported posts with filters | `platform`, `author_id`, `starred`, `label`, `limit`, `offset`, `platform_post_id` |
 | `search_posts` | Search posts by keyword in content | `platform` (required), `query` (required), `author_id`, `starred`, `label`, `limit`, `offset` |
-| `get_post` | Get detailed post info with media files, supports MCP Apps UI rendering | `id` (internal ID) or `platform_post_id` + `platform` |
+| `get_post` | Get detailed post info with media files. Returns `media_files` array with absolute URLs. When NOT using MCP App HTML UI, render images as Markdown `![alt](url)` — all images for single post, cover image only for lists. | `id` (internal ID) or `platform_post_id` + `platform` |
 | `get_post_reference` | Get structured creative reference card for a post | `post_id` |
 | `list_creators` | List subscribed creators | `platform`, `status`, `name`, `limit`, `offset` |
 
@@ -89,6 +89,10 @@ search_posts(platform=xhs, query="护肤", limit=20)
 2. （Agent client 自动渲染帖子展示 UI，含图片轮播）
 ```
 
+**Media rendering rules:**
+- **MCP App HTML UI** (`visibility: app`): The `post-viewer` App resource renders media natively — do NOT output Markdown images, the HTML handles it.
+- **Text / model mode** (`visibility: model`): Render images as Markdown `![alt](url)`. For a single post, show all images. For lists, show cover image only. Video posts show cover thumbnail only.
+
 ## Key Rules
 
 1. **search_posts only searches `content` field** — it does NOT search title or author. Use `get_post` to inspect specific posts.
@@ -97,6 +101,7 @@ search_posts(platform=xhs, query="护肤", limit=20)
 4. **run_task_prepare blocks** — it fetches details/comments/media and waits for completion.
 5. **run_task_analysis blocks** — it runs all steps in order and waits for completion.
 6. **Daemon dependency** — all tools require `scopai daemon` to be running. If MCP server fails to start, check daemon status first.
+7. **Media rendering** — When presenting post data in text mode (not MCP App HTML UI), render images as Markdown `![alt](url)`. Single post: all images. List/video: cover image only. Video posts: cover thumbnail only. MCP App HTML UI (`post-viewer`) handles media natively — skip Markdown images in that mode.
 
 ### "查看指定笔记的详情"
 

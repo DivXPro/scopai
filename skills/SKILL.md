@@ -152,7 +152,7 @@ Run these **in order** before any workflow:
 | 21 | **reset_queue_jobs** | `scopai queue reset [--task-id {tid}]` | **Blunt instrument**: force-reset all non-pending jobs. Prefer `queue retry`. |
 | 22 | **list_queue_jobs** | `scopai queue list --task-id {tid} [--failed-only] [--limit {n}] [--offset {n}]` | Inspect queue job status. |
 | 23 | **pause_task / resume_task / cancel_task** | `scopai task pause|resume|cancel {tid}` | Control running tasks. `cancel` transitions task to `cancelled` status (user-initiated stop, distinct from `failed`). |
-| 24 | **show_post** | `scopai post show {pid}` or `scopai post show --platform-post-id {pid} --platform {platform}` | Show post details by internal ID or by original platform post ID. |
+| 24 | **show_post** | `scopai post show {pid}` or `scopai post show --platform-post-id {pid} --platform {platform}` | Show post details by internal ID or by original platform post ID. Response includes `media_files` array with absolute URLs. |
 | 25 | **list_posts / search_posts** | `scopai post list [--platform {id}] [--author-id {aid}] [--starred] [--label {name}] [--limit {n}] [--offset {n}] [--platform-post-id {id}]` / `scopai post search --platform {id} --query {text} [--starred] [--limit {n}]` | `list`: browse imported data with filters. `search`: **full-text search across post content and all strategy analysis results** via `search_index`. Strategy results (e.g. sentiment scores, topic tags, style briefs) are flattened into searchable text and indexed automatically after analysis completes. `--starred` filters starred posts. `--limit` defaults to 50. |
 | 26 | **daemon management** | `scopai daemon start [--fg] [--verbose]` / `stop` / `restart` / `status` | Manage API server lifecycle. CLI auto-restarts if version mismatch. |
 | 26 | **run_single_analysis** | `scopai analyze run --task-id {tid} --strategy-id {sid}` | Run a one-shot strategy analysis without task steps. |
@@ -527,6 +527,40 @@ GET /api/tasks/{task_id}/routing
 In `get_task` / `scopai task show` output, each post includes:
 - `routerStatus`: `"routed"` | `"pending"` | `null`
 - `routerApplicableCount`: number of applicable strategies
+
+---
+
+## Media Rendering Guidelines
+
+When presenting post data to the user, render images as Markdown images (`![alt](url)`) so they are visible inline. The approach depends on context:
+
+| Context | Rendering Rule |
+|---------|---------------|
+| **Single post detail** (`show_post`) | Render **all** image media files as Markdown images, one per line. Use descriptive alt text (e.g., post title or platform). |
+| **Post list / search results** (`list_posts`, `search_posts`) | Render only the **cover image** (first image) per post to keep the list compact. |
+| **Video posts** | Render the **cover/thumbnail image** if available. Do not attempt to embed video players. |
+| **MCP App with HTML UI** | Skip Markdown image rendering. The HTML renderer (`post-viewer` App resource) already displays media natively with carousel/lightbox support. |
+
+**Example — single post:**
+
+```markdown
+**标题**: 上海美食探店
+**作者**: food blogger
+**平台**: xhs
+
+![上海美食探店 - 图片 1](https://api.example.com/media/img1.jpg)
+![上海美食探店 - 图片 2](https://api.example.com/media/img2.jpg)
+```
+
+**Example — post list (compact):**
+
+```markdown
+| 标题 | 作者 | 预览 |
+|------|------|------|
+| 上海美食探店 | food blogger | ![cover](https://api.example.com/media/img1.jpg) |
+```
+
+> **Note**: Media URLs in `media_files` are already absolute (full `http://` or `https://` URLs) when returned via API/MCP. No path resolution needed.
 
 ---
 

@@ -288,7 +288,7 @@ export async function startMcpServer(): Promise<void> {
   });
 
   registerAppTool(server, 'get_post', {
-    description: 'Get detailed information about a specific post by internal ID or platform post ID',
+    description: 'Get detailed information about a specific post by internal ID or platform post ID. Returns media_files array with absolute image URLs. When NOT rendered via MCP App HTML UI, present images as Markdown ![alt](url). For single posts show all images; for lists/video show cover image only.',
     inputSchema: z.object({
       id: z.string().optional().describe('Internal post ID'),
       platform_post_id: z.string().optional().describe('Original platform post ID (e.g. xiaohongshu note ID)'),
