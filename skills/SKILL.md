@@ -123,7 +123,7 @@ Run these **in order** before any workflow:
 | 9 | **run_all_steps** | `scopai task run-all-steps {tid}` | **Default `--wait`**: blocks until all steps complete, printing progress. Use `--no-wait` for fire-and-forget. |
 | 10 | **run_task_step** | `scopai task step run --task-id {tid} --step-id {sid}` | Run a single step. **Default `--wait`**: blocks until completion. |
 | 11 | **reset_task_step** | `scopai task step reset --task-id {tid} --step-id {sid}` | Reset a failed step to pending for retry. |
-| 12 | **submit_analysis** | `scopai analyze submit --strategy-id {sid} --post-ids {ids} [--task-id {tid}] [--force]` | Simplified single-post analysis. Auto-creates task and step. Deduplicates by default; `--force` deletes old results+jobs and re-enqueues. |
+| 12 | **submit_analysis** | `scopai analyze submit --strategy-id {sid} --post-ids {ids} [--task-id {tid}] [--force] [--auto-route]` | Simplified single-post analysis. Auto-creates task and step. Deduplicates by default; `--force` deletes old results+jobs and re-enqueues. `--auto-route` enables dynamic strategy routing (see below). |
 
 > **Progress output** (`--wait` mode):
 > ```
@@ -445,6 +445,88 @@ scopai task step run --task-id <tid> --step-id <sid> --wait
 ```
 
 > `step reset` automatically clears old queue jobs and strategy results for that step, then recreates them on the next run. No manual cleanup needed.
+
+---
+
+## Dynamic Strategy Routing
+
+Dynamic routing lets a **Router Strategy** evaluate each post before analysis and decide which downstream strategies are applicable. Posts skip non-applicable strategies automatically — no wasted LLM calls.
+
+### How It Works
+
+1. **Router step runs first** — the built-in `content-strategy-router` strategy (or a custom router) evaluates each post's content, media, and metadata
+2. **Per-post decisions** — for each post, the router outputs a list of applicable strategy IDs with confidence scores
+3. **Conditional downstream execution** — only applicable strategies get analysis jobs for that post
+4. **Zero waste** — posts without images skip image-analysis strategies; text-only posts skip video strategies, etc.
+
+### Built-in Router
+
+| Strategy | ID | Description |
+|----------|-----|-------------|
+| Content Strategy Router | `content-strategy-router` | Evaluates post content against each candidate strategy's `routing` config (applicability checks + boundary false positives) |
+
+### Built-in Routing-Aware Strategies
+
+All four built-in creative strategies include `routing` configuration:
+
+| Strategy | ID | Routing Logic |
+|----------|-----|---------------|
+| Creative Copy Deconstruct | `creative-copy-deconstruct` | Requires substantial text content |
+| Creative Image Style | `creative-image-style` | Requires image media |
+| Creative Video Style | `creative-video-style` | Requires video media |
+| Creative Topic Angle | `creative-topic-angle` | Requires topic-worthy content |
+
+### Enabling Routing
+
+**Via CLI (`analyze submit`):**
+
+```bash
+scopai analyze submit --strategy-id creative-copy-deconstruct --post-ids post1,post2 --auto-route
+```
+
+The `--auto-route` flag automatically:
+- Creates a task with `content-strategy-router` as the router
+- Adds the specified `--strategy-id` as a candidate
+- Runs router first, then only enqueues applicable downstream jobs
+
+**Via API / MCP (`create_task`):**
+
+Include `router_strategy_id` and `candidate_strategy_ids`:
+
+```json
+{
+  "name": "Routed Analysis",
+  "router_strategy_id": "content-strategy-router",
+  "candidate_strategy_ids": ["creative-copy-deconstruct", "creative-image-style"]
+}
+```
+
+### Routing Results
+
+After the router step completes, check per-post decisions:
+
+```bash
+# Via API
+GET /api/tasks/{task_id}/routing
+
+# Response:
+{
+  "task_id": "xxx",
+  "router_step_id": "step-xxx",
+  "router_strategy_id": "content-strategy-router",
+  "decisions": [
+    {
+      "post_id": "post-1",
+      "applicable": ["creative-copy-deconstruct"],
+      "skipped": [{"strategy_id": "creative-image-style", "reason": "no images"}]
+    }
+  ]
+}
+```
+
+In `get_task` / `scopai task show` output, each post includes:
+- `routerStatus`: `"routed"` | `"pending"` | `null`
+- `routerApplicableCount`: number of applicable strategies
 
 ---
 

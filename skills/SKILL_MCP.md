@@ -22,6 +22,7 @@ You operate the `scopai` MCP server for social media content analysis. This serv
 | `list_posts` | List imported posts with filters | `platform`, `author_id`, `starred`, `label`, `limit`, `offset`, `platform_post_id` |
 | `search_posts` | Search posts by keyword in content | `platform` (required), `query` (required), `author_id`, `starred`, `label`, `limit`, `offset` |
 | `get_post` | Get detailed post info with media files, supports MCP Apps UI rendering | `id` (internal ID) or `platform_post_id` + `platform` |
+| `get_post_reference` | Get structured creative reference card for a post | `post_id` |
 | `list_creators` | List subscribed creators | `platform`, `status`, `name`, `limit`, `offset` |
 
 ### Task Management
@@ -30,12 +31,13 @@ You operate the `scopai` MCP server for social media content analysis. This serv
 |------|-------------|----------------|
 | `list_tasks` | List analysis tasks | `status`, `query`, `limit`, `offset` |
 | `get_task` | Get task status and progress | `id` (required) |
-| `create_task` | Create a new analysis task | `name` (required), `description`, `cli_templates` |
+| `create_task` | Create a new analysis task | `name` (required), `description`, `cli_templates`, `router_strategy_id`, `candidate_strategy_ids` |
 | `add_task_posts` | Add posts to a task | `task_id`, `post_ids` |
 | `add_task_step` | Add a strategy step to a task | `task_id`, `strategy_id` |
 | `run_task_prepare` | Fetch post details, comments, media | `task_id` |
 | `run_task_analysis` | Run all pending analysis steps | `task_id` |
 | `get_task_results` | Get analysis results | `task_id`, `strategy_id`, `limit`, `offset` |
+| `get_task_routing` | Get dynamic routing decisions for a task (post → applicable strategies) | `task_id` |
 
 ### Strategy & Queue
 
@@ -54,6 +56,31 @@ search_posts(platform=xhs, query="上海美食") → get_post(id) for details
   → run_task_prepare(task_id) → run_task_analysis(task_id)
   → get_task_results(task_id)
 ```
+
+### Dynamic Strategy Routing Workflow
+
+Use `router_strategy_id` in `create_task` to enable per-post strategy filtering. The router step evaluates each post and decides which candidate strategies apply, skipping non-applicable ones.
+
+```
+search_posts(platform=xhs, query="护肤", limit=20)
+  → create_task(
+      name="护肤帖子智能分析",
+      router_strategy_id="content-strategy-router",
+      candidate_strategy_ids=["creative-copy-deconstruct", "creative-image-style"]
+    )
+  → add_task_posts(task_id, post_ids)
+  → run_task_prepare(task_id)          # fetches post details
+  → run_task_analysis(task_id)         # router runs first, then applicable strategies
+  → get_task_routing(task_id)          # inspect per-post routing decisions
+  → get_task_results(task_id)          # get final analysis results
+```
+
+**Key differences from standard workflow:**
+- `create_task` includes `router_strategy_id` (typically `"content-strategy-router"`) and optional `candidate_strategy_ids`
+- Router step runs automatically during `run_task_analysis`, before candidate strategies
+- Only applicable strategies receive analysis jobs per post
+- `get_task_routing` returns the decision matrix (post → applicable strategies + skipped reasons)
+- Posts without applicable strategies are silently skipped for that strategy
 
 ### "查看帖子详情（带图片展示）"
 

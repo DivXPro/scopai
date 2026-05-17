@@ -106,6 +106,16 @@ export async function startMcpServer(): Promise<void> {
     return makeTextResult(result);
   });
 
+  server.registerTool('get_task_routing', {
+    description: 'Get dynamic routing decisions for a task. Returns per-post applicability decisions when the task has a router step.',
+    inputSchema: z.object({
+      task_id: z.string().describe('Task ID (required)'),
+    }),
+  }, async (args) => {
+    const result = await apiGet(`/tasks/${args.task_id}/routing`);
+    return makeTextResult(result);
+  });
+
   server.registerTool('list_strategies', {
     description: 'List all available analysis strategies',
     inputSchema: z.object({}),
@@ -196,13 +206,15 @@ export async function startMcpServer(): Promise<void> {
   });
 
   server.registerTool('create_task', {
-    description: 'Create a new analysis task',
+    description: 'Create a new analysis task. Supports dynamic strategy routing via router_strategy_id.',
     inputSchema: z.object({
       name: z.string().describe('Task name (required)'),
       description: z.string().optional().describe('Task description'),
       cli_templates: z.record(z.string()).optional().describe(
         'OpenCLI command templates as a JSON object, e.g. {"fetch_note":"opencli xiaohongshu note {url} -f json"}'
       ),
+      router_strategy_id: z.string().optional().describe('Router strategy ID for dynamic routing (e.g. "content-strategy-router"). When set, candidate strategies are filtered per-post by applicability.'),
+      candidate_strategy_ids: z.array(z.string()).optional().describe('Candidate strategy IDs to run after routing. If omitted, all default (is_default=true) non-router strategies are used.'),
     }),
   }, async (args) => {
     const { generateId } = await import('@scopai/core');
@@ -215,6 +227,12 @@ export async function startMcpServer(): Promise<void> {
       body.cli_templates = JSON.stringify(args.cli_templates);
     } else {
       body.cli_templates = null;
+    }
+    if (args.router_strategy_id) {
+      body.router_strategy_id = args.router_strategy_id;
+    }
+    if (args.candidate_strategy_ids) {
+      body.candidate_strategy_ids = args.candidate_strategy_ids;
     }
     const result = await apiPost('/tasks', body);
     return makeTextResult(result);
