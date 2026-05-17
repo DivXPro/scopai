@@ -19,8 +19,8 @@ You operate the `scopai` MCP server for social media content analysis. This serv
 
 | Tool | Description | Key Parameters |
 |------|-------------|----------------|
-| `list_posts` | List imported posts with filters | `platform`, `author_id`, `starred`, `label`, `limit`, `offset`, `platform_post_id` |
-| `search_posts` | Search posts by keyword in content | `platform` (required), `query` (required), `author_id`, `starred`, `label`, `limit`, `offset` |
+| `list_posts` | List imported posts with filters. Each post includes `cover_url` (absolute URL). When presenting results, render `cover_url` as Markdown `![cover](url)` for visual reference. | `platform`, `author_id`, `starred`, `label`, `limit`, `offset`, `platform_post_id` |
+| `search_posts` | Search posts by keyword in content. When results include `cover_url`, render it as Markdown `![cover](url)` for visual reference. | `platform` (required), `query` (required), `author_id`, `starred`, `label`, `limit`, `offset` |
 | `get_post` | Get detailed post info with media files. Returns `media_files` array with absolute URLs. When NOT using MCP App HTML UI, render images as Markdown `![alt](url)` — all images for single post, cover image only for lists. | `id` (internal ID) or `platform_post_id` + `platform` |
 | `get_post_reference` | Get structured creative reference card for a post | `post_id` |
 | `list_creators` | List subscribed creators | `platform`, `status`, `name`, `limit`, `offset` |

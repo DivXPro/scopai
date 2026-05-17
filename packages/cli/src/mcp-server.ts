@@ -22,7 +22,7 @@ export async function startMcpServer(): Promise<void> {
   // === Tools will be registered below ===
 
   server.registerTool('list_posts', {
-    description: 'List imported posts with optional filters (platform, author_id, starred, label)',
+    description: 'List imported posts with optional filters. Each post includes cover_url (absolute URL). When presenting results, render cover_url as Markdown ![cover](url) for visual reference.',
     inputSchema: z.object({
       platform: z.string().optional().describe('Filter by platform ID'),
       author_id: z.string().optional().describe('Filter by author ID'),
@@ -44,7 +44,7 @@ export async function startMcpServer(): Promise<void> {
   });
 
   server.registerTool('search_posts', {
-    description: 'Search posts by keyword query or natural language concept. When query is provided, uses full-text search across post content and analysis results.',
+    description: 'Search posts by keyword query or natural language concept. When query is provided, uses full-text search across post content and analysis results. When results include cover_url, render it as Markdown ![cover](url) for visual reference.',
     inputSchema: z.object({
       query: z.string().optional().describe('Natural language search query (e.g. "高级感美妆产品首图")'),
       platform: z.string().optional().describe('Filter by platform ID'),
