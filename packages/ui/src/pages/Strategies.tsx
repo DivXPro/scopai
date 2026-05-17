@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import * as icons from '@gravity-ui/icons';
-import { apiGet, apiDelete } from '@/api/client';
+import { apiGet, apiDelete, apiPatch } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ interface Strategy {
   batch_config: { enabled: boolean; size?: number } | null;
   depends_on: 'post' | 'comment' | null;
   include_original: boolean;
+  is_default: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -81,6 +82,16 @@ export default function Strategies() {
     }
   };
 
+  const handleToggleDefault = async (id: string, next: boolean) => {
+    setStrategies((prev) => prev.map((s) => (s.id === id ? { ...s, is_default: next } : s)));
+    try {
+      await apiPatch(`/api/strategies/${id}`, { is_default: next });
+    } catch (e) {
+      setStrategies((prev) => prev.map((s) => (s.id === id ? { ...s, is_default: !next } : s)));
+      setError(e instanceof Error ? e.message : '更新失败');
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -134,19 +145,37 @@ export default function Strategies() {
                       )}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 shrink-0"
-                    onClick={() => handleDelete(s.id)}
-                    disabled={deleting === s.id}
-                  >
-                    {confirmDelete === s.id ? (
-                      <CircleExclamation className="h-4 w-4 text-danger" />
-                    ) : (
-                      <TrashBin className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge
+                      variant={s.is_default ? 'default' : 'outline'}
+                      className="cursor-pointer select-none"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleToggleDefault(s.id, !s.is_default)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleToggleDefault(s.id, !s.is_default);
+                        }
+                      }}
+                      title={s.is_default ? '点击取消默认' : '点击设为默认策略'}
+                    >
+                      {s.is_default ? '✓ 默认' : '设为默认'}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => handleDelete(s.id)}
+                      disabled={deleting === s.id}
+                    >
+                      {confirmDelete === s.id ? (
+                        <CircleExclamation className="h-4 w-4 text-danger" />
+                      ) : (
+                        <TrashBin className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">

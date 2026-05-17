@@ -306,6 +306,7 @@ export interface Strategy {
   batch_config: BatchConfig | null;
   depends_on: 'post' | 'comment' | null;
   include_original: boolean;
+  is_default: boolean;
   file_path: string | null;
   created_at: Date;
   updated_at: Date;

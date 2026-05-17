@@ -370,7 +370,8 @@ export default async function postsRoutes(app: FastifyInstance) {
 
     const strategyMap: Record<string, string> = {
       'creative-copy-deconstruct': 'copy',
-      'creative-visual-style': 'visual',
+      'creative-image-style': 'visual_image',
+      'creative-video-style': 'visual_video',
       'creative-topic-angle': 'topic',
     };
 

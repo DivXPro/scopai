@@ -85,6 +85,24 @@ function resolveEnvVariables(obj: unknown): unknown {
   return obj;
 }
 
+function applyRuntimeEnvOverrides(config: Config): void {
+  if (process.env.ANALYZE_CLI_DB_PATH) {
+    config.database.path = expandPath(process.env.ANALYZE_CLI_DB_PATH);
+  }
+  if (process.env.ANALYZE_CLI_LOG_LEVEL) {
+    config.logging.level = process.env.ANALYZE_CLI_LOG_LEVEL as Config['logging']['level'];
+  }
+  if (process.env.ANALYZE_CLI_MEDIA_DIR) {
+    config.paths.media_dir = expandPath(process.env.ANALYZE_CLI_MEDIA_DIR);
+  }
+  if (process.env.ANALYZE_CLI_DOWNLOAD_DIR) {
+    config.paths.download_dir = expandPath(process.env.ANALYZE_CLI_DOWNLOAD_DIR);
+  }
+  if (process.env.ANALYZE_CLI_EXPORT_DIR) {
+    config.paths.export_dir = expandPath(process.env.ANALYZE_CLI_EXPORT_DIR);
+  }
+}
+
 export function loadConfig(): Config {
   const configPath = expandPath('~/.scopai/config.json');
 
@@ -95,6 +113,7 @@ export function loadConfig(): Config {
       const fileConfig = JSON.parse(content) as Partial<Config>;
       const merged = deepMerge(DEFAULT_CONFIG, fileConfig);
       const config = resolveEnvVariables(merged) as Config;
+      applyRuntimeEnvOverrides(config);
       return normalizeLlmConfig(config);
     } catch {
       // ignore parse errors, fall through to fallback

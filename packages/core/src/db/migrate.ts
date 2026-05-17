@@ -99,6 +99,15 @@ async function migrateDependsOnColumns(): Promise<void> {
   }
 }
 
+async function migrateIsDefaultColumn(): Promise<void> {
+  const columns = await query<{ name: string }>(
+    "SELECT column_name as name FROM information_schema.columns WHERE table_name = 'strategies'"
+  );
+  if (!columns.some(c => c.name === 'is_default')) {
+    await exec('ALTER TABLE strategies ADD COLUMN is_default BOOLEAN DEFAULT false');
+  }
+}
+
 async function migrateTaskStepsDependsOn(): Promise<void> {
   const columns = await query<{ name: string }>(
     "SELECT column_name as name FROM information_schema.columns WHERE table_name = 'task_steps'"
@@ -337,6 +346,7 @@ export async function runMigrations(): Promise<void> {
   await migrateTaskStepsTable();
   await migrateBatchConfigColumn();
   await migrateDependsOnColumns();
+  await migrateIsDefaultColumn();
   await migrateTaskStepsDependsOn();
   await migratePlatformSyncTemplates();
   await migrateCreatorSyncJobType();

@@ -1,0 +1,277 @@
+{
+  "id": "creative-image-style",
+  "name": "图片视觉风格",
+  "description": "把一组爆款配图(单图或多图)的视觉语言拆成「可复用骨架 prompt + 槽位 + 风格本体 + 多图角色 + 素材清单」,下游 AI 图像生成可直接拿来用。仅针对静态图片帖子;视频帖子使用 creative-video-style。",
+  "version": "2.1.0",
+  "target": "post",
+  "is_default": true,
+  "needs_media": { "enabled": true, "media_types": ["image"] },
+  "prompt": "你不是在描述这组图片的视觉效果,你在把它们拆解为一份可复用的图像生成模板——下游创作者拿到你的产物后,应当能填空就用 AI 生图产出同款风格作品。\n\n输出原则:\n1. 视觉骨架 visual_prompt_skeleton 是核心交付物:一段完整的英文 image-gen prompt,保留所有让这套风格成立的固定描述符(材质、滤镜、构图法则、印刷质感、字体处理...),把人物/动作/场景/服装/道具/主文字/副文字等可变部分写成 {SLOT_NAME} 占位符。所有出现的 {SLOT_NAME} 都必须在 slots[] 中定义。\n2. negative_prompt:列出所有会破坏这套风格的反向描述符(逗号分隔,英文),这是模板能否被复用的关键守门员。\n3. style_identity:把这套风格的「身份卡」结构化抽出来——主色调(尽量给 HEX)、构图法则、光影处理、纹理/印刷处理、字体处理(若有)、美学关键词。这部分**不能**变,变了就不是这套风格。\n4. frames(多图必填):当帖子含 2 张及以上图片且各图承担不同角色(封面/产品图/对比图/CTA...)时,逐张给出 role / scene_description / extra_slots,显式描述图与图之间的「叙事节奏」。单图可省略。\n5. 复用边界:applicable_scenarios 给出 1-3 个 (vertical, audience, platform) 组合及置信度;non_applicable_scenarios 至少 1 个套上去会翻车的场景。\n6. required_assets.must_have:写明下游创作者要拍/找的素材清单(主体照片、道具、场景参考等),每项 kind/spec/count。\n7. source_evidence:列出本次分析参考的具体 media_urls,以及 3-5 条原图最关键的视觉观察(直接观察到的事实,不是推测)。\n\n骨架示意(仅参考结构,内容必须基于原图重写):\n\"Create a {ASPECT_RATIO} {STYLE_DESCRIPTOR} poster featuring {SUBJECT} {SUBJECT_ACTION}, wearing {WARDROBE_STYLE}, holding {PRODUCT_OR_PROP}, in {LOCATION}. Use {BACKGROUND_TREATMENT}. Add {MAIN_TEXT_DESCRIPTOR} reading \\\"{MAIN_TEXT}\\\". Apply {TEXTURE_TREATMENT}. {FIXED_STYLE_TAILS}.\"\n\n---\n帖子内容:\n标题:{{title}}\n正文:{{content}}\n作者:{{author_name}}\n平台:{{platform}}\n媒体文件:{{media_urls}}\n\n严格按 JSON schema 输出。visual_prompt_skeleton 与 negative_prompt 使用英文(便于直接喂给主流图像生成模型),其余字段使用中文。slot 名保留英文大写下划线。不要附加任何解释或 Markdown。\n",
+  "output_schema": {
+    "type": "object",
+    "required": [
+      "visual_prompt_skeleton",
+      "negative_prompt",
+      "slots",
+      "style_identity",
+      "applicable_scenarios",
+      "required_assets",
+      "source_evidence"
+    ],
+    "properties": {
+      "visual_prompt_skeleton": {
+        "type": "string",
+        "title": "视觉骨架 Prompt",
+        "description": "完整英文 image-gen prompt,保留固定风格描述符,可变部分写成 {SLOT_NAME}。所有占位符必须在 slots[] 中定义。"
+      },
+      "negative_prompt": {
+        "type": "string",
+        "title": "反向 Prompt",
+        "description": "英文逗号分隔的反向描述符,列出会破坏这套风格的元素(如 clean minimalist, glossy 3D, watermark...)"
+      },
+      "slots": {
+        "type": "array",
+        "title": "槽位定义",
+        "minItems": 1,
+        "description": "visual_prompt_skeleton 中每一个 {SLOT_NAME} 的语义与可填内容",
+        "items": {
+          "type": "object",
+          "required": ["name", "kind", "description", "examples", "source_value"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "槽位名,大写 + 下划线,对应骨架中的 {SLOT_NAME}"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "subject",
+                "action",
+                "wardrobe",
+                "prop",
+                "location",
+                "background",
+                "main_text",
+                "secondary_text",
+                "accent_symbol",
+                "aspect_ratio",
+                "other"
+              ],
+              "description": "槽位语义类型"
+            },
+            "description": {
+              "type": "string",
+              "description": "这个槽位想表达什么"
+            },
+            "examples": {
+              "type": "array",
+              "items": { "type": "string" },
+              "minItems": 2,
+              "description": "至少 2 个示例填充值(英文,可直接喂给 prompt)"
+            },
+            "source_value": {
+              "type": "string",
+              "description": "当前帖子原图在这个槽位上的实际取值"
+            }
+          }
+        }
+      },
+      "style_identity": {
+        "type": "object",
+        "title": "风格本体",
+        "description": "让这套风格成立的固定描述符,不可替换",
+        "required": ["color_palette", "composition", "lighting", "texture", "aesthetic_keywords"],
+        "properties": {
+          "color_palette": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name"],
+              "properties": {
+                "name": { "type": "string", "description": "颜色名,如 acid yellow / dirty white" },
+                "hex": { "type": "string", "description": "HEX 值,如 #d8e000;尽量给出" },
+                "role": { "type": "string", "description": "用途,如 background / accent / typography" }
+              }
+            },
+            "description": "主色调列表,优先给 HEX"
+          },
+          "composition": {
+            "type": "string",
+            "description": "构图法则,如 'central cutout subject + top headline + bottom info strip'"
+          },
+          "lighting": {
+            "type": "string",
+            "description": "光影处理,如 'high contrast, photocopy-style flat lighting'"
+          },
+          "texture": {
+            "type": "string",
+            "description": "纹理/印刷处理,如 'heavy grain + cyan/magenta print noise + xerox texture'"
+          },
+          "typography": {
+            "type": "string",
+            "description": "字体处理(若画面含文字),如 'oversized acid-yellow retro serif headline'"
+          },
+          "aesthetic_keywords": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 3,
+            "description": "美学关键词,3 个以上"
+          }
+        }
+      },
+      "aspect_ratios": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["1:1", "4:5", "9:16", "16:9", "3:4", "4:3", "2:3", "3:2"]
+        },
+        "title": "推荐画幅",
+        "description": "这套视觉适配的画幅比例"
+      },
+      "frames": {
+        "type": "array",
+        "title": "多图分镜",
+        "description": "若帖子含 2+ 张图且承担不同角色,逐张描述其在系列中的位置与可变槽位;单图可省略",
+        "items": {
+          "type": "object",
+          "required": ["index", "role", "scene_description"],
+          "properties": {
+            "index": {
+              "type": "number",
+              "description": "图片序号,从 0 开始"
+            },
+            "role": {
+              "type": "string",
+              "enum": [
+                "cover",
+                "product_hero",
+                "lifestyle",
+                "comparison_before",
+                "comparison_after",
+                "detail",
+                "infographic",
+                "testimonial",
+                "cta",
+                "other"
+              ],
+              "description": "该图在系列中的角色"
+            },
+            "scene_description": {
+              "type": "string",
+              "description": "本图的具体场景描述,可直接套到 visual_prompt_skeleton 上"
+            },
+            "extra_slots": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "source_value"],
+                "properties": {
+                  "name": { "type": "string", "description": "槽位名,与 slots[] 中定义一致" },
+                  "source_value": { "type": "string", "description": "这张图在该槽位上的具体取值" }
+                }
+              },
+              "description": "本图特有的槽位填值(覆盖 slots[] 默认值)"
+            }
+          }
+        }
+      },
+      "applicable_scenarios": {
+        "type": "array",
+        "title": "适用场景",
+        "minItems": 1,
+        "description": "这套视觉模板在哪些 (vertical, audience, platform) 组合下复用能成立",
+        "items": {
+          "type": "object",
+          "required": ["vertical", "audience", "platform", "why_fits", "confidence"],
+          "properties": {
+            "vertical": { "type": "string", "description": "行业/赛道" },
+            "audience": { "type": "string", "description": "目标受众" },
+            "platform": { "type": "string", "description": "推荐平台" },
+            "why_fits": { "type": "string", "description": "为什么这套视觉在该组合下有效" },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "置信度 0-1"
+            }
+          }
+        }
+      },
+      "non_applicable_scenarios": {
+        "type": "array",
+        "title": "不适用场景",
+        "description": "套到这些场景上会翻车",
+        "items": {
+          "type": "object",
+          "required": ["vertical", "reason"],
+          "properties": {
+            "vertical": { "type": "string" },
+            "reason": { "type": "string" }
+          }
+        }
+      },
+      "required_assets": {
+        "type": "object",
+        "title": "所需素材",
+        "description": "下游创作者要用这套模板时需要准备的视觉素材",
+        "required": ["must_have"],
+        "properties": {
+          "must_have": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["kind", "spec"],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "description": "素材类型,如 '主体人物照片'、'产品实拍'、'场景参考图'、'手写字体'"
+                },
+                "spec": {
+                  "type": "string",
+                  "description": "规格要求,如 '人物半身,自然光,正面或四分之三侧脸'"
+                },
+                "count": { "type": "string", "description": "数量,如 '1'、'2-3'" }
+              }
+            }
+          },
+          "nice_to_have": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["kind", "spec"],
+              "properties": {
+                "kind": { "type": "string" },
+                "spec": { "type": "string" },
+                "count": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "source_evidence": {
+        "type": "object",
+        "title": "原图证据",
+        "description": "本次分析的具体来源图与关键观察",
+        "required": ["key_observations"],
+        "properties": {
+          "media_urls_referenced": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "本次分析依据的具体媒体 URL 列表"
+          },
+          "key_observations": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 3,
+            "description": "3-5 条原图最关键的视觉观察(事实,非推测)"
+          },
+          "series_consistency": {
+            "type": "string",
+            "description": "若为多图,描述系列内部的一致性与变化节奏"
+          }
+        }
+      }
+    }
+  }
+}

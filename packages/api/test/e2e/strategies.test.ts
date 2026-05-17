@@ -31,11 +31,24 @@ describe('Strategies routes', () => {
   });
 
   describe('GET /api/strategies', () => {
-    it('returns 200 with empty list initially', async () => {
+    it('returns 200 with at least the auto-seeded built-in strategies', async () => {
       const res = await fetchApi(ctx.baseUrl, '/api/strategies');
       assert.equal(res.status, 200);
       const body = await res.json();
       assert.ok(Array.isArray(body));
+      const byId = new Map<string, { id: string; is_default: boolean }>(
+        body.map((s: { id: string; is_default: boolean }) => [s.id, s]),
+      );
+      for (const seeded of [
+        'creative-copy-deconstruct',
+        'creative-image-style',
+        'creative-video-style',
+        'creative-topic-angle',
+      ]) {
+        const row = byId.get(seeded);
+        assert.ok(row, `expected seeded strategy ${seeded} to be present`);
+        assert.equal(row.is_default, true, `expected ${seeded} to be is_default=true`);
+      }
     });
   });
 
@@ -62,8 +75,8 @@ describe('Strategies routes', () => {
     it('strategy now appears in list', async () => {
       const res = await fetchApi(ctx.baseUrl, '/api/strategies');
       const body = await res.json();
-      assert.equal(body.length, 1);
-      assert.equal(body[0].id, SAMPLE_STRATEGY.id);
+      const found = body.find((s: { id: string }) => s.id === SAMPLE_STRATEGY.id);
+      assert.ok(found, 'sample strategy should appear in list');
     });
   });
 
@@ -111,6 +124,52 @@ describe('Strategies routes', () => {
       assert.equal(res.status, 200);
       const body = await res.json();
       assert.equal(body.imported, false);
+    });
+  });
+
+  describe('PATCH /api/strategies/:id', () => {
+    it('toggles is_default on an existing strategy', async () => {
+      // Sample strategy was created above with is_default omitted → default false
+      const before = await fetchApi(ctx.baseUrl, `/api/strategies/${SAMPLE_STRATEGY.id}`);
+      assert.equal(before.status, 200);
+      const beforeBody = await before.json();
+      assert.equal(beforeBody.is_default, false);
+
+      const patch = await fetchApi(ctx.baseUrl, `/api/strategies/${SAMPLE_STRATEGY.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_default: true }),
+      });
+      assert.equal(patch.status, 200);
+      const patchBody = await patch.json();
+      assert.equal(patchBody.updated, true);
+
+      const after = await fetchApi(ctx.baseUrl, `/api/strategies/${SAMPLE_STRATEGY.id}`);
+      const afterBody = await after.json();
+      assert.equal(afterBody.is_default, true);
+    });
+
+    it('returns 404 for unknown id', async () => {
+      const res = await fetchApi(ctx.baseUrl, '/api/strategies/does-not-exist', {
+        method: 'PATCH',
+        body: JSON.stringify({ is_default: true }),
+      });
+      assert.equal(res.status, 404);
+    });
+
+    it('rejects body with no updatable fields', async () => {
+      const res = await fetchApi(ctx.baseUrl, `/api/strategies/${SAMPLE_STRATEGY.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({}),
+      });
+      assert.equal(res.status, 400);
+    });
+
+    it('rejects non-boolean is_default', async () => {
+      const res = await fetchApi(ctx.baseUrl, `/api/strategies/${SAMPLE_STRATEGY.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_default: 'yes' }),
+      });
+      assert.equal(res.status, 400);
     });
   });
 

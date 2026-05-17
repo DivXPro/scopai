@@ -339,33 +339,28 @@ export async function startMcpServer(): Promise<void> {
     return makeTextResult(result);
   });
 
-  server.registerTool('generate_creative_brief', {
-    description: 'Generate a creative brief based on multiple reference posts. Creates a task with creative analysis steps and runs them. Returns task_id for polling.',
-    inputSchema: z.object({
-      post_ids: z.array(z.string()).describe('Array of post IDs to use as references (required)'),
-      brief_type: z.enum(['短视频脚本', '产品图方案', '种草文案', '通用']).optional().describe('Brief type (default: 通用)'),
-      requirements: z.string().optional().describe('Additional creative requirements'),
-    }),
-  }, async (args) => {
+  async function runCreativeReferenceAnalysis(opts: {
+    post_ids: string[];
+    task_name: string;
+    requirements?: string;
+  }) {
     const { generateId } = await import('@scopai/core');
 
-    // 1. Create task
     const taskId = generateId();
-    const taskResult = await apiPost('/tasks', {
+    await apiPost('/tasks', {
       id: taskId,
-      name: `创作简报: ${args.brief_type ?? '通用'}`,
-      description: args.requirements ?? null,
+      name: opts.task_name,
+      description: opts.requirements ?? null,
     });
 
-    // 2. Add posts to task
     await apiPost(`/tasks/${taskId}/add-posts`, {
-      post_ids: args.post_ids,
+      post_ids: opts.post_ids,
     });
 
-    // 3. Add creative analysis steps
     const stepConfigs = [
       { strategy_id: 'creative-copy-deconstruct', name: '文案解构' },
-      { strategy_id: 'creative-visual-style', name: '视觉风格' },
+      { strategy_id: 'creative-image-style', name: '图片视觉风格' },
+      { strategy_id: 'creative-video-style', name: '视频视觉风格' },
       { strategy_id: 'creative-topic-angle', name: '话题角度' },
     ];
 
@@ -376,14 +371,50 @@ export async function startMcpServer(): Promise<void> {
       });
     }
 
-    // 4. Run all steps
     await apiPost(`/tasks/${taskId}/run-all-steps`);
 
-    return makeTextResult({
+    return {
       task_id: taskId,
       status: 'running',
-      message: 'Creative brief task created and running. Use get_task to poll for completion.',
-      post_count: args.post_ids.length,
+      post_count: opts.post_ids.length,
+    };
+  }
+
+  server.registerTool('analyze_creative_references', {
+    description: 'Create and run a creative reference analysis task for a batch of posts. Registers four v2 strategies: creative-copy-deconstruct (copy skeleton + slots), creative-image-style (image prompt skeleton + style identity, runs only on posts with image media), creative-video-style (video prompt skeleton + keyframes + pacing + sound, runs only on posts with video media), creative-topic-angle (angle formula + transferability). Worker auto-routes image-only / video-only strategies based on each post\'s media types. Returns task_id for polling.',
+    inputSchema: z.object({
+      post_ids: z.array(z.string()).describe('Array of post IDs to analyze as references (required)'),
+      task_name: z.string().optional().describe('Task display name (default: 参考素材分析)'),
+      requirements: z.string().optional().describe('Additional notes stored on the task description'),
+    }),
+  }, async (args) => {
+    const result = await runCreativeReferenceAnalysis({
+      post_ids: args.post_ids,
+      task_name: args.task_name ?? '参考素材分析',
+      requirements: args.requirements,
+    });
+    return makeTextResult({
+      ...result,
+      message: 'Creative reference analysis task created and running. Use get_task to poll for completion.',
+    });
+  });
+
+  server.registerTool('generate_creative_brief', {
+    description: '[DEPRECATED] Use analyze_creative_references instead. The creative-brief strategy is no longer produced; this tool now only runs the three reference strategies and returns task_id for polling. Kept for backwards compatibility.',
+    inputSchema: z.object({
+      post_ids: z.array(z.string()).describe('Array of post IDs to use as references (required)'),
+      brief_type: z.enum(['短视频脚本', '产品图方案', '种草文案', '通用']).optional().describe('[Deprecated] Mapped to task_name suffix only'),
+      requirements: z.string().optional().describe('Additional creative requirements'),
+    }),
+  }, async (args) => {
+    const result = await runCreativeReferenceAnalysis({
+      post_ids: args.post_ids,
+      task_name: `创作简报: ${args.brief_type ?? '通用'}`,
+      requirements: args.requirements,
+    });
+    return makeTextResult({
+      ...result,
+      message: '[DEPRECATED] Creative brief task created and running. Use get_task to poll for completion. Prefer analyze_creative_references in new integrations.',
     });
   });
 

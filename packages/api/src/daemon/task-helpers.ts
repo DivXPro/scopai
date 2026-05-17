@@ -5,6 +5,7 @@ import {
   enqueueJobs,
   generateId,
   updateTaskStepStatus,
+  listMediaFilesByPost,
 } from '@scopai/core';
 import type { QueueJob, TaskStep } from '@scopai/core';
 
@@ -23,7 +24,29 @@ export async function enqueueStepJobs(
   }
 
   const targets = await listTaskTargets(taskId);
-  const relevantTargets = targets.filter(t => t.target_type === strategy.target);
+  let relevantTargets = targets.filter(t => t.target_type === strategy.target);
+
+  // Media-type routing: if the strategy demands specific media types,
+  // filter out post targets whose available media doesn't intersect.
+  // This is what keeps an image-only strategy from running on a video-only
+  // post (and vice versa).
+  const requiredMediaTypes = strategy.needs_media?.enabled
+    ? strategy.needs_media.media_types ?? []
+    : [];
+  if (
+    strategy.target === 'post' &&
+    requiredMediaTypes.length > 0 &&
+    relevantTargets.length > 0
+  ) {
+    const required = new Set(requiredMediaTypes);
+    const filtered: typeof relevantTargets = [];
+    for (const t of relevantTargets) {
+      const mediaFiles = await listMediaFilesByPost(t.target_id);
+      const has = mediaFiles.some((m) => required.has(m.media_type));
+      if (has) filtered.push(t);
+    }
+    relevantTargets = filtered;
+  }
 
   if (relevantTargets.length === 0) {
     await updateTaskStepStatus(step.id, 'skipped', { total: 0, done: 0, failed: 0 });

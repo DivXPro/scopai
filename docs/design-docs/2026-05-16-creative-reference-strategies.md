@@ -1,5 +1,12 @@
 # 二次创作参考策略与 MCP 增强设计
 
+> **⚠️ 部分废弃 (2026-05-17)**
+>
+> - `creative-brief` 策略已废弃，本文档相关章节仅作为历史设计记录保留。
+> - 其余三个策略（`creative-copy-deconstruct` / `creative-visual-style` / `creative-topic-angle`）已升级到 v2.0.0，输出结构改为「骨架 + 槽位 + 适用场景 + 素材清单」工程化模板，与本文档原始 schema 已不兼容。
+> - MCP 工具 `generate_creative_brief` 已 deprecate，新名 `analyze_creative_references`。
+> - 当前权威规格见 `docs/product-specs/creative-strategy-templates.md` 与 `packages/core/src/strategies/built-in/*.json`。
+
 ## 背景
 
 Scopai 已具备完整的社交媒体内容采集、策略分析和 MCP Server 能力。当前痛点：

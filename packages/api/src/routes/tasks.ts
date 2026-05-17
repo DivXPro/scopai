@@ -8,6 +8,7 @@ import {
   deleteJobsByTaskAndStrategy,
   deleteStrategyResultsByTaskAndStrategy,
   getStrategyById,
+  listDefaultStrategies,
   generateId, now,
   getTaskPostStatuses,
   insertStrategyResult,
@@ -18,6 +19,7 @@ import {
   checkpoint,
   getLogger,
 } from '@scopai/core';
+import type { Strategy } from '@scopai/core';
 import { enqueueStepJobs } from '../daemon/task-helpers';
 import type { QueueJob } from '@scopai/core';
 import { getHandlers } from '../daemon/handlers';
@@ -189,7 +191,38 @@ export default async function tasksRoutes(app: FastifyInstance) {
       updated_at: now(),
       completed_at: null,
     });
-    return { id };
+
+    // step_strategy_ids 语义：
+    //   - 字段缺失（undefined）→ 用所有 is_default=true 的策略
+    //   - 字段是数组（含 []）→ 原样使用，未知 id 静默跳过
+    const stepStrategyIds = data.step_strategy_ids;
+    let strategies: Strategy[];
+    if (Array.isArray(stepStrategyIds)) {
+      strategies = [];
+      for (const sid of stepStrategyIds as string[]) {
+        const s = await getStrategyById(sid);
+        if (s) strategies.push(s);
+      }
+    } else {
+      strategies = await listDefaultStrategies();
+    }
+
+    const stepIds: string[] = [];
+    let order = 0;
+    for (const s of strategies) {
+      const step = await createTaskStep({
+        task_id: id,
+        strategy_id: s.id,
+        name: s.name,
+        step_order: order++,
+        status: 'pending',
+        stats: { total: 0, done: 0, failed: 0 },
+        error: null,
+      });
+      stepIds.push(step.id);
+    }
+
+    return { id, step_ids: stepIds };
   });
 
   app.post('/tasks/:id/start', async (request) => {

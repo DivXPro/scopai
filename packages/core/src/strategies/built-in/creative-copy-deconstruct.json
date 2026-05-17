@@ -1,48 +1,216 @@
 {
   "id": "creative-copy-deconstruct",
   "name": "文案解构",
-  "description": "对帖子文案进行结构化拆解，提取创作者使用的文案技巧",
-  "version": "1.0.0",
+  "description": "把一条爆款文案拆成可复用的「骨架 + 槽位 + 素材清单」,下游创作者填空即可生成同款。",
+  "version": "2.0.0",
   "target": "post",
-  "prompt": "你是一位资深短视频/社交媒体文案分析师。请对以下帖子文案进行结构化拆解，提取创作者使用的文案技巧。关注：开头如何抓注意力、中间如何建立信任/制造情绪、结尾如何引导互动。\n\n帖子内容：\n标题：{{title}}\n正文：{{content}}\n作者：{{author_name}}\n平台：{{platform}}\n发布时间：{{published_at}}\n",
+  "is_default": true,
+  "prompt": "你不是在描述这条帖子,你在把它拆解为一份可复用的内容生成模板——下游创作者拿到你的产物后,应当能填空就产出风格一致的新作品。\n\n输出原则:\n1. 「可复制」与「可变化」分离:reusable_skeleton 保留所有让风格成立的固定语序、连接词、节奏与标点习惯,把人物/情绪/产品/场景/数据等可替换部分写成 {SLOT_NAME} 占位符。每个槽必须在 slots[] 中说明:语义、kind、至少 2 个示例填充值、以及原帖在该槽的实际取值 source_value。\n2. reusable_patterns:抽出 1-3 条原帖中可独立复用的高密度句式(金句/钩子句/转折句),同样带占位符,并标注 reuse_level(verbatim/structural/inspirational)。\n3. 复用边界要诚实:applicable_scenarios 给出 1-3 个 (vertical, audience, platform) 组合及 0-1 置信度;non_applicable_scenarios 至少给 1 个套上去会翻车的场景。\n4. 素材清单要具体:required_assets.must_have 写明下游创作者必备的素材(kind/spec/count),需要哪些故事、数据、截图、对比、人设元素。可选项写到 nice_to_have。\n5. 原文证据:source_evidence 引用原帖的钩子句与 CTA 句作为模板诞生证据。\n\n骨架示意(仅参考结构,内容必须基于原帖重写):\n\"{HOOK_LINE}\\n\\n说实话,我以前一直被 {PAIN} 困扰,直到上周试了 {SOLUTION}。\\n{OUTCOME}\\n\\n👉 {CTA}\"\n\n---\n帖子内容:\n标题:{{title}}\n正文:{{content}}\n作者:{{author_name}}\n平台:{{platform}}\n发布时间:{{published_at}}\n\n严格按 JSON schema 输出,所有字段值使用中文(slot 名保留英文大写下划线),不要附加任何解释或 Markdown。\n",
   "output_schema": {
     "type": "object",
+    "required": [
+      "reusable_skeleton",
+      "slots",
+      "applicable_scenarios",
+      "required_assets",
+      "source_evidence"
+    ],
     "properties": {
-      "hook": {
+      "reusable_skeleton": {
         "type": "string",
-        "title": "开头钩子",
-        "description": "开头钩子，3秒内抓注意力的手法"
+        "title": "可复用骨架",
+        "description": "完整的文案模板,保留原帖的固定句式与节奏,可变部分写成 {SLOT_NAME} 占位符。所有出现在骨架里的 {SLOT_NAME} 都必须在 slots[] 中定义。"
       },
-      "structure_template": {
-        "type": "string",
-        "title": "文案结构模板",
-        "description": "文案结构模板，如'痛点共鸣→解决方案→社会证明→CTA'"
-      },
-      "golden_phrases": {
+      "slots": {
         "type": "array",
-        "items": { "type": "string" },
-        "title": "金句/话术",
-        "description": "可复用的金句/话术"
+        "title": "槽位定义",
+        "description": "骨架中每一个 {SLOT_NAME} 的语义与可填内容",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": ["name", "kind", "description", "examples", "source_value"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "槽位名,大写 + 下划线,对应骨架中的 {SLOT_NAME}"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "emotion",
+                "scene",
+                "persona",
+                "product",
+                "metric",
+                "action",
+                "outcome",
+                "cta",
+                "other"
+              ],
+              "description": "槽位语义类型,便于下游 UI 分组与填充"
+            },
+            "description": {
+              "type": "string",
+              "description": "这个槽位想表达什么"
+            },
+            "examples": {
+              "type": "array",
+              "items": { "type": "string" },
+              "minItems": 2,
+              "description": "至少 2 个示例填充值,供模板使用者参考"
+            },
+            "source_value": {
+              "type": "string",
+              "description": "当前帖子在这个槽位上的实际取值,直接来源于原文"
+            }
+          }
+        }
+      },
+      "reusable_patterns": {
+        "type": "array",
+        "title": "可复用句式",
+        "description": "骨架之外,原帖中可独立抽出的高复用句式或金句模板",
+        "items": {
+          "type": "object",
+          "required": ["pattern", "reuse_level"],
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "description": "带占位符的句式模板,如 '在 {X} 当 {Y} 的人都懂 {Z}'"
+            },
+            "reuse_level": {
+              "type": "string",
+              "enum": ["verbatim", "structural", "inspirational"],
+              "description": "verbatim=原句可直接搬;structural=保留结构换内容;inspirational=思路参考"
+            },
+            "source_quote": {
+              "type": "string",
+              "description": "原帖中对应这条句式的具体文字"
+            }
+          }
+        }
+      },
+      "applicable_scenarios": {
+        "type": "array",
+        "title": "适用场景",
+        "minItems": 1,
+        "description": "这套模板在哪些 (vertical, audience, platform) 组合下复用能成立",
+        "items": {
+          "type": "object",
+          "required": ["vertical", "audience", "platform", "why_fits", "confidence"],
+          "properties": {
+            "vertical": {
+              "type": "string",
+              "description": "行业/赛道,如 '母婴'、'职场'、'家居'"
+            },
+            "audience": {
+              "type": "string",
+              "description": "目标受众画像,一句话描述年龄/身份/痛点"
+            },
+            "platform": {
+              "type": "string",
+              "description": "推荐平台,xhs / douyin / wechat / weibo / b 站 等"
+            },
+            "why_fits": {
+              "type": "string",
+              "description": "为什么这套模板在该组合下有效"
+            },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "置信度,0-1"
+            }
+          }
+        }
+      },
+      "non_applicable_scenarios": {
+        "type": "array",
+        "title": "不适用场景",
+        "description": "套到这些场景上会翻车,相当于 negative prompt",
+        "items": {
+          "type": "object",
+          "required": ["vertical", "reason"],
+          "properties": {
+            "vertical": { "type": "string" },
+            "reason": {
+              "type": "string",
+              "description": "为什么这个场景下模板不成立"
+            }
+          }
+        }
+      },
+      "required_assets": {
+        "type": "object",
+        "title": "所需素材",
+        "description": "下游创作者要使用这套模板时需要准备的内容素材",
+        "required": ["must_have"],
+        "properties": {
+          "must_have": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["kind", "spec"],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "description": "素材类型,如 '亲历故事'、'对比数据'、'用户私信截图'、'产品实拍'"
+                },
+                "spec": {
+                  "type": "string",
+                  "description": "规格要求,如 '第一人称、300 字内、含一个反差点'"
+                },
+                "count": {
+                  "type": "string",
+                  "description": "数量,如 '1'、'2-3'"
+                }
+              }
+            }
+          },
+          "nice_to_have": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["kind", "spec"],
+              "properties": {
+                "kind": { "type": "string" },
+                "spec": { "type": "string" },
+                "count": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "source_evidence": {
+        "type": "object",
+        "title": "原文证据",
+        "description": "原帖中支撑这套模板的关键证据,使本条分析自动成为一个 example_case",
+        "required": ["hook_quote"],
+        "properties": {
+          "hook_quote": {
+            "type": "string",
+            "description": "原帖开头钩子,直接引用"
+          },
+          "cta_quote": {
+            "type": "string",
+            "description": "原帖结尾 CTA,直接引用;若无可留空字符串"
+          },
+          "performance_hint": {
+            "type": "string",
+            "description": "已知的作者粉丝量/点赞量/转发量等表现指标,可选"
+          }
+        }
       },
       "emotion_curve": {
         "type": "string",
-        "title": "情绪走向",
-        "description": "情绪走向，如'焦虑→希望→紧迫'"
-      },
-      "pain_point": {
-        "type": "string",
-        "title": "受众痛点",
-        "description": "触达的受众痛点"
-      },
-      "target_audience": {
-        "type": "string",
-        "title": "目标受众画像",
-        "description": "目标受众画像"
+        "title": "情绪曲线",
+        "description": "整体情绪走向,如 '焦虑 → 希望 → 紧迫',供 brief 聚合"
       },
       "cta_type": {
         "type": "string",
-        "title": "行动号召类型",
-        "description": "行动号召类型"
+        "title": "CTA 类型",
+        "description": "评论/收藏/私信/点赞/下单/关注/转发 等,供 brief 聚合"
       }
     }
   }

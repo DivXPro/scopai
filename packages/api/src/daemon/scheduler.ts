@@ -15,7 +15,7 @@ export interface StepInfo {
 export interface StrategyInfo {
   id: string;
   target: 'post' | 'comment';
-  needs_media?: { enabled: boolean } | null;
+  needs_media?: { enabled: boolean; media_types?: string[] } | null;
 }
 
 export interface TargetInfo {
@@ -32,6 +32,11 @@ export interface StepUpdate {
 /**
  * Pure logic: builds queue_jobs for a single post given already-resolved data.
  * No database access — all inputs are passed as arguments.
+ *
+ * `postMediaTypes` lists which media types the post actually has (e.g. ['image', 'video']).
+ * Strategies whose `needs_media.media_types` doesn't intersect with this set are skipped
+ * for this post, so e.g. an image-only strategy won't run against a video-only post.
+ * Pass an empty array to opt out of type filtering (legacy behavior).
  */
 export function buildJobsForPost(
   taskId: string,
@@ -43,12 +48,15 @@ export function buildJobsForPost(
   comments: { id: string }[],
   mediaReady: boolean,
   generateIdFn: () => string,
+  postMediaTypes: string[] = [],
 ): { jobs: QueueJob[]; stepUpdates: StepUpdate[] } {
   const pendingSteps = steps.filter(s =>
     s.status === 'pending' || s.status === 'running'
   );
   const jobs: QueueJob[] = [];
   const stepUpdates: StepUpdate[] = [];
+
+  const availableMediaSet = new Set(postMediaTypes);
 
   for (const step of pendingSteps) {
     if (!step.strategy_id) continue;
@@ -59,6 +67,18 @@ export function buildJobsForPost(
     // Check media dependency
     if (strategy.needs_media && strategy.needs_media.enabled && !mediaReady) {
       continue;
+    }
+
+    // Media-type routing: skip strategies whose required media types don't match the post
+    if (
+      strategy.needs_media &&
+      strategy.needs_media.enabled &&
+      strategy.needs_media.media_types &&
+      strategy.needs_media.media_types.length > 0 &&
+      postMediaTypes.length > 0
+    ) {
+      const matches = strategy.needs_media.media_types.some(t => availableMediaSet.has(t));
+      if (!matches) continue;
     }
 
     // Resolve targets for this step on this post

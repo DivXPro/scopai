@@ -430,6 +430,16 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
         [postId],
       );
 
+      // Collect actual media types for this post (image / video / audio).
+      // buildJobsForPost uses this to filter out strategies whose
+      // needs_media.media_types don't intersect (e.g. video-only strategy on
+      // an image-only post).
+      let postMediaTypes: string[] = [];
+      if (mediaReady) {
+        const mediaFiles = await listMediaFilesByPost(postId);
+        postMediaTypes = Array.from(new Set(mediaFiles.map((m) => m.media_type)));
+      }
+
       // Ensure comments are task targets for comment-level strategies
       const hasCommentStrategy = Array.from(strategies.values()).some((s: any) => s.target === 'comment');
       if (hasCommentStrategy && comments.length > 0) {
@@ -453,6 +463,7 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
         comments,
         mediaReady,
         generateId,
+        postMediaTypes,
       );
 
       if (analysisJobs.length > 0) {
@@ -542,11 +553,13 @@ async function processStrategyJob(
     if (searchableText) {
       const sourceType = strategy.id === 'creative-copy-deconstruct'
         ? 'brief_copy'
-        : strategy.id === 'creative-visual-style'
-          ? 'brief_visual'
-          : strategy.id === 'creative-topic-angle'
-            ? 'brief_topic'
-            : 'brief_other';
+        : strategy.id === 'creative-image-style'
+          ? 'brief_visual_image'
+          : strategy.id === 'creative-video-style'
+            ? 'brief_visual_video'
+            : strategy.id === 'creative-topic-angle'
+              ? 'brief_topic'
+              : 'brief_other';
       await insertSearchIndex(post.id, sourceType, searchableText);
     }
   } else if (strategy.target === 'comment') {

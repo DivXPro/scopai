@@ -32,6 +32,84 @@ describe('Tasks routes', () => {
     });
   });
 
+  describe('POST /api/tasks (default strategy steps)', () => {
+    it('auto-adds default strategy steps when step_strategy_ids is absent', async () => {
+      const res = await fetchApi(ctx.baseUrl, '/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Default Steps Task' }),
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.ok(body.id);
+      assert.ok(Array.isArray(body.step_ids));
+      // 4 built-in strategies all seeded with is_default=true
+      assert.equal(body.step_ids.length, 4);
+
+      const detail = await fetchApi(ctx.baseUrl, `/api/tasks/${body.id}`);
+      const detailBody = await detail.json();
+      assert.equal(detailBody.steps.length, 4);
+      const strategyIds = new Set(detailBody.steps.map((s: { strategyId: string }) => s.strategyId));
+      for (const expected of [
+        'creative-copy-deconstruct',
+        'creative-image-style',
+        'creative-video-style',
+        'creative-topic-angle',
+      ]) {
+        assert.ok(strategyIds.has(expected), `expected step for ${expected}`);
+      }
+    });
+
+    it('creates no steps when step_strategy_ids is an empty array', async () => {
+      const res = await fetchApi(ctx.baseUrl, '/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Empty Steps Task', step_strategy_ids: [] }),
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.deepEqual(body.step_ids, []);
+
+      const detail = await fetchApi(ctx.baseUrl, `/api/tasks/${body.id}`);
+      const detailBody = await detail.json();
+      assert.equal(detailBody.steps.length, 0);
+    });
+
+    it('uses provided step_strategy_ids when array is non-empty', async () => {
+      const res = await fetchApi(ctx.baseUrl, '/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'Single Step Task',
+          step_strategy_ids: ['creative-copy-deconstruct'],
+        }),
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.step_ids.length, 1);
+
+      const detail = await fetchApi(ctx.baseUrl, `/api/tasks/${body.id}`);
+      const detailBody = await detail.json();
+      assert.equal(detailBody.steps.length, 1);
+      assert.equal(detailBody.steps[0].strategyId, 'creative-copy-deconstruct');
+    });
+
+    it('silently skips unknown strategy ids', async () => {
+      const res = await fetchApi(ctx.baseUrl, '/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'Mixed Ids Task',
+          step_strategy_ids: ['creative-copy-deconstruct', 'definitely-not-a-real-id'],
+        }),
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.step_ids.length, 1);
+
+      const detail = await fetchApi(ctx.baseUrl, `/api/tasks/${body.id}`);
+      const detailBody = await detail.json();
+      assert.equal(detailBody.steps.length, 1);
+      assert.equal(detailBody.steps[0].strategyId, 'creative-copy-deconstruct');
+    });
+  });
+
   describe('GET /api/tasks', () => {
     it('returns task list', async () => {
       const res = await fetchApi(ctx.baseUrl, '/api/tasks');

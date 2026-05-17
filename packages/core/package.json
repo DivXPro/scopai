@@ -6,10 +6,11 @@
   "types": "dist/index.d.ts",
   "files": [
     "dist/",
-    "src/db/schema.sql"
+    "src/db/schema.sql",
+    "src/strategies/built-in/"
   ],
   "scripts": {
-    "build": "tsc && tsup src/index.ts --format cjs --out-dir dist --external duckdb --minify && cp src/db/schema.sql dist/schema.sql",
+    "build": "tsc && tsup src/index.ts --format cjs --out-dir dist --external duckdb --minify && cp src/db/schema.sql dist/schema.sql && mkdir -p dist/strategies/built-in && cp src/strategies/built-in/*.json dist/strategies/built-in/",
     "dev": "tsup src/index.ts --format cjs --out-dir dist --external duckdb --watch",
     "test": "node --test --test-concurrency=1 --experimental-strip-types 'test/**/*.test.ts'"
   },

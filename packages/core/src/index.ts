@@ -12,6 +12,8 @@ export {
 
 export { runMigrations as migrate } from './db/migrate';
 export { seedPlatformsAndMappings as seedPlatforms } from './db/seed';
+export { seedBuiltInStrategies } from './strategies/seed-built-in';
+export type { SeedBuiltInResult } from './strategies/seed-built-in';
 
 export * from './db/posts';
 export * from './db/comments';

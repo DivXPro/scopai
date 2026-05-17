@@ -7,6 +7,7 @@ import {
   config,
   migrate,
   seedPlatforms,
+  seedBuiltInStrategies,
   close as closeDb,
   checkpoint,
   readLockFile,
@@ -61,6 +62,24 @@ async function main() {
 
   await migrate();
   await seedPlatforms();
+
+  try {
+    const seedResult = await seedBuiltInStrategies();
+    const { imported, updated, skipped, errors } = seedResult;
+    if (imported > 0 || updated > 0) {
+      console.log(
+        `[scopai] Built-in strategies seeded: ${imported} imported, ${updated} updated, ${skipped} same-version skipped`
+      );
+    }
+    for (const e of errors) {
+      console.warn(`[scopai] Failed to seed built-in strategy ${e.file}: ${e.error}`);
+    }
+  } catch (err) {
+    console.warn(
+      '[scopai] Built-in strategy seeding failed:',
+      err instanceof Error ? err.message : String(err)
+    );
+  }
 
   // Ensure scopai opencli adapters are installed (re-install if opencli updated)
   const installScript = path.resolve(__dirname, '../../../scripts/install-opencli.js');

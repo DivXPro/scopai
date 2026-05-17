@@ -4,6 +4,7 @@ import {
   validateStrategyJson, parseJsonSchemaToColumns, createStrategyResultTable, syncStrategyResultTable,
   getStrategyResultStats, runAggregate, getFullStats, listStrategyResultsByTask,
 } from '@scopai/core';
+import type { Strategy } from '@scopai/core';
 
 export default async function strategiesRoutes(app: FastifyInstance) {
   app.get('/strategies', async () => listStrategies());
@@ -50,6 +51,7 @@ export default async function strategiesRoutes(app: FastifyInstance) {
       batch_config: (obj.batch_config ?? null) as any,
       depends_on: (obj.depends_on ?? null) as 'post' | 'comment' | null,
       include_original: (obj.include_original ?? false) as boolean,
+      is_default: (obj.is_default ?? false) as boolean,
       file_path: null,
     };
 
@@ -87,9 +89,39 @@ export default async function strategiesRoutes(app: FastifyInstance) {
       batch_config: (obj.batch_config ?? null) as any,
       depends_on: (obj.depends_on ?? null) as 'post' | 'comment' | null,
       include_original: (obj.include_original ?? false) as boolean,
+      is_default: (obj.is_default ?? false) as boolean,
       file_path: null,
     });
     return { imported: true, id: obj.id };
+  });
+
+  app.patch('/strategies/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = request.body as Record<string, unknown> | undefined;
+    if (!body || typeof body !== 'object') {
+      reply.code(400);
+      throw new Error('Body must be an object');
+    }
+
+    const existing = await getStrategyById(id);
+    if (!existing) { reply.code(404); throw new Error('Strategy not found'); }
+
+    const updates: Partial<Pick<Strategy, 'is_default'>> = {};
+    if (body.is_default !== undefined) {
+      if (typeof body.is_default !== 'boolean') {
+        reply.code(400);
+        throw new Error('is_default must be a boolean');
+      }
+      updates.is_default = body.is_default;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      reply.code(400);
+      throw new Error('No updatable fields provided');
+    }
+
+    await updateStrategy(id, updates);
+    return { updated: true, id };
   });
 
   app.delete('/strategies/:id', async (request, reply) => {

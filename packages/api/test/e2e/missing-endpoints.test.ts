@@ -50,10 +50,10 @@ describe('Missing endpoints', () => {
       });
       assert.equal(stratRes.status, 200);
 
-      // Create task
+      // Create task without default steps so the explicit step add yields exactly 1
       const taskRes = await fetchApi(ctx.baseUrl, '/api/tasks', {
         method: 'POST',
-        body: JSON.stringify({ name: 'Step Get Test' }),
+        body: JSON.stringify({ name: 'Step Get Test', step_strategy_ids: [] }),
       });
       const taskBody = await taskRes.json();
       stepTaskId = taskBody.id;
