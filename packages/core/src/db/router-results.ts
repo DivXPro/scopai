@@ -17,7 +17,7 @@ export interface RouterResult {
   match_reason: string | null;
   positive_evidence: string | null;
   negative_evidence: string | null;
-  upstream_tags: string | null;
+  upstream_tags: Record<string, unknown> | null;
   created_at: Date;
 }
 
