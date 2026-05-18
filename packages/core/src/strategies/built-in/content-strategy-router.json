@@ -6,7 +6,19 @@
   "target": "post",
   "is_router": true,
   "is_default": false,
-  "prompt": "你是一个内容质量评估器。你的任务是逐条判断一个帖子是否具备被某个下游分析策略「解构」的原材料。\n\n对下面列出的每个策略，你必须：\n1. 逐条检查该策略声明的 applicability_checks\n2. 从帖子中找到具体证据\n3. 输出 { applicable: true/false, confidence: 0-1, checks: [...], rejection_reason }\n\n判断原则：\n- \"有原材料\" ≠ \"分析结果会好\"。你只判断内容是否具备可分析的基本元素\n- 宁可漏判（漏一个策略），不要误判（把一个没有图片的帖子判给图片分析策略）\n- 检查 boundary_false_positives——如果帖子命中负样本描述，应判不适用\n- 如果帖子正文或元信息不足以做出判断，confidence 应降低，但 applicable 可留为 true（交给下游策略自行判断）\n\n各策略判据清单：\n\n{{strategy_list_with_checks}}\n\n---\n帖子内容:\n标题: {{title}}\n正文: {{content}}\n作者: {{author_name}}\n平台: {{platform}}\n媒体数量: 图片 {{image_count}} 张，视频 {{video_count}} 个\n媒体 URL 列表: {{media_urls}}\n\n严格按 JSON schema 输出。不要附加任何解释或 Markdown。",
+  "routing": {
+    "tags_description": "路由策略本身不期望特定标签，而是基于标签画像做全局匹配",
+    "positive_signals": [
+      "内容具备可分析的结构元素",
+      "内容有明确的创作意图和表达"
+    ],
+    "negative_signals": [
+      "内容完全是图片描述或表情包",
+      "内容是纯搬运无原创性"
+    ],
+    "needs_media": false
+  },
+  "prompt": "你是一个内容分析路由专家。你的任务是根据内容的标签画像，判断哪些下游分析策略适用于该内容。\n\n## 内容标签画像\n\n{{upstream_result}}\n\n## 内容原文\n\n标题：{{title}}\n正文：{{content}}\n作者：{{author_name}}\n平台：{{platform}}\n媒体数量: 图片 {{image_count}} 张，视频 {{video_count}} 个\n媒体 URL 列表: {{media_urls}}\n\n## 候选策略\n\n{strategy_list_with_checks}\n\n每个策略包含：\n- tags_description: 该策略期望的内容标签特征\n- positive_signals: 正面参考信号（内容具备这些特征时更适合该策略）\n- negative_signals: 负面参考信号（内容具备这些特征时不适合该策略）\n\n## 评分要求\n\n请对每个策略给出以下评分（0-10分）：\n- tag_match: 标签画像与策略期望标签的匹配程度（0=完全不匹配，10=完美匹配）\n- positive_signals: 内容符合正面参考信号的程度（0=完全不符合，10=完全符合）\n- negative_signals: 内容命中负面参考信号的程度（0=完全无负面，10=严重负面）\n\n## 路由规则\n\n1. 首先检查 availability（硬性过滤），不满足的直接排除\n2. 基于标签画像进行主匹配\n3. 参考正负信号做模糊评估，微调匹配判断\n4. 综合评分给出最终决策\n\n## 输出格式\n\n对每个策略输出：\n- strategy_id: 策略 ID\n- applicable: true/false\n- confidence: 0-1 置信度\n- scores: { tag_match: number, positive_signals: number, negative_signals: number }\n- match_reason: 标签匹配原因\n- positive_evidence: 正面信号证据\n- negative_evidence: 负面信号证据\n\n严格按 JSON schema 输出。不要附加任何解释或 Markdown。",
   "output_schema": {
     "type": "object",
     "required": ["decisions"],

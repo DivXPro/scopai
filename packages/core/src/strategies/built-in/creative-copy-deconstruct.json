@@ -7,16 +7,18 @@
   "is_default": true,
   "routing": {
     "availability": { "requires_text": { "min_sentences": 3 } },
-    "applicability_checks": [
-      { "id": "has_hook", "question": "正文是否存在「钩子句」（开头抓注意力的句子）？", "evidence_field": "hook_quote", "kind": "boolean" },
-      { "id": "has_narrative_body", "question": "正文是否有叙事推进段（论述/讲故事/举例/对比）而非仅下结论？", "evidence_field": "body_summary", "kind": "text" },
-      { "id": "has_cta_or_close", "question": "正文是否有收束句或CTA？", "evidence_field": "cta_quote", "kind": "boolean" }
+    "tags_description": "适合文案创作分析，内容属性包含教程、干货、经验分享，情感标签偏积极或专业",
+    "positive_signals": [
+      "正文开头有抓注意力的钩子句",
+      "正文有叙事推进（论述/讲故事/举例/对比）而非仅下结论",
+      "正文有收束句或CTA引导互动"
     ],
-    "boundary_false_positives": [
-      "正文以图片描述为主（如「看看这个」），缺乏独立文案结构",
+    "negative_signals": [
+      "正文以图片描述为主，缺乏独立文案结构",
       "正文是纯搬运/引用他人内容，无原创性",
       "正文是列表式罗列且无论述展开"
-    ]
+    ],
+    "needs_media": false
   },
   "prompt": "你不是在描述这条帖子,你在把它拆解为一份可复用的内容生成模板——下游创作者拿到你的产物后,应当能填空就产出风格一致的新作品。\n\n输出原则:\n1. 「可复制」与「可变化」分离:reusable_skeleton 保留所有让风格成立的固定语序、连接词、节奏与标点习惯,把人物/情绪/产品/场景/数据等可替换部分写成 {SLOT_NAME} 占位符。每个槽必须在 slots[] 中说明:语义、kind、至少 2 个示例填充值、以及原帖在该槽的实际取值 source_value。\n2. reusable_patterns:抽出 1-3 条原帖中可独立复用的高密度句式(金句/钩子句/转折句),同样带占位符,并标注 reuse_level(verbatim/structural/inspirational)。\n3. 复用边界要诚实:applicable_scenarios 给出 1-3 个 (vertical, audience, platform) 组合及 0-1 置信度;non_applicable_scenarios 至少给 1 个套上去会翻车的场景。\n4. 素材清单要具体:required_assets.must_have 写明下游创作者必备的素材(kind/spec/count),需要哪些故事、数据、截图、对比、人设元素。可选项写到 nice_to_have。\n5. 原文证据:source_evidence 引用原帖的钩子句与 CTA 句作为模板诞生证据。\n\n骨架示意(仅参考结构,内容必须基于原帖重写):\n\"{HOOK_LINE}\\n\\n说实话,我以前一直被 {PAIN} 困扰,直到上周试了 {SOLUTION}。\\n{OUTCOME}\\n\\n👉 {CTA}\"\n\n---\n帖子内容:\n标题:{{title}}\n正文:{{content}}\n作者:{{author_name}}\n平台:{{platform}}\n发布时间:{{published_at}}\n\n严格按 JSON schema 输出,所有字段值使用中文(slot 名保留英文大写下划线),不要附加任何解释或 Markdown。\n",
   "output_schema": {
