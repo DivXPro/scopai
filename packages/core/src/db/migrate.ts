@@ -127,11 +127,45 @@ async function migrateRouterResultsTable(): Promise<void> {
       skipped_strategies JSON NOT NULL,
       checks JSON NOT NULL,
       confidence REAL NOT NULL,
+      tag_match_score REAL,
+      positive_signals_score REAL,
+      negative_signals_score REAL,
+      match_reason TEXT,
+      positive_evidence TEXT,
+      negative_evidence TEXT,
+      upstream_tags JSON,
       created_at TIMESTAMP DEFAULT NOW(),
       UNIQUE(router_step_id, post_id)
     )`);
     await exec('CREATE INDEX idx_router_results_task ON router_results(task_id)');
     await exec('CREATE INDEX idx_router_results_step ON router_results(router_step_id)');
+  }
+}
+
+async function migrateRouterResultsEnhancedColumns(): Promise<void> {
+  const columns = await query<{ name: string }>(
+    "SELECT column_name as name FROM information_schema.columns WHERE table_name = 'router_results'"
+  );
+  if (!columns.some(c => c.name === 'tag_match_score')) {
+    await exec('ALTER TABLE router_results ADD COLUMN tag_match_score REAL');
+  }
+  if (!columns.some(c => c.name === 'positive_signals_score')) {
+    await exec('ALTER TABLE router_results ADD COLUMN positive_signals_score REAL');
+  }
+  if (!columns.some(c => c.name === 'negative_signals_score')) {
+    await exec('ALTER TABLE router_results ADD COLUMN negative_signals_score REAL');
+  }
+  if (!columns.some(c => c.name === 'match_reason')) {
+    await exec('ALTER TABLE router_results ADD COLUMN match_reason TEXT');
+  }
+  if (!columns.some(c => c.name === 'positive_evidence')) {
+    await exec('ALTER TABLE router_results ADD COLUMN positive_evidence TEXT');
+  }
+  if (!columns.some(c => c.name === 'negative_evidence')) {
+    await exec('ALTER TABLE router_results ADD COLUMN negative_evidence TEXT');
+  }
+  if (!columns.some(c => c.name === 'upstream_tags')) {
+    await exec('ALTER TABLE router_results ADD COLUMN upstream_tags JSON');
   }
 }
 
@@ -430,6 +464,7 @@ export async function runMigrations(): Promise<void> {
   await migrateTaskStepsRemoveDependsOn();
   await migrateRouterColumns();
   await migrateRouterResultsTable();
+  await migrateRouterResultsEnhancedColumns();
 
   // Migration: drop legacy analysis_results table if present
   const hasAnalysisResults = await query<{ name: string }>(

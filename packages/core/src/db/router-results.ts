@@ -11,6 +11,13 @@ export interface RouterResult {
   skipped_strategies: Array<{ strategy_id: string; reason: string }>;
   checks: Array<{ check_id: string; strategy_id: string; passed: boolean; evidence?: string }>;
   confidence: number;
+  tag_match_score: number | null;
+  positive_signals_score: number | null;
+  negative_signals_score: number | null;
+  match_reason: string | null;
+  positive_evidence: string | null;
+  negative_evidence: string | null;
+  upstream_tags: string | null;
   created_at: Date;
 }
 
@@ -20,8 +27,8 @@ export async function createRouterResult(
   const id = generateId();
   const ts = now();
   await run(
-    `INSERT INTO router_results (id, router_step_id, strategy_id, task_id, post_id, applicable_strategy_ids, skipped_strategies, checks, confidence, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO router_results (id, router_step_id, strategy_id, task_id, post_id, applicable_strategy_ids, skipped_strategies, checks, confidence, tag_match_score, positive_signals_score, negative_signals_score, match_reason, positive_evidence, negative_evidence, upstream_tags, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       result.router_step_id,
@@ -32,6 +39,13 @@ export async function createRouterResult(
       JSON.stringify(result.skipped_strategies),
       JSON.stringify(result.checks),
       result.confidence,
+      result.tag_match_score,
+      result.positive_signals_score,
+      result.negative_signals_score,
+      result.match_reason,
+      result.positive_evidence,
+      result.negative_evidence,
+      result.upstream_tags,
       ts,
     ],
   );
@@ -81,5 +95,8 @@ function parseRow(row: RouterResult): RouterResult {
     checks: typeof row.checks === 'string'
       ? JSON.parse(row.checks)
       : row.checks,
+    upstream_tags: typeof row.upstream_tags === 'string'
+      ? JSON.parse(row.upstream_tags)
+      : row.upstream_tags,
   };
 }

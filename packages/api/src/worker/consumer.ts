@@ -836,7 +836,7 @@ async function syncStepStats(taskId: string, strategyId: string): Promise<void> 
 
 async function processRouterJob(
   job: QueueJob,
-  strategy: { id: string; name: string; prompt: string; output_schema: Record<string, unknown> },
+  strategy: { id: string; name: string; prompt: string; output_schema: Record<string, unknown>; routing: import('@scopai/core').RoutingConfig | null },
   task: { id: string; name: string },
   workerId: number | string,
 ): Promise<void> {
@@ -877,17 +877,40 @@ async function processRouterJob(
     }
   }
 
+  // Load upstream tags from the content-tagger step if available
+  let upstreamTags: Record<string, unknown> | undefined;
+  const taggerStep = steps.find(s => s.strategy_id === 'content-tagger');
+  if (taggerStep) {
+    try {
+      const { query } = await import('@scopai/core');
+      const results = await query<Record<string, unknown>>(
+        `SELECT * FROM analysis_results WHERE strategy_id = ? AND post_id = ? ORDER BY created_at DESC LIMIT 1`,
+        ['content-tagger', postId],
+      );
+      if (results && results.length > 0) {
+        const rawResult = results[0].result as Record<string, unknown> | string;
+        upstreamTags = typeof rawResult === 'string' ? JSON.parse(rawResult) : rawResult;
+      }
+    } catch (err) {
+      logger.warn(`[Worker-${workerId}] Failed to load upstream tags: ${err}`);
+    }
+  }
+
+  // Determine if media should be loaded based on router strategy config
+  const loadMedia = strategy.routing?.needs_media ?? true;
+  const mediaFilesForRouter = loadMedia ? await listMediaFilesByPost(postId) : [];
+
   let applicableStrategyIds: string[] = [];
   const skippedStrategies: Array<{ strategy_id: string; reason: string }> = [];
   const checks: Array<{ check_id: string; strategy_id: string; passed: boolean; evidence?: string }> = [];
   let overallConfidence = 0;
-  let routerOutput: { decisions: Array<{ strategy_id: string; applicable: boolean; confidence: number; checks: Array<{ check_id: string; passed: boolean; evidence?: string }>; rejection_reason?: string }> } | null = null;
+  let routerOutput: { decisions: Array<{ strategy_id: string; applicable: boolean; confidence: number; scores: { tag_match: number; positive_signals: number; negative_signals: number }; match_reason: string; positive_evidence: string; negative_evidence: string }> } | null = null;
 
   if (candidateStrategies.length === 0) {
     logger.info(`[Worker-${workerId}] Router job ${job.id}: no candidate strategies with routing`);
   } else {
     // 3. Call LLM router
-    routerOutput = await analyzeRouter(post, candidateStrategies);
+    routerOutput = await analyzeRouter(post, candidateStrategies, upstreamTags, mediaFilesForRouter as Array<{ media_type: string; local_path?: string; url?: string }>);
 
     // 4. Apply hard-filters (availability checks) after LLM decision
     const mediaFiles = await listMediaFilesByPost(postId);
@@ -898,15 +921,9 @@ async function processRouterJob(
       const candidate = candidateStrategies.find(s => s.id === decision.strategy_id);
       if (!candidate) continue;
 
-      // Merge LLM checks into overall checks list
-      for (const check of decision.checks) {
-        checks.push({
-          check_id: check.check_id,
-          strategy_id: decision.strategy_id,
-          passed: check.passed,
-          evidence: check.evidence,
-        });
-      }
+      // Capture scoring data for observability
+      // Scores are stored in the router_results table columns:
+      // tag_match_score, positive_signals_score, negative_signals_score
 
       overallConfidence += decision.confidence;
 
@@ -938,7 +955,7 @@ async function processRouterJob(
         }
         if (hardFilterPassed && availability.requires_data) {
           for (const field of availability.requires_data) {
-            const postAny = post as Record<string, unknown>;
+            const postAny = post as unknown as Record<string, unknown>;
             const val = postAny[field];
             if (val === null || val === undefined || val === '' || (typeof val === 'number' && val === 0)) {
               hardFilterPassed = false;
@@ -959,7 +976,7 @@ async function processRouterJob(
       } else {
         skippedStrategies.push({
           strategy_id: decision.strategy_id,
-          reason: decision.rejection_reason ?? 'LLM 判定不适用',
+          reason: decision.negative_evidence ?? 'LLM 判定不适用',
         });
       }
     }
@@ -972,6 +989,7 @@ async function processRouterJob(
   // 5. Store router result using stepId (not job.id) so that
   // processPrepareJob can find it via hasRouterResultForPost(stepId, postId).
   // Guard against race-condition duplicates with a try/catch.
+  const firstDecision = routerOutput?.decisions?.[0];
   try {
     await createRouterResult({
       router_step_id: stepId,
@@ -982,6 +1000,13 @@ async function processRouterJob(
       skipped_strategies: skippedStrategies,
       checks,
       confidence: avgConfidence,
+      tag_match_score: firstDecision?.scores?.tag_match ?? null,
+      positive_signals_score: firstDecision?.scores?.positive_signals ?? null,
+      negative_signals_score: firstDecision?.scores?.negative_signals ?? null,
+      match_reason: firstDecision?.match_reason ?? null,
+      positive_evidence: firstDecision?.positive_evidence ?? null,
+      negative_evidence: firstDecision?.negative_evidence ?? null,
+      upstream_tags: upstreamTags ? JSON.stringify(upstreamTags) : null,
     });
     logger.info(`[Worker-${workerId}] Router job ${job.id}: stored result for step ${stepId}, applicable=${applicableStrategyIds.length}, skipped=${skippedStrategies.length}, confidence=${avgConfidence.toFixed(2)}`);
   } catch (err: unknown) {
