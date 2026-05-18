@@ -31,13 +31,11 @@ export const StrategyStats = memo(function StrategyStats({ stats }: StrategyStat
       <CardContent className="p-0">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>策略</TableHead>
-              <TableHead className="text-right">适用</TableHead>
-              <TableHead className="text-right">已完成</TableHead>
-              <TableHead className="text-right">进行中</TableHead>
-              <TableHead className="text-right">失败</TableHead>
-            </TableRow>
+            <TableHead>策略</TableHead>
+            <TableHead className="text-right">适用</TableHead>
+            <TableHead className="text-right">已完成</TableHead>
+            <TableHead className="text-right">进行中</TableHead>
+            <TableHead className="text-right">失败</TableHead>
           </TableHeader>
           <TableBody>
             {stats.map((s) => (
