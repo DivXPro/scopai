@@ -5,7 +5,7 @@ import path from "path";
 import { spawn } from "child_process";
 import { promisify } from "util";
 import { config } from "@scopai/core";
-import type { Comment, MediaFile, Strategy, Post, LLMApiConfig, RoutingConfig } from "@scopai/core";
+import type { Comment, MediaFile, Strategy, Post, LLMApiConfig, RoutingConfig, RouterDecision } from "@scopai/core";
 import { listMediaFilesByPost } from "@scopai/core";
 import { getPlatformById } from "@scopai/core";
 import { getCommentById } from "@scopai/core";
@@ -661,14 +661,6 @@ export async function analyzeMultiPostWithStrategy(
 
 // === Router analysis ===
 
-export interface RouterDecision {
-  strategy_id: string;
-  applicable: boolean;
-  confidence: number;
-  checks: Array<{ check_id: string; passed: boolean; evidence?: string }>;
-  rejection_reason?: string;
-}
-
 export interface RouterOutput {
   decisions: RouterDecision[];
 }
@@ -676,66 +668,98 @@ export interface RouterOutput {
 export async function analyzeRouter(
   post: Post,
   candidateStrategies: Array<{ id: string; name: string; routing: RoutingConfig | null }>,
+  upstreamTags?: Record<string, unknown>,
+  mediaFiles?: Array<{ media_type: string; local_path?: string; url?: string }>,
 ): Promise<RouterOutput> {
   const platform = post.platform_id
     ? await getPlatformById(post.platform_id)
     : null;
 
   // Count media types
-  const mediaFiles = await listMediaFilesByPost(post.id);
-  const imageCount = mediaFiles.filter((m) => m.media_type === "image").length;
-  const videoCount = mediaFiles.filter((m) => m.media_type === "video").length;
+  const images = mediaFiles?.filter((m) => m.media_type === "image") ?? [];
+  const videos = mediaFiles?.filter((m) => m.media_type === "video") ?? [];
+  const imageCount = images.length;
+  const videoCount = videos.length;
 
-  // Build strategy list with checks
+  // Build strategy list with new routing fields
   const strategyBlocks: string[] = [];
   for (const s of candidateStrategies) {
     if (!s.routing) continue;
     const lines: string[] = [];
     lines.push(`\n## 策略: ${s.name} (${s.id})`);
-    if (s.routing.applicability_checks.length > 0) {
-      lines.push(" applicability_checks:");
-      for (const check of s.routing.applicability_checks) {
-        lines.push(`   - [${check.id}] ${check.question} (${check.kind})`);
+    lines.push(`- tags_description: ${s.routing.tags_description}`);
+    if (s.routing.positive_signals && s.routing.positive_signals.length > 0) {
+      lines.push("- positive_signals:");
+      for (const sig of s.routing.positive_signals) {
+        lines.push(`   - ${sig}`);
       }
     }
-    if (s.routing.boundary_false_positives.length > 0) {
-      lines.push(" boundary_false_positives:");
-      for (const bf of s.routing.boundary_false_positives) {
-        lines.push(`   - ${bf}`);
+    if (s.routing.negative_signals && s.routing.negative_signals.length > 0) {
+      lines.push("- negative_signals:");
+      for (const sig of s.routing.negative_signals) {
+        lines.push(`   - ${sig}`);
       }
     }
     strategyBlocks.push(lines.join("\n"));
   }
 
-  const mediaUrlLines = mediaFiles.map((m, i) => {
+  const mediaUrlLines = (mediaFiles ?? []).map((m, i) => {
     const filePath = m.local_path ?? m.url ?? "";
     return `[媒体 ${i + 1}] ${filePath}`;
   });
 
-  const promptText = `你是一个内容质量评估器。你的任务是逐条判断一个帖子是否具备被某个下游分析策略「解构」的原材料。
+  const upstreamTagsStr = upstreamTags
+    ? JSON.stringify(upstreamTags, null, 2)
+    : "无上游标签数据";
 
-对下面列出的每个策略，你必须：
-1. 逐条检查该策略声明的 applicability_checks
-2. 从帖子中找到具体证据
-3. 输出 { applicable: true/false, confidence: 0-1, checks: [...], rejection_reason }
+  const promptText = `你是一个内容分析路由专家。你的任务是根据内容的标签画像，判断哪些下游分析策略适用于该内容。
 
-判断原则：
-- "有原材料" ≠ "分析结果会好"。你只判断内容是否具备可分析的基本元素
-- 宁可漏判（漏一个策略），不要误判（把一个没有图片的帖子判给图片分析策略）
-- 检查 boundary_false_positives——如果帖子命中负样本描述，应判不适用
-- 如果帖子正文或元信息不足以做出判断，confidence 应降低，但 applicable 可留为 true（交给下游策略自行判断）
+## 内容标签画像
 
-各策略判据清单：
-${strategyBlocks.join("\n")}
+${upstreamTagsStr}
 
----
-帖子内容:
+## 内容原文
+
 标题: ${post.title ?? ""}
 正文: ${post.content ?? ""}
 作者: ${post.author_name ?? "匿名"}
 平台: ${platform?.name ?? "unknown"}
 媒体数量: 图片 ${imageCount} 张，视频 ${videoCount} 个
 媒体 URL 列表: ${mediaUrlLines.length > 0 ? "\n" + mediaUrlLines.join("\n") : "无"}
+
+## 候选策略
+
+${strategyBlocks.join("\n")}
+
+每个策略包含：
+- tags_description: 该策略期望的内容标签特征
+- positive_signals: 正面参考信号（内容具备这些特征时更适合该策略）
+- negative_signals: 负面参考信号（内容具备这些特征时不适合该策略）
+
+## 评分要求
+
+请对每个策略给出以下评分（0-10分）：
+- tag_match: 标签画像与策略期望标签的匹配程度（0=完全不匹配，10=完美匹配）
+- positive_signals: 内容符合正面参考信号的程度（0=完全不符合，10=完全符合）
+- negative_signals: 内容命中负面参考信号的程度（0=完全无负面，10=严重负面）
+
+## 路由规则
+
+1. 首先检查 availability（硬性过滤），不满足的直接排除
+2. 基于标签画像进行主匹配
+3. 参考正负信号做模糊评估，微调匹配判断
+4. 综合评分给出最终决策
+
+## 输出格式
+
+对每个策略输出：
+- strategy_id: 策略 ID
+- applicable: true/false
+- confidence: 0-1 置信度
+- scores: { tag_match: number, positive_signals: number, negative_signals: number }
+- match_reason: 标签匹配原因
+- positive_evidence: 正面信号证据
+- negative_evidence: 负面信号证据
 
 严格按 JSON schema 输出。不要附加任何解释或 Markdown。`;
 
@@ -747,24 +771,23 @@ ${strategyBlocks.join("\n")}
         type: "array",
         items: {
           type: "object",
-          required: ["strategy_id", "applicable", "confidence"],
+          required: ["strategy_id", "applicable", "confidence", "scores", "match_reason", "positive_evidence", "negative_evidence"],
           properties: {
             strategy_id: { type: "string" },
             applicable: { type: "boolean" },
             confidence: { type: "number", minimum: 0, maximum: 1 },
-            checks: {
-              type: "array",
-              items: {
-                type: "object",
-                required: ["check_id", "passed"],
-                properties: {
-                  check_id: { type: "string" },
-                  passed: { type: "boolean" },
-                  evidence: { type: "string" },
-                },
+            scores: {
+              type: "object",
+              required: ["tag_match", "positive_signals", "negative_signals"],
+              properties: {
+                tag_match: { type: "number", minimum: 0, maximum: 10 },
+                positive_signals: { type: "number", minimum: 0, maximum: 10 },
+                negative_signals: { type: "number", minimum: 0, maximum: 10 },
               },
             },
-            rejection_reason: { type: "string" },
+            match_reason: { type: "string" },
+            positive_evidence: { type: "string" },
+            negative_evidence: { type: "string" },
           },
         },
       },
@@ -777,7 +800,6 @@ ${strategyBlocks.join("\n")}
   try {
     parsed = JSON.parse(rawResponse) as RouterOutput;
   } catch {
-    // Try extracting JSON from markdown code block
     const match = rawResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (match) {
       parsed = JSON.parse(match[1].trim()) as RouterOutput;
