@@ -19,6 +19,7 @@ import {
   registerWorker,
   recoverStalledJobs,
   initLogger,
+  rebuildFtsIndex,
 } from '@scopai/core';
 import { setupAuth } from './auth';
 import { registerRoutes } from './routes';
@@ -61,6 +62,14 @@ async function main() {
   recoverWalIfNeeded();
 
   await migrate();
+
+  // Rebuild FTS index after migrations (handles schema changes and new data)
+  try {
+    await rebuildFtsIndex();
+  } catch (err) {
+    console.warn('FTS index initialization skipped:', err instanceof Error ? err.message : String(err));
+  }
+
   await seedPlatforms();
 
   try {

@@ -34,7 +34,7 @@ import {
 import { config } from '@scopai/core';
 import { getLogger } from '@scopai/core';
 import { getPendingCreatorSyncJobs, checkpoint } from '@scopai/core';
-import { createRouterResult } from '@scopai/core';
+import { createRouterResult, getRouterResultByPost } from '@scopai/core';
 import * as path from 'node:path';
 
 const POLL_INTERVAL_MS = 2000;
@@ -489,7 +489,42 @@ async function processPrepareJob(job: QueueJob, workerId: number | string): Prom
           await enqueueJobs([routerJob]);
           logger.info(`[Worker-${workerId}] Post ${postId}: enqueued router job ${routerJob.id}`);
         } else {
-          logger.info(`[Worker-${workerId}] Post ${postId}: router result already exists, skipping router job`);
+          // Router result already exists but downstream jobs may not have been created
+          // (e.g. router job failed after storing result). Build them now.
+          logger.info(`[Worker-${workerId}] Post ${postId}: router result exists, building downstream jobs`);
+          const { getRouterResultByPost } = await import('@scopai/core');
+          const routerResult = await getRouterResultByPost(routerStep.id, postId);
+          if (routerResult) {
+            const routerResults = new Map<string, Set<string>>();
+            routerResults.set(postId, new Set(routerResult.applicable_strategy_ids));
+            const existingTargets = new Map<string, Set<string>>();
+            for (const step of steps) {
+              if (step.strategy_id) {
+                const targets = await getExistingJobTargets(taskId, step.strategy_id);
+                existingTargets.set(step.strategy_id, targets);
+              }
+            }
+            const { jobs: analysisJobs, stepUpdates } = buildJobsForPost(
+              taskId,
+              postId,
+              steps,
+              strategies,
+              taskTargets,
+              existingTargets,
+              comments,
+              mediaReady,
+              generateId,
+              postMediaTypes,
+              routerResults,
+            );
+            if (analysisJobs.length > 0) {
+              await enqueueJobs(analysisJobs);
+              for (const update of stepUpdates) {
+                await updateTaskStepStatus(update.stepId, update.status, update.stats);
+              }
+              logger.info(`[Worker-${workerId}] Post ${postId}: enqueued ${analysisJobs.length} downstream jobs from existing router result`);
+            }
+          }
         }
       } else {
         // No router: generate analysis jobs directly (legacy path)
@@ -568,6 +603,7 @@ async function processStrategyJob(
       if (def?.type === 'array' && Array.isArray(val)) {
         const items = val.map((v: unknown) => {
           if (typeof v === 'string') return `'${String(v).replace(/'/g, "''")}'`;
+          if (typeof v === 'object' && v !== null) return JSON.stringify(v);
           return String(v);
         });
         return `[${items.join(',')}]`;
@@ -590,7 +626,20 @@ async function processStrategyJob(
 
     // Sync search_index for post analysis
     const { insertSearchIndex, buildSearchableText } = await import('@scopai/core');
-    const searchableText = buildSearchableText(parsed.values);
+
+    // Only index fields marked as searchable (default true for backward compatibility)
+    const searchableFields = Object.entries(schemaProperties)
+      .filter(([, def]) => def.searchable !== false)
+      .map(([key]) => key);
+
+    const searchableData: Record<string, unknown> = {};
+    for (const field of searchableFields) {
+      if (field in parsed.values && parsed.values[field] !== undefined && parsed.values[field] !== null) {
+        searchableData[field] = parsed.values[field];
+      }
+    }
+
+    const searchableText = buildSearchableText(searchableData);
     if (searchableText) {
       const sourceType = strategy.id === 'creative-copy-deconstruct'
         ? 'brief_copy'
@@ -625,6 +674,7 @@ async function processStrategyJob(
       if (def?.type === 'array' && Array.isArray(val)) {
         const items = val.map((v: unknown) => {
           if (typeof v === 'string') return `'${String(v).replace(/'/g, "''")}'`;
+          if (typeof v === 'object' && v !== null) return JSON.stringify(v);
           return String(v);
         });
         return `[${items.join(',')}]`;
@@ -796,12 +846,27 @@ async function processRouterJob(
 
   logger.info(`[Worker-${workerId}] Router job ${job.id} for post ${postId}, task ${task.id}`);
 
+  // Resolve the router step id (task step, NOT queue job id)
+  const steps = await listTaskSteps(task.id);
+  const routerStep = steps.find(s => s.strategy_id === strategy.id);
+  if (!routerStep) throw new Error(`Router step not found for strategy ${strategy.id}`);
+  const stepId = routerStep.id;
+
+  // Check if a router result already exists for this (step, post) pair.
+  // If the router job previously failed after storing the result, we should
+  // skip the LLM call and proceed directly to downstream job creation.
+  const existingResult = await getRouterResultByPost(stepId, postId);
+  if (existingResult) {
+    logger.info(`[Worker-${workerId}] Router result already exists for step ${stepId}, post ${postId}; skipping LLM and building downstream jobs`);
+    await buildAndEnqueueDownstreamJobs(task, postId, steps, existingResult.applicable_strategy_ids, workerId);
+    return;
+  }
+
   // 1. Get post content
   const post = await getPostById(postId);
   if (!post) throw new Error(`Post ${postId} not found`);
 
   // 2. Collect candidate strategies (all non-router strategies in this task's steps)
-  const steps = await listTaskSteps(task.id);
   const { getStrategyById } = await import('@scopai/core');
   const candidateStrategies: Array<{ id: string; name: string; routing: import('@scopai/core').RoutingConfig | null }> = [];
   for (const step of steps) {
@@ -812,128 +877,138 @@ async function processRouterJob(
     }
   }
 
-  if (candidateStrategies.length === 0) {
-    logger.info(`[Worker-${workerId}] Router job ${job.id}: no candidate strategies with routing, storing empty result`);
-    await createRouterResult({
-      router_step_id: job.id,
-      strategy_id: strategy.id,
-      task_id: task.id,
-      post_id: postId,
-      applicable_strategy_ids: [],
-      skipped_strategies: [],
-      checks: [],
-      confidence: 1,
-    });
-    return;
-  }
-
-  // 3. Call LLM router
-  const routerOutput = await analyzeRouter(post, candidateStrategies);
-
-  // 4. Apply hard-filters (availability checks) after LLM decision
-  const mediaFiles = await listMediaFilesByPost(postId);
-  const mediaTypes = new Set(mediaFiles.map(m => m.media_type));
-  const text = post.content ?? '';
-  const sentenceCount = text.split(/[。.！!？?\n]+/).filter(s => s.trim().length > 0).length;
-
-  const applicableStrategyIds: string[] = [];
+  let applicableStrategyIds: string[] = [];
   const skippedStrategies: Array<{ strategy_id: string; reason: string }> = [];
   const checks: Array<{ check_id: string; strategy_id: string; passed: boolean; evidence?: string }> = [];
   let overallConfidence = 0;
+  let routerOutput: { decisions: Array<{ strategy_id: string; applicable: boolean; confidence: number; checks: Array<{ check_id: string; passed: boolean; evidence?: string }>; rejection_reason?: string }> } | null = null;
 
-  for (const decision of routerOutput.decisions) {
-    const candidate = candidateStrategies.find(s => s.id === decision.strategy_id);
-    if (!candidate) continue;
+  if (candidateStrategies.length === 0) {
+    logger.info(`[Worker-${workerId}] Router job ${job.id}: no candidate strategies with routing`);
+  } else {
+    // 3. Call LLM router
+    routerOutput = await analyzeRouter(post, candidateStrategies);
 
-    // Merge LLM checks into overall checks list
-    for (const check of decision.checks) {
-      checks.push({
-        check_id: check.check_id,
-        strategy_id: decision.strategy_id,
-        passed: check.passed,
-        evidence: check.evidence,
-      });
-    }
+    // 4. Apply hard-filters (availability checks) after LLM decision
+    const mediaFiles = await listMediaFilesByPost(postId);
+    const text = post.content ?? '';
+    const sentenceCount = text.split(/[。.！!?\n]+/).filter(s => s.trim().length > 0).length;
 
-    overallConfidence += decision.confidence;
+    for (const decision of routerOutput.decisions) {
+      const candidate = candidateStrategies.find(s => s.id === decision.strategy_id);
+      if (!candidate) continue;
 
-    // Hard-filter: availability checks
-    let hardFilterPassed = true;
-    let hardFilterReason = '';
-    const availability = candidate.routing?.availability;
-    if (availability) {
-      if (availability.requires_media) {
-        for (const [mediaType, minCount] of Object.entries(availability.requires_media)) {
-          const actualCount = mediaFiles.filter(m => m.media_type === mediaType).length;
-          if (actualCount < minCount) {
+      // Merge LLM checks into overall checks list
+      for (const check of decision.checks) {
+        checks.push({
+          check_id: check.check_id,
+          strategy_id: decision.strategy_id,
+          passed: check.passed,
+          evidence: check.evidence,
+        });
+      }
+
+      overallConfidence += decision.confidence;
+
+      // Hard-filter: availability checks
+      let hardFilterPassed = true;
+      let hardFilterReason = '';
+      const availability = candidate.routing?.availability;
+      if (availability) {
+        if (availability.requires_media) {
+          for (const [mediaType, minCount] of Object.entries(availability.requires_media)) {
+            const actualCount = mediaFiles.filter(m => m.media_type === mediaType).length;
+            if (actualCount < minCount) {
+              hardFilterPassed = false;
+              hardFilterReason = `缺少所需媒体类型: ${mediaType} (需要 ${minCount}, 实际 ${actualCount})`;
+              break;
+            }
+          }
+        }
+        if (hardFilterPassed && availability.requires_text) {
+          const minSentences = availability.requires_text.min_sentences ?? 0;
+          const minChars = availability.requires_text.min_chars ?? 0;
+          if (sentenceCount < minSentences) {
             hardFilterPassed = false;
-            hardFilterReason = `缺少所需媒体类型: ${mediaType} (需要 ${minCount}, 实际 ${actualCount})`;
-            break;
+            hardFilterReason = `文本不足: 需要至少 ${minSentences} 句, 实际 ${sentenceCount} 句`;
+          } else if (text.length < minChars) {
+            hardFilterPassed = false;
+            hardFilterReason = `文本不足: 需要至少 ${minChars} 字符, 实际 ${text.length} 字符`;
+          }
+        }
+        if (hardFilterPassed && availability.requires_data) {
+          for (const field of availability.requires_data) {
+            const postAny = post as Record<string, unknown>;
+            const val = postAny[field];
+            if (val === null || val === undefined || val === '' || (typeof val === 'number' && val === 0)) {
+              hardFilterPassed = false;
+              hardFilterReason = `缺少所需数据字段: ${field}`;
+              break;
+            }
           }
         }
       }
-      if (hardFilterPassed && availability.requires_text) {
-        const minSentences = availability.requires_text.min_sentences ?? 0;
-        const minChars = availability.requires_text.min_chars ?? 0;
-        if (sentenceCount < minSentences) {
-          hardFilterPassed = false;
-          hardFilterReason = `文本不足: 需要至少 ${minSentences} 句, 实际 ${sentenceCount} 句`;
-        } else if (text.length < minChars) {
-          hardFilterPassed = false;
-          hardFilterReason = `文本不足: 需要至少 ${minChars} 字符, 实际 ${text.length} 字符`;
-        }
-      }
-      if (hardFilterPassed && availability.requires_data) {
-        for (const field of availability.requires_data) {
-          const postAny = post as Record<string, unknown>;
-          const val = postAny[field];
-          if (val === null || val === undefined || val === '' || (typeof val === 'number' && val === 0)) {
-            hardFilterPassed = false;
-            hardFilterReason = `缺少所需数据字段: ${field}`;
-            break;
-          }
-        }
-      }
-    }
 
-    if (!hardFilterPassed) {
-      skippedStrategies.push({ strategy_id: decision.strategy_id, reason: hardFilterReason });
-      continue;
-    }
+      if (!hardFilterPassed) {
+        skippedStrategies.push({ strategy_id: decision.strategy_id, reason: hardFilterReason });
+        continue;
+      }
 
-    if (decision.applicable) {
-      applicableStrategyIds.push(decision.strategy_id);
-    } else {
-      skippedStrategies.push({
-        strategy_id: decision.strategy_id,
-        reason: decision.rejection_reason ?? 'LLM 判定不适用',
-      });
+      if (decision.applicable) {
+        applicableStrategyIds.push(decision.strategy_id);
+      } else {
+        skippedStrategies.push({
+          strategy_id: decision.strategy_id,
+          reason: decision.rejection_reason ?? 'LLM 判定不适用',
+        });
+      }
     }
   }
 
-  const avgConfidence = routerOutput.decisions.length > 0
+  const avgConfidence = candidateStrategies.length > 0 && routerOutput
     ? overallConfidence / routerOutput.decisions.length
     : 1;
 
-  // 5. Store router result
-  await createRouterResult({
-    router_step_id: job.id,
-    strategy_id: strategy.id,
-    task_id: task.id,
-    post_id: postId,
-    applicable_strategy_ids: applicableStrategyIds,
-    skipped_strategies: skippedStrategies,
-    checks,
-    confidence: avgConfidence,
-  });
-
-  logger.info(`[Worker-${workerId}] Router job ${job.id}: applicable=${applicableStrategyIds.length}, skipped=${skippedStrategies.length}, confidence=${avgConfidence.toFixed(2)}`);
+  // 5. Store router result using stepId (not job.id) so that
+  // processPrepareJob can find it via hasRouterResultForPost(stepId, postId).
+  // Guard against race-condition duplicates with a try/catch.
+  try {
+    await createRouterResult({
+      router_step_id: stepId,
+      strategy_id: strategy.id,
+      task_id: task.id,
+      post_id: postId,
+      applicable_strategy_ids: applicableStrategyIds,
+      skipped_strategies: skippedStrategies,
+      checks,
+      confidence: avgConfidence,
+    });
+    logger.info(`[Worker-${workerId}] Router job ${job.id}: stored result for step ${stepId}, applicable=${applicableStrategyIds.length}, skipped=${skippedStrategies.length}, confidence=${avgConfidence.toFixed(2)}`);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('Duplicate key') || msg.includes('UNIQUE constraint')) {
+      logger.warn(`[Worker-${workerId}] Router result for step ${stepId}, post ${postId} already exists (race condition); proceeding with downstream jobs`);
+    } else {
+      throw err;
+    }
+  }
 
   // 6. Enqueue analysis jobs for applicable strategies
+  await buildAndEnqueueDownstreamJobs(task, postId, steps, applicableStrategyIds, workerId);
+}
+
+async function buildAndEnqueueDownstreamJobs(
+  task: { id: string; name: string },
+  postId: string,
+  steps: Array<{ id: string; strategy_id: string | null; status: string; stats?: { total: number; done: number; failed: number } | null }>,
+  applicableStrategyIds: string[],
+  workerId: number | string,
+): Promise<void> {
+  const logger = getLogger();
   const { listTaskTargets } = await import('@scopai/core');
-  const { getExistingJobTargets } = await import('@scopai/core');
   const { createTaskTarget } = await import('@scopai/core');
   const { enqueueJobs } = await import('@scopai/core');
+  const { getStrategyById } = await import('@scopai/core');
 
   let taskTargets = await listTaskTargets(task.id);
   const comments = await query<{ id: string }>(
@@ -947,12 +1022,13 @@ async function processRouterJob(
   );
   const mediaReady = mediaStatus[0]?.media_fetched === true;
 
+  const mediaFiles = await listMediaFilesByPost(postId);
   let postMediaTypes: string[] = [];
   if (mediaReady) {
     postMediaTypes = Array.from(new Set(mediaFiles.map((m) => m.media_type)));
   }
 
-  // Ensure comments are task targets for comment-level strategies
+  // Build strategies map
   const strategies = new Map();
   for (const step of steps) {
     if (step.strategy_id && !strategies.has(step.strategy_id)) {
@@ -960,6 +1036,8 @@ async function processRouterJob(
       if (st) strategies.set(step.strategy_id, st);
     }
   }
+
+  // Ensure comments are task targets for comment-level strategies
   const hasCommentStrategy = Array.from(strategies.values()).some((s: any) => s.target === 'comment');
   if (hasCommentStrategy && comments.length > 0) {
     const existingIds = new Set(taskTargets.map(t => t.target_id));
@@ -976,13 +1054,23 @@ async function processRouterJob(
   const routerResults = new Map<string, Set<string>>();
   routerResults.set(postId, new Set(applicableStrategyIds));
 
+  // Fetch existing job targets per strategy to avoid duplicates
+  const { getExistingJobTargets } = await import('@scopai/core');
+  const existingTargets = new Map<string, Set<string>>();
+  for (const step of steps) {
+    if (step.strategy_id) {
+      const targets = await getExistingJobTargets(task.id, step.strategy_id);
+      existingTargets.set(step.strategy_id, targets);
+    }
+  }
+
   const { jobs: analysisJobs, stepUpdates } = buildJobsForPost(
     task.id,
     postId,
     steps,
     strategies,
     taskTargets,
-    await getExistingJobTargets(task.id, strategies.keys().next().value ?? ''),
+    existingTargets,
     comments,
     mediaReady,
     generateId,

@@ -29,14 +29,16 @@ interface PipelineMatrixProps {
   onRowClick?: (rowId: string) => void;
 }
 
-const statusConfig: Record<string, { icon: string; label: string }> = {
-  completed: { icon: "✅", label: "完成" },
-  done: { icon: "✅", label: "完成" },
-  processing: { icon: "🔄", label: "进行中" },
-  running: { icon: "🔄", label: "进行中" },
-  pending: { icon: "⏳", label: "待开始" },
-  fetching: { icon: "🔄", label: "获取中" },
-  failed: { icon: "⚠️", label: "失败" },
+const statusConfig: Record<string, { text: string; classes: string }> = {
+  completed: { text: "完成", classes: "bg-green-50 text-green-700 border-green-100" },
+  done: { text: "完成", classes: "bg-green-50 text-green-700 border-green-100" },
+  routed: { text: "已路由", classes: "bg-green-50 text-green-700 border-green-100" },
+  skipped: { text: "跳过", classes: "bg-slate-50 text-slate-500 border-slate-200" },
+  processing: { text: "进行中", classes: "bg-blue-50 text-blue-700 border-blue-100" },
+  running: { text: "进行中", classes: "bg-blue-50 text-blue-700 border-blue-100" },
+  pending: { text: "待开始", classes: "bg-amber-50 text-amber-700 border-amber-100" },
+  fetching: { text: "获取中", classes: "bg-blue-50 text-blue-700 border-blue-100" },
+  failed: { text: "失败", classes: "bg-red-50 text-red-700 border-red-100" },
 };
 
 function StatusCell({
@@ -46,14 +48,13 @@ function StatusCell({
   status: string;
   onClick?: () => void;
 }) {
-  const cfg = statusConfig[status] ?? { icon: "⏳", label: "未知" };
+  const cfg = statusConfig[status] ?? { text: "未知", classes: "bg-slate-50 text-slate-500 border-slate-200" };
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center justify-center text-base ${onClick ? "cursor-pointer hover:opacity-70" : ""}`}
-      title={cfg.label}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${cfg.classes} ${onClick ? "cursor-pointer hover:opacity-70" : ""}`}
     >
-      {cfg.icon}
+      {cfg.text}
     </button>
   );
 }

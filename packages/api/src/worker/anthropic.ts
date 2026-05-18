@@ -97,11 +97,20 @@ async function callOpenAI(
     // Prefer tool call result
     const msg = response.choices[0]?.message;
     if (msg?.tool_calls && msg.tool_calls.length > 0) {
-      return msg.tool_calls[0].function.arguments;
+      const args = msg.tool_calls[0].function.arguments;
+      if (args && args.trim().length > 0) {
+        return args;
+      }
     }
 
-    // Fallback to text content
-    return msg?.content ?? "";
+    // Fallback to text content (some providers/models don't support tool calls)
+    const content = msg?.content ?? "";
+    if (content && content.trim().length > 0) {
+      return content;
+    }
+
+    // Nothing returned — treat as error so the job retries
+    throw new Error(`LLM returned empty response (no tool_calls, no content). model=${cfg.model}`);
   } catch (err: any) {
     console.error(
       `[callOpenAI] Request failed: size=${requestSize} chars, media_blocks=${mediaSizes.length}, media_sizes=[${mediaSizes.join(',')}], model=${cfg.model}, provider=${cfg.type}`,

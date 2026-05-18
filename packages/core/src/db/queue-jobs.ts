@@ -78,12 +78,14 @@ export async function getNextJobs(limit: number, targetTypes?: string[]): Promis
     ids = ids.concat(extraRows.map(r => r.id));
   }
 
-  // Step 4: Atomically lock all selected jobs
+  // Step 4: Atomically lock all selected jobs.
+  // Guard against race conditions where multiple workers fetched the same
+  // pending job between Step 1 and Step 4 by requiring status='pending'.
   const placeholders = ids.map(() => '?').join(',');
   const rows = await query<QueueJob>(
     `UPDATE queue_jobs
      SET status = 'processing', attempts = attempts + 1
-     WHERE id IN (${placeholders})
+     WHERE id IN (${placeholders}) AND status = 'pending'
      RETURNING *`,
     ids,
   );

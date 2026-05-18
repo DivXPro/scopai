@@ -44,7 +44,7 @@ export function buildJobsForPost(
   steps: StepInfo[],
   strategies: Map<string, StrategyInfo>,
   taskTargets: TargetInfo[],
-  existingTargets: Set<string>,
+  existingTargets: Set<string> | Map<string, Set<string>>,
   comments: { id: string }[],
   mediaReady: boolean,
   generateIdFn: () => string,
@@ -94,7 +94,10 @@ export function buildJobsForPost(
     if (targets.length === 0) continue;
 
     // Skip targets already enqueued for this step
-    const newTargets = targets.filter(t => !existingTargets.has(t.target_id));
+    const stepExisting = existingTargets instanceof Map
+      ? existingTargets.get(step.strategy_id) ?? new Set<string>()
+      : existingTargets;
+    const newTargets = targets.filter(t => !stepExisting.has(t.target_id));
     if (newTargets.length === 0) continue;
 
     // Build jobs

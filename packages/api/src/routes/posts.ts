@@ -314,6 +314,51 @@ export default async function postsRoutes(app: FastifyInstance) {
     return getPostAnalysisResults(id);
   });
 
+  app.get('/posts/:id/routing', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const post = await getPostById(id);
+    if (!post) {
+      reply.code(404);
+      throw new Error(`Post not found: ${id}`);
+    }
+
+    const { getRouterResultsByPostId, listStrategies } = await import('@scopai/core');
+    const routerResults = await getRouterResultsByPostId(id);
+    if (routerResults.length === 0) {
+      return { post_id: id, routing: null };
+    }
+
+    const strategies = await listStrategies();
+    const strategyMap = new Map(strategies.map(s => [s.id, s]));
+
+    const enriched = routerResults.map(r => {
+      const routerStrategy = strategyMap.get(r.strategy_id);
+      const applicable = (r.applicable_strategy_ids || []).map((sid: string) => ({
+        strategy_id: sid,
+        strategy_name: strategyMap.get(sid)?.name || sid,
+      }));
+      const skipped = (r.skipped_strategies || []).map((s: any) => ({
+        strategy_id: s.strategy_id,
+        strategy_name: strategyMap.get(s.strategy_id)?.name || s.strategy_id,
+        reason: s.reason,
+      }));
+      return {
+        id: r.id,
+        task_id: r.task_id,
+        router_strategy_id: r.strategy_id,
+        router_strategy_name: routerStrategy?.name || r.strategy_id,
+        post_id: r.post_id,
+        applicable_strategies: applicable,
+        skipped_strategies: skipped,
+        checks: r.checks,
+        confidence: r.confidence,
+        created_at: r.created_at,
+      };
+    });
+
+    return { post_id: id, routing: enriched };
+  });
+
   app.post('/posts/:id/labels', async (request, reply) => {
     const { id: postId } = request.params as { id: string };
     const body = request.body as { label_id?: string; label_name?: string; label_names?: string[] };

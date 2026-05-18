@@ -64,6 +64,11 @@ export async function getRouterResultByPost(stepId: string, postId: string): Pro
   return rows[0] ? parseRow(rows[0]) : null;
 }
 
+export async function getRouterResultsByPostId(postId: string): Promise<RouterResult[]> {
+  const rows = await query<RouterResult>('SELECT * FROM router_results WHERE post_id = ? ORDER BY created_at DESC', [postId]);
+  return rows.map(parseRow);
+}
+
 function parseRow(row: RouterResult): RouterResult {
   return {
     ...row,

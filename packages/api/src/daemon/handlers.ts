@@ -936,6 +936,11 @@ export async function importMediaToDb(
     ? path.join(config.paths.download_dir, platformDir, noteId)
     : path.join(config.paths.download_dir, platformDir);
 
+  // Skip duplicates: if the same local_path already exists for this post,
+  // don't re-insert (handles prepare-job re-runs after daemon restart).
+  const existingFiles = await listMediaFilesByPost(postId);
+  const existingPaths = new Set(existingFiles.map((f) => f.local_path).filter(Boolean));
+
   let count = 0;
   for (const item of data) {
     if (typeof item !== 'object' || item === null) continue;
@@ -947,6 +952,10 @@ export async function importMediaToDb(
     const ext = mediaType === 'video' ? 'mp4' : mediaType === 'audio' ? 'mp3' : 'jpg';
     const localPath = (obj.local_path as string) ?? (obj.path as string) ?? (noteId ? `${downloadBase}/${noteId}_${index}.${ext}` : null);
     const url = (obj.url as string) || '';
+
+    if (localPath && existingPaths.has(localPath)) {
+      continue;
+    }
 
     try {
       await createMediaFile({

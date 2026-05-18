@@ -22,8 +22,8 @@ interface TaskStep {
   id: string;
   name: string;
   status: string;
-  strategy_id: string | null;
-  step_order: number;
+  strategyId: string | null;
+  stepOrder: number;
   stats: { total: number; done: number; failed: number } | null;
 }
 
@@ -34,7 +34,7 @@ interface TaskJob {
   status: string;
   attempts: number;
   error: string | null;
-  strategy_id: string | null;
+  strategyId: string | null;
 }
 
 interface TaskProgress {
@@ -258,8 +258,8 @@ export default function TaskDetail() {
   }
 
   const getStrategyDisplayName = (step: TaskDetail['steps'][0]) => {
-    if (step.strategy_id) {
-      return strategyNameMap.get(step.strategy_id) ?? step.name;
+    if (step.strategyId) {
+      return strategyNameMap.get(step.strategyId) ?? step.name;
     }
     return step.name;
   };
@@ -282,19 +282,19 @@ export default function TaskDetail() {
         {
           id: 'router',
           name: '内容路由',
-          status: task.steps.find((s) => s.strategy_id?.includes('router'))?.status ?? 'pending',
+          status: task.steps.find((s) => s.strategyId?.includes('router'))?.status ?? 'pending',
           progress: (() => {
-            const routerStep = task.steps.find((s) => s.strategy_id?.includes('router'));
+            const routerStep = task.steps.find((s) => s.strategyId?.includes('router'));
             const total = routerStep?.stats?.total ?? 0;
             const done = routerStep?.stats?.done ?? 0;
             return total > 0 ? Math.round((done / total) * 100) : 0;
           })(),
           total: (() => {
-            const routerStep = task.steps.find((s) => s.strategy_id?.includes('router'));
+            const routerStep = task.steps.find((s) => s.strategyId?.includes('router'));
             return routerStep?.stats?.total ?? 0;
           })(),
           done: (() => {
-            const routerStep = task.steps.find((s) => s.strategy_id?.includes('router'));
+            const routerStep = task.steps.find((s) => s.strategyId?.includes('router'));
             return routerStep?.stats?.done ?? 0;
           })(),
         },
@@ -302,24 +302,24 @@ export default function TaskDetail() {
           id: 'analysis',
           name: '策略分析',
           status: (() => {
-            const analysisSteps = task.steps.filter((s) => !s.strategy_id?.includes('router'));
+            const analysisSteps = task.steps.filter((s) => !s.strategyId?.includes('router'));
             if (analysisSteps.every((s) => s.status === 'completed')) return 'completed';
             if (analysisSteps.some((s) => s.status === 'running')) return 'running';
             if (analysisSteps.some((s) => s.status === 'failed')) return 'failed';
             return 'pending';
           })(),
           progress: (() => {
-            const analysisSteps = task.steps.filter((s) => !s.strategy_id?.includes('router'));
+            const analysisSteps = task.steps.filter((s) => !s.strategyId?.includes('router'));
             const total = analysisSteps.reduce((sum, s) => sum + (s.stats?.total ?? 0), 0);
             const done = analysisSteps.reduce((sum, s) => sum + (s.stats?.done ?? 0), 0);
             return total > 0 ? Math.round((done / total) * 100) : 0;
           })(),
           total: (() => {
-            const analysisSteps = task.steps.filter((s) => !s.strategy_id?.includes('router'));
+            const analysisSteps = task.steps.filter((s) => !s.strategyId?.includes('router'));
             return analysisSteps.reduce((sum, s) => sum + (s.stats?.total ?? 0), 0);
           })(),
           done: (() => {
-            const analysisSteps = task.steps.filter((s) => !s.strategy_id?.includes('router'));
+            const analysisSteps = task.steps.filter((s) => !s.strategyId?.includes('router'));
             return analysisSteps.reduce((sum, s) => sum + (s.stats?.done ?? 0), 0);
           })(),
         },
@@ -343,7 +343,7 @@ export default function TaskDetail() {
             name: getStrategyDisplayName(step),
             status: step.status,
             progress: total > 0 ? Math.round((done / total) * 100) : 0,
-            stepOrder: step.step_order,
+            stepOrder: step.stepOrder,
             total,
             done,
           };
@@ -388,7 +388,7 @@ export default function TaskDetail() {
       // Analysis progress: done / applicable
       const applicableCount = postStatus?.routerApplicableCount ?? 0;
       const doneCount = task.jobs.filter(
-        (j) => j.target_id === postId && j.status === 'completed' && !j.strategy_id?.includes('router')
+        (j) => j.target_id === postId && j.status === 'completed' && !j.strategyId?.includes('router')
       ).length;
       let analysisStatus = 'pending';
       if (applicableCount === 0) {
@@ -403,7 +403,7 @@ export default function TaskDetail() {
       cells['data-prep'] = { status: postStatus?.status ?? 'pending' };
       for (const step of task.steps) {
         const job = task.jobs.find(
-          (j) => j.target_id === postId && j.strategy_id === step.strategy_id
+          (j) => j.target_id === postId && j.strategyId === step.strategyId
         );
         cells[step.id] = { status: job?.status ?? 'pending' };
       }

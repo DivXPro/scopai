@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { exec, query } from './client';
+import { exec, query, run } from './client';
+import { generateId } from '../shared/utils';
 
 function findSchemaPath(): string {
   const distSchema = path.join(__dirname, 'schema.sql');
@@ -324,12 +325,47 @@ async function migrateSearchIndexTable(): Promise<void> {
   );
   if (hasSearchIndex.length === 0) {
     await exec(`CREATE TABLE search_index (
+      id TEXT PRIMARY KEY,
       post_id TEXT NOT NULL,
       source_type TEXT NOT NULL,
       searchable_text TEXT NOT NULL,
       weight REAL DEFAULT 1.0,
       updated_at TIMESTAMP DEFAULT NOW()
     )`);
+    await exec('CREATE INDEX idx_search_index_post ON search_index(post_id)');
+    await exec('CREATE INDEX idx_search_index_type ON search_index(source_type)');
+    return;
+  }
+
+  // Migration: add id column if missing (needed for FTS)
+  const columns = await query<{ column_name: string }>(
+    "SELECT column_name FROM information_schema.columns WHERE table_name = 'search_index'"
+  );
+  const hasId = columns.some(c => c.column_name === 'id');
+
+  if (!hasId) {
+    await exec(`CREATE TABLE search_index_new (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL,
+      source_type TEXT NOT NULL,
+      searchable_text TEXT NOT NULL,
+      weight REAL DEFAULT 1.0,
+      updated_at TIMESTAMP DEFAULT NOW()
+    )`);
+
+    const rows = await query<{ post_id: string; source_type: string; searchable_text: string; weight: number; updated_at: string }>(
+      'SELECT post_id, source_type, searchable_text, weight, updated_at FROM search_index'
+    );
+
+    for (const row of rows) {
+      await run(
+        `INSERT INTO search_index_new (id, post_id, source_type, searchable_text, weight, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+        [generateId(), row.post_id, row.source_type, row.searchable_text, row.weight, row.updated_at]
+      );
+    }
+
+    await exec('DROP TABLE search_index');
+    await exec('ALTER TABLE search_index_new RENAME TO search_index');
     await exec('CREATE INDEX idx_search_index_post ON search_index(post_id)');
     await exec('CREATE INDEX idx_search_index_type ON search_index(source_type)');
   }

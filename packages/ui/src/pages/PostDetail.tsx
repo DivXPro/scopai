@@ -4,7 +4,7 @@ import * as icons from '@gravity-ui/icons';
 import { apiGet, apiPost, apiDelete } from '@/api/client';
 import { Card, Button, Select, ListBox, Skeleton } from '@heroui/react';
 import { PlatformBadge } from '@/components/PlatformIcon';
-import { Post, MediaFile, AnalysisResult, Strategy } from './PostLibrary';
+import { Post, MediaFile, AnalysisResult, Strategy, PostRoutingResult } from './PostLibrary';
 
 const Heart = icons.Heart;
 const Bookmark = icons.Bookmark;
@@ -112,9 +112,68 @@ function SchemaRenderer({
   );
 }
 
+function RouterDecisionCard({ routing }: { routing: PostRoutingResult }) {
+  return (
+    <div className="rounded-lg border bg-white p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center rounded-full bg-purple-50 text-purple-700 px-2 py-0.5 text-[10px] font-medium border border-purple-100">路由决策</span>
+          <span className="text-sm font-medium text-slate-800">{routing.router_strategy_name}</span>
+        </div>
+        <span className="text-[10px] text-muted-foreground">置信度: {(routing.confidence * 100).toFixed(0)}%</span>
+      </div>
+
+      {routing.applicable_strategies.length > 0 && (
+        <div>
+          <div className="text-[10px] font-medium text-green-700 mb-1.5">适用策略</div>
+          <div className="flex flex-wrap gap-1.5">
+            {routing.applicable_strategies.map(s => (
+              <span key={s.strategy_id} className="inline-flex items-center rounded-full bg-green-50 text-green-700 px-2 py-0.5 text-[10px] border border-green-100">
+                {s.strategy_name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {routing.skipped_strategies.length > 0 && (
+        <div>
+          <div className="text-[10px] font-medium text-red-700 mb-1.5">跳过策略</div>
+          <div className="space-y-1.5">
+            {routing.skipped_strategies.map(s => (
+              <div key={s.strategy_id} className="flex items-start gap-2 text-[11px]">
+                <span className="inline-flex items-center rounded-full bg-red-50 text-red-700 px-1.5 py-0.5 shrink-0 border border-red-100">{s.strategy_name}</span>
+                <span className="text-slate-500 leading-relaxed">{s.reason}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {routing.checks && routing.checks.length > 0 && (
+        <div>
+          <div className="text-[10px] font-medium text-slate-600 mb-1.5">检查项</div>
+          <div className="space-y-1">
+            {routing.checks.map((check, idx) => (
+              <div key={idx} className="flex items-center gap-2 text-[11px]">
+                <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] shrink-0 ${check.passed ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                  {check.passed ? '通过' : '未通过'}
+                </span>
+                <span className="text-slate-500">{check.check_id}</span>
+                {check.evidence && <span className="text-slate-400">({check.evidence})</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PostAnalysisDetail({ postId }: { postId: string }) {
   const [results, setResults] = useState<AnalysisResult[]>([]);
   const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [routing, setRouting] = useState<PostRoutingResult[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedStrategy, setSelectedStrategy] = useState<string>('');
 
@@ -124,10 +183,12 @@ function PostAnalysisDetail({ postId }: { postId: string }) {
     Promise.all([
       apiGet<AnalysisResult[]>(`/api/posts/${postId}/analysis`),
       apiGet<Strategy[]>('/api/strategies'),
-    ]).then(([analysisData, strategyData]) => {
+      apiGet<{ post_id: string; routing: PostRoutingResult[] | null }>(`/api/posts/${postId}/routing`),
+    ]).then(([analysisData, strategyData, routingData]) => {
       if (cancelled) return;
       setResults(analysisData);
       setStrategies(strategyData);
+      setRouting(routingData.routing);
       const grouped = analysisData.reduce<Record<string, AnalysisResult[]>>((acc, r) => {
         const key = r.strategy_name || r.strategy_id;
         if (!acc[key]) acc[key] = [];
@@ -137,7 +198,7 @@ function PostAnalysisDetail({ postId }: { postId: string }) {
       const keys = Object.keys(grouped);
       if (keys.length > 0) setSelectedStrategy(keys[0]);
     }).catch(() => {
-      if (!cancelled) { setResults([]); setStrategies([]); }
+      if (!cancelled) { setResults([]); setStrategies([]); setRouting(null); }
     }).finally(() => {
       if (!cancelled) setLoading(false);
     });
@@ -153,8 +214,6 @@ function PostAnalysisDetail({ postId }: { postId: string }) {
     );
   }
 
-  if (results.length === 0) return <p className="text-xs text-muted-foreground py-4">暂无分析结果</p>;
-
   const grouped = results.reduce<Record<string, AnalysisResult[]>>((acc, r) => {
     const key = r.strategy_name || r.strategy_id;
     if (!acc[key]) acc[key] = [];
@@ -166,33 +225,46 @@ function PostAnalysisDetail({ postId }: { postId: string }) {
   const selectedStrategyObj = strategies.find(s => s.name === selectedStrategy || s.id === selectedStrategy);
   const outputSchema = selectedStrategyObj?.output_schema;
 
+  if (results.length === 0 && (!routing || routing.length === 0)) {
+    return <p className="text-xs text-muted-foreground py-4">暂无分析结果</p>;
+  }
+
   return (
     <div className="space-y-4">
-      <Select selectedKey={selectedStrategy} onSelectionChange={(key) => setSelectedStrategy(key as string)} className="w-full max-w-xs">
-        <Select.Trigger className="h-9 text-sm"><Select.Value /><Select.Indicator /></Select.Trigger>
-        <Select.Popover>
-          <ListBox>
-            {strategyNames.map(s => <ListBox.Item key={s} id={s}>{s}</ListBox.Item>)}
-          </ListBox>
-        </Select.Popover>
-      </Select>
-      <div className="space-y-3">
-        {selectedResults.map((r, i) => (
-          <div key={i} className="rounded-lg border bg-slate-50 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] h-5 bg-white">{r.target_type}</span>
-              <span className="text-[10px] text-muted-foreground">{new Date(r.analyzed_at).toLocaleString('zh-CN')}</span>
-            </div>
-            {r.raw_response && outputSchema ? (
-              <SchemaRenderer data={r.raw_response} schema={outputSchema} />
-            ) : r.raw_response ? (
-              <pre className="text-xs bg-white rounded p-3 overflow-x-auto border">{JSON.stringify(r.raw_response, null, 2)}</pre>
-            ) : (
-              <p className="text-xs text-muted-foreground">无数据</p>
-            )}
+      {routing && routing.length > 0 && (
+        <div className="space-y-3">
+          {routing.map(r => <RouterDecisionCard key={r.id} routing={r} />)}
+        </div>
+      )}
+      {results.length > 0 && (
+        <>
+          <Select selectedKey={selectedStrategy} onSelectionChange={(key) => setSelectedStrategy(key as string)} className="w-full max-w-xs">
+            <Select.Trigger className="h-9 text-sm"><Select.Value /><Select.Indicator /></Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                {strategyNames.map(s => <ListBox.Item key={s} id={s}>{s}</ListBox.Item>)}
+              </ListBox>
+            </Select.Popover>
+          </Select>
+          <div className="space-y-3">
+            {selectedResults.map((r, i) => (
+              <div key={i} className="rounded-lg border bg-slate-50 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] h-5 bg-white">{r.target_type}</span>
+                  <span className="text-[10px] text-muted-foreground">{new Date(r.analyzed_at).toLocaleString('zh-CN')}</span>
+                </div>
+                {r.raw_response && outputSchema ? (
+                  <SchemaRenderer data={r.raw_response} schema={outputSchema} />
+                ) : r.raw_response ? (
+                  <pre className="text-xs bg-white rounded p-3 overflow-x-auto border">{JSON.stringify(r.raw_response, null, 2)}</pre>
+                ) : (
+                  <p className="text-xs text-muted-foreground">无数据</p>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
     </div>
   );
 }
