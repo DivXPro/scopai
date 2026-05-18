@@ -26,10 +26,10 @@ describe('aggregation', { timeout: 15000 }, () => {
     const schema = {
       type: 'object',
       properties: {
-        sentiment_score: { type: 'number' },
-        sentiment_label: { type: 'string' },
-        tags: { type: 'array', items: { type: 'string' } },
-        topics: { type: 'array', items: { type: 'object' } },
+        sentiment_score: { type: 'number', title: 'Sentiment Score' },
+        sentiment_label: { type: 'string', title: 'Sentiment Label' },
+        tags: { type: 'array', items: { type: 'string' }, title: 'Tags' },
+        topics: { type: 'array', items: { type: 'object' }, title: 'Topics' },
       },
     };
     await createStrategy({

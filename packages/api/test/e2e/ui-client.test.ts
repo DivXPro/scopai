@@ -1,7 +1,7 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { startServer } from './helpers';
 import type { TestContext } from './helpers';
 
@@ -20,7 +20,8 @@ let setApiBase: ClientModule['setApiBase'];
 describe('UI API Client', () => {
   before(async () => {
     ctx = await startServer();
-    const client = await import(path.resolve(__dirname, '../../../ui/src/api/client.ts')) as ClientModule;
+    const clientPath = path.resolve(__dirname, '../../../ui/src/api/client.ts');
+    const client = await import(pathToFileURL(clientPath).href) as ClientModule;
     apiGet = client.apiGet;
     apiPost = client.apiPost;
     apiDelete = client.apiDelete;

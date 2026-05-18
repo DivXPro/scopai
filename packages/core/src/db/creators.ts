@@ -8,15 +8,16 @@ export async function createCreator(
   const id = generateId();
   const ts = now();
   await run(
-    `INSERT INTO creators (id, platform_id, platform_author_id, author_name,
+    `INSERT INTO creators (id, platform_id, platform_author_id, author_name, display_name,
      bio, avatar_url, homepage_url, follower_count, following_count, post_count,
      status, created_at, updated_at, last_synced_at, metadata)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       creator.platform_id,
       creator.platform_author_id,
       creator.author_name,
+      creator.display_name,
       creator.bio,
       creator.avatar_url,
       creator.homepage_url,
@@ -116,6 +117,10 @@ export async function updateCreator(
   if (updates.author_name !== undefined) {
     fields.push('author_name = ?');
     values.push(updates.author_name);
+  }
+  if (updates.display_name !== undefined) {
+    fields.push('display_name = ?');
+    values.push(updates.display_name);
   }
   if (updates.bio !== undefined) {
     fields.push('bio = ?');

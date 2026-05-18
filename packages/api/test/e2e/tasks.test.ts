@@ -42,14 +42,15 @@ describe('Tasks routes', () => {
       const body = await res.json();
       assert.ok(body.id);
       assert.ok(Array.isArray(body.step_ids));
-      // 4 built-in strategies all seeded with is_default=true
-      assert.equal(body.step_ids.length, 4);
+      // 4 built-in strategies + content-tagger all seeded with is_default=true
+      assert.equal(body.step_ids.length, 5);
 
       const detail = await fetchApi(ctx.baseUrl, `/api/tasks/${body.id}`);
       const detailBody = await detail.json();
-      assert.equal(detailBody.steps.length, 4);
+      assert.equal(detailBody.steps.length, 5);
       const strategyIds = new Set(detailBody.steps.map((s: { strategyId: string }) => s.strategyId));
       for (const expected of [
+        'content-tagger',
         'creative-copy-deconstruct',
         'creative-image-style',
         'creative-video-style',
@@ -360,11 +361,11 @@ describe('Tasks routes', () => {
       assert.equal(res.status, 200);
       const body = await res.json();
       assert.ok(body.id);
-      assert.equal(body.step_ids.length, 2); // router + 1 candidate
+      assert.equal(body.step_ids.length, 3); // router + content-tagger + 1 candidate
 
       const detail = await fetchApi(ctx.baseUrl, `/api/tasks/${body.id}`);
       const detailBody = await detail.json();
-      assert.equal(detailBody.steps.length, 2);
+      assert.equal(detailBody.steps.length, 3);
       const strategyIds = detailBody.steps.map((s: { strategyId: string }) => s.strategyId);
       assert.ok(strategyIds.includes('content-strategy-router'));
       assert.ok(strategyIds.includes('creative-copy-deconstruct'));

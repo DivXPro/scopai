@@ -40,6 +40,7 @@ export default async function creatorsRoutes(app: FastifyInstance) {
       platform_id: platformId,
       platform_author_id: authorId,
       author_name: body.author_name ? String(body.author_name) : null,
+      display_name: null,
       bio: null,
       avatar_url: null,
       homepage_url: null,
