@@ -12,6 +12,7 @@
     "properties": {
       "content_attributes": {
         "type": "object",
+        "title": "内容属性",
         "required": ["topic", "product_category", "pain_point", "scene"],
         "properties": {
           "topic": { "type": "array", "items": { "type": "string" }, "title": "主题/话题", "description": "内容的主题领域，如 职场焦虑、家居改造、母婴好物" },
@@ -22,6 +23,7 @@
       },
       "emotion_narrative": {
         "type": "object",
+        "title": "情感与叙事",
         "required": ["emotion_tone", "narrative_structure", "hook_type", "cta_method"],
         "properties": {
           "emotion_tone": { "type": "array", "items": { "type": "string" }, "title": "情绪基调", "description": "内容的情绪基调，如 治愈系、搞笑沙雕、励志燃向" },
@@ -32,6 +34,7 @@
       },
       "visual_style": {
         "type": "object",
+        "title": "视觉风格",
         "required": ["composition", "color_style", "camera_language", "visual_element"],
         "properties": {
           "composition": { "type": "array", "items": { "type": "string" }, "title": "画面构图", "description": "画面的构图方式，如 中心构图、三分法、对称构图" },
@@ -42,6 +45,7 @@
       },
       "platform_spread": {
         "type": "object",
+        "title": "平台与传播",
         "required": ["platform_fit", "spread_node", "creator_type", "commercial_type"],
         "properties": {
           "platform_fit": { "type": "array", "items": { "type": "string" }, "title": "适配平台", "description": "内容适配的平台格式，如 抖音竖屏、小红书图文、B站长视频" },
