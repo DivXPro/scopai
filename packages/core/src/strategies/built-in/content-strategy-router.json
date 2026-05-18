@@ -28,24 +28,23 @@
         "title": "策略决策",
         "items": {
           "type": "object",
-          "required": ["strategy_id", "applicable", "confidence"],
+          "required": ["strategy_id", "applicable", "confidence", "scores", "match_reason", "positive_evidence", "negative_evidence"],
           "properties": {
             "strategy_id": { "type": "string" },
             "applicable": { "type": "boolean" },
             "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
-            "checks": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "required": ["check_id", "passed"],
-                "properties": {
-                  "check_id": { "type": "string" },
-                  "passed": { "type": "boolean" },
-                  "evidence": { "type": "string" }
-                }
+            "scores": {
+              "type": "object",
+              "required": ["tag_match", "positive_signals", "negative_signals"],
+              "properties": {
+                "tag_match": { "type": "number", "minimum": 0, "maximum": 10 },
+                "positive_signals": { "type": "number", "minimum": 0, "maximum": 10 },
+                "negative_signals": { "type": "number", "minimum": 0, "maximum": 10 }
               }
             },
-            "rejection_reason": { "type": "string" }
+            "match_reason": { "type": "string" },
+            "positive_evidence": { "type": "string" },
+            "negative_evidence": { "type": "string" }
           }
         }
       }

@@ -440,6 +440,36 @@ async function migrateTargetTypeCheck(): Promise<void> {
   }
 }
 
+async function migrateTagIndexTable(): Promise<void> {
+  const tables = await query<{ name: string }>(
+    "SELECT table_name as name FROM information_schema.tables WHERE table_name = 'tag_index'"
+  );
+  if (tables.length === 0) {
+    await exec(`CREATE TABLE tag_index (
+      post_id TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      content_tags JSON,
+      emotion_tags JSON,
+      visual_tags JSON,
+      spread_tags JSON,
+      summary TEXT,
+      indexed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (post_id, task_id)
+    )`);
+    await exec('CREATE INDEX idx_tag_index_post ON tag_index(post_id)');
+    await exec('CREATE INDEX idx_tag_index_task ON tag_index(task_id)');
+  }
+}
+
+async function migrateQueueJobsUpstreamStep(): Promise<void> {
+  const columns = await query<{ name: string }>(
+    "SELECT column_name as name FROM information_schema.columns WHERE table_name = 'queue_jobs'"
+  );
+  if (!columns.some(c => c.name === 'upstream_result_step')) {
+    await exec('ALTER TABLE queue_jobs ADD COLUMN upstream_result_step TEXT');
+  }
+}
+
 export async function runMigrations(): Promise<void> {
   const schemaPath = findSchemaPath();
   const schema = fs.readFileSync(schemaPath, 'utf-8');
@@ -465,6 +495,8 @@ export async function runMigrations(): Promise<void> {
   await migrateRouterColumns();
   await migrateRouterResultsTable();
   await migrateRouterResultsEnhancedColumns();
+  await migrateTagIndexTable();
+  await migrateQueueJobsUpstreamStep();
 
   // Migration: drop legacy analysis_results table if present
   const hasAnalysisResults = await query<{ name: string }>(

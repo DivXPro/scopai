@@ -118,11 +118,6 @@ export default async function tasksRoutes(app: FastifyInstance) {
       : task.stats ?? { total: 0, done: 0, failed: 0 };
 
     // Compute strategy_stats if task has a router step
-    const routerStep = steps.find(s => {
-      const st = stepDetails.find(d => d.stepId === s.id);
-      return st?.strategyId ? false : false; // placeholder, will resolve below
-    });
-
     // Find router step by checking strategies
     let hasRouterStep = false;
     let routerStepId: string | null = null;

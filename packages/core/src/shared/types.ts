@@ -312,9 +312,9 @@ export interface RoutingConfig {
     };
     requires_data?: string[];
   };
-  tags_description: string;
-  positive_signals: string[];
-  negative_signals: string[];
+  tags_description?: string;
+  positive_signals?: string[];
+  negative_signals?: string[];
   needs_media?: boolean;
 }
 

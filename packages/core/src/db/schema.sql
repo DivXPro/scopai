@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS queue_jobs (
     attempts        INTEGER DEFAULT 0,
     max_attempts    INTEGER DEFAULT 3,
     error           TEXT,
+    upstream_result_step TEXT,
     created_at      TIMESTAMP DEFAULT NOW(),
     processed_at    TIMESTAMP
 );
