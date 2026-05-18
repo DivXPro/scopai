@@ -108,7 +108,7 @@ Run these **in order** before any workflow:
 |---|------|---------|-------------|
 | 5 | **create_task** | `scopai task create --name {name} [--cli-templates '{...}']` | Create task before adding steps. `--cli-templates` is optional — platforms (xhs, douyin) have built-in defaults for fetch_note, fetch_comments, and fetch_media. Only specify `--cli-templates` when you need to override the defaults. **Important:** If you override `fetch_media`, you MUST include `--output {download_dir}/{platform}` to ensure media files are saved to the correct directory. |
 | 6 | **add_step_to_task** | `scopai task step add --task-id {tid} --strategy-id {sid} [--name {n}] [--order {n}]` | Add each strategy the user needs. |
-| 7 | **list_strategies** | `scopai strategy list` | Check available strategy IDs before adding steps. |
+| 7 | **list_strategies** | `scopai strategy list` | Check available strategy IDs before adding steps. Use `scopai strategy show --id <id>` to inspect a strategy's routing config (applicability checks, boundary false positives) and `is_router` flag. |
 
 ### Phase 3: Data Preparation
 
@@ -582,6 +582,19 @@ When presenting post data to the user, render images as Markdown images (`![alt]
 | `media_types` | `string[]` | Filter which media types to process, e.g. `["image"]`, `["image", "video"]` |
 | `max_media` | `number` | Maximum number of media files to upload (per post) |
 | `mode` | `string` | `"all"` = use all filtered media; `"best_quality"` = sort by resolution and pick highest |
+
+**`routing` fields (for dynamic strategy routing):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `availability` | `object` | Hard requirements: `requires_media` (e.g. `{ "image": 1 }`), `requires_text` (e.g. `{ "min_sentences": 3 }`) |
+| `applicability_checks` | `array` | Soft checks evaluated by LLM. Each item has `id`, `question` (what to check), `kind` (`boolean`/`text`/`enum`), optional `evidence_field` |
+| `boundary_false_positives` | `string[]` | Descriptions of posts that look applicable but are not (negative samples) |
+
+**`is_router` field:**
+
+Set `is_router: true` to mark a strategy as a Router Strategy (e.g. `content-strategy-router`). Router strategies evaluate each post and decide which downstream strategies are applicable. Non-router strategies can include `routing` config to declare their own applicability criteria.
+
 - `output_schema`: standard JSON Schema, `type: "object"`, each property needs `type` and `title` (human-readable Chinese label)
 
 **Prompt variables (whitelist only):**
