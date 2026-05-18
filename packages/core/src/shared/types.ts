@@ -294,6 +294,7 @@ export interface BatchConfig {
   size: number;
 }
 
+/** @deprecated Use positive_signals/negative_signals in RoutingConfig */
 export interface RoutingCheck {
   id: string;
   question: string;
@@ -311,8 +312,24 @@ export interface RoutingConfig {
     };
     requires_data?: string[];
   };
-  applicability_checks: RoutingCheck[];
-  boundary_false_positives: string[];
+  tags_description: string;
+  positive_signals: string[];
+  negative_signals: string[];
+  needs_media?: boolean;
+}
+
+export interface RouterDecision {
+  strategy_id: string;
+  applicable: boolean;
+  confidence: number;
+  scores: {
+    tag_match: number;
+    positive_signals: number;
+    negative_signals: number;
+  };
+  match_reason: string;
+  positive_evidence: string;
+  negative_evidence: string;
 }
 
 export interface Strategy {

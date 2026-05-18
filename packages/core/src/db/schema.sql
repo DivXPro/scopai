@@ -294,10 +294,32 @@ CREATE TABLE IF NOT EXISTS router_results (
     skipped_strategies      JSON NOT NULL,
     checks          JSON NOT NULL,
     confidence      REAL NOT NULL,
+    tag_match_score       INTEGER,
+    positive_signals_score INTEGER,
+    negative_signals_score INTEGER,
+    match_reason          TEXT,
+    positive_evidence     TEXT,
+    negative_evidence     TEXT,
+    upstream_tags         TEXT,
     created_at      TIMESTAMP DEFAULT NOW(),
     UNIQUE(router_step_id, post_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_router_results_task ON router_results(task_id);
 CREATE INDEX IF NOT EXISTS idx_router_results_step ON router_results(router_step_id);
+
+CREATE TABLE IF NOT EXISTS tag_index (
+    post_id         TEXT NOT NULL,
+    task_id         TEXT NOT NULL,
+    content_tags    TEXT,
+    emotion_tags    TEXT,
+    visual_tags     TEXT,
+    spread_tags     TEXT,
+    summary         TEXT,
+    indexed_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (post_id, task_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tag_index_post ON tag_index(post_id);
+CREATE INDEX IF NOT EXISTS idx_tag_index_task ON tag_index(task_id);
 
