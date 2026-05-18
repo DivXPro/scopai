@@ -1,0 +1,56 @@
+{
+  "id": "content-tagger",
+  "name": "内容标签生成",
+  "description": "为内容生成四级结构化标签画像：内容属性、情感与叙事、视觉风格、平台与传播",
+  "version": "1.0.0",
+  "target": "post",
+  "is_default": true,
+  "prompt": "你是一个内容分析专家。请分析以下内容，按照标签参考体系生成结构化标签。\n\n标题：{{title}}\n内容：{{content}}\n平台：{{platform}}\n{{media_urls}}\n\n## 标签参考体系\n\n### 一级：内容属性\n- 主题/话题：如 职场焦虑、家居改造、母婴好物、健身打卡\n- 产品品类：如 美妆护肤、数码3C、食品饮料、汽车\n- 功能痛点：如 去油控油、收纳困难、续航焦虑、敏感肌\n- 场景植入：如 通勤路上、周末宅家、办公室、户外露营\n\n### 二级：情感与叙事\n- 情绪基调：如 治愈系、搞笑沙雕、励志燃向、悬疑紧张\n- 叙事结构：如 问题-解决、前后对比、故事讲述、清单种草\n- 钩子类型：如 数字冲击、反常识、痛点共鸣、身份认同\n- CTA方式：如 限时优惠、评论区互动、关注抽奖、私信领取\n\n### 三级：视觉风格\n- 画面构图：如 中心构图、三分法、对称构图、俯拍视角\n- 色彩风格：如 莫兰迪色系、高饱和、黑白极简、复古胶片\n- 镜头语言：如 特写镜头、一镜到底、快剪节奏、慢动作\n- 视觉元素：如 真人出镜、动画插画、产品特写、场景实拍\n\n### 四级：平台与传播\n- 适配平台：如 抖音竖屏、小红书图文、B站长视频、微博话题\n- 传播节点：如 618大促、春节返乡、开学季、情人节\n- 达人属性：如 头部KOL、腰部KOC、素人真实、品牌官方\n- 商业类型：如 纯种草、软植入、硬广、测评对比\n\n## 输出要求\n每个类别选择 1-3 个最匹配的标签。最后提供一个 100 字以内的 summary 概括内容核心画像。",
+  "output_schema": {
+    "type": "object",
+    "required": ["content_attributes", "emotion_narrative", "visual_style", "platform_spread", "summary"],
+    "properties": {
+      "content_attributes": {
+        "type": "object",
+        "required": ["topic", "product_category", "pain_point", "scene"],
+        "properties": {
+          "topic": { "type": "array", "items": { "type": "string" } },
+          "product_category": { "type": "array", "items": { "type": "string" } },
+          "pain_point": { "type": "array", "items": { "type": "string" } },
+          "scene": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "emotion_narrative": {
+        "type": "object",
+        "required": ["emotion_tone", "narrative_structure", "hook_type", "cta_method"],
+        "properties": {
+          "emotion_tone": { "type": "array", "items": { "type": "string" } },
+          "narrative_structure": { "type": "array", "items": { "type": "string" } },
+          "hook_type": { "type": "array", "items": { "type": "string" } },
+          "cta_method": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "visual_style": {
+        "type": "object",
+        "required": ["composition", "color_style", "camera_language", "visual_element"],
+        "properties": {
+          "composition": { "type": "array", "items": { "type": "string" } },
+          "color_style": { "type": "array", "items": { "type": "string" } },
+          "camera_language": { "type": "array", "items": { "type": "string" } },
+          "visual_element": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "platform_spread": {
+        "type": "object",
+        "required": ["platform_fit", "spread_node", "creator_type", "commercial_type"],
+        "properties": {
+          "platform_fit": { "type": "array", "items": { "type": "string" } },
+          "spread_node": { "type": "array", "items": { "type": "string" } },
+          "creator_type": { "type": "array", "items": { "type": "string" } },
+          "commercial_type": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "summary": { "type": "string", "maxLength": 100 }
+    }
+  }
+}
