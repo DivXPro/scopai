@@ -345,7 +345,7 @@ export default async function tasksRoutes(app: FastifyInstance) {
 
     const routerStrategyId = data.router_strategy_id as string | undefined;
     if (routerStrategyId) {
-      // Router mode: validate router strategy and create router step + candidate steps
+      // Router mode: validate router strategy and create tagger + router + candidate steps
       const routerStrategy = await getStrategyById(routerStrategyId);
       if (!routerStrategy) {
         reply.code(400);
@@ -356,7 +356,19 @@ export default async function tasksRoutes(app: FastifyInstance) {
         throw new Error(`Strategy ${routerStrategyId} is not a router strategy`);
       }
 
-      // Create router step first
+      // 1. Auto-insert content-tagger step first
+      const taggerStep = await createTaskStep({
+        task_id: id,
+        strategy_id: 'content-tagger',
+        name: '内容标签生成',
+        step_order: order++,
+        status: 'pending',
+        stats: { total: 0, done: 0, failed: 0 },
+        error: null,
+      });
+      stepIds.push(taggerStep.id);
+
+      // 2. Create router step
       const routerStep = await createTaskStep({
         task_id: id,
         strategy_id: routerStrategy.id,
@@ -368,19 +380,18 @@ export default async function tasksRoutes(app: FastifyInstance) {
       });
       stepIds.push(routerStep.id);
 
-      // Resolve candidate strategies
+      // 3. Resolve and create candidate strategies
       const candidateIds = data.candidate_strategy_ids as string[] | undefined;
       const candidates: Strategy[] = [];
       if (Array.isArray(candidateIds)) {
         for (const sid of candidateIds) {
           const s = await getStrategyById(sid);
-          if (s && !s.is_router) candidates.push(s);
+          if (s && !s.is_router && s.id !== 'content-tagger') candidates.push(s);
         }
       } else {
-        // Default: all non-router default strategies
         const defaults = await listDefaultStrategies();
         for (const s of defaults) {
-          if (!s.is_router) candidates.push(s);
+          if (!s.is_router && s.id !== 'content-tagger') candidates.push(s);
         }
       }
 
