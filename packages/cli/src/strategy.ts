@@ -155,6 +155,27 @@ export function strategyCommands(program: Command): void {
         if (s.needs_media) console.log(`  Media:    ${JSON.stringify(s.needs_media)}`);
         if (s.batch_config) console.log(`  Batch:    ${JSON.stringify(s.batch_config)}`);
         if (s.file_path) console.log(`  File:     ${s.file_path}`);
+        console.log(`  Default:  ${s.is_default ? 'yes' : 'no'}`);
+        console.log(`  Router:   ${s.is_router ? 'yes' : 'no'}`);
+        if (s.depends_on) console.log(`  Depends:  ${s.depends_on}`);
+        if (s.routing) {
+          console.log(`\n  Routing:`);
+          if (s.routing.availability) {
+            console.log(`    Availability: ${JSON.stringify(s.routing.availability)}`);
+          }
+          if (s.routing.applicability_checks && s.routing.applicability_checks.length > 0) {
+            console.log(`    Checks:`);
+            for (const check of s.routing.applicability_checks) {
+              console.log(`      - [${check.id}] ${check.question} (${check.kind})`);
+            }
+          }
+          if (s.routing.boundary_false_positives && s.routing.boundary_false_positives.length > 0) {
+            console.log(`    False Positives:`);
+            for (const fp of s.routing.boundary_false_positives) {
+              console.log(`      - ${fp}`);
+            }
+          }
+        }
         console.log(`\n  Prompt:\n${pc.dim(s.prompt)}`);
         console.log(`\n  Output Schema:\n${pc.dim(JSON.stringify(s.output_schema, null, 2))}`);
         if (s.created_at) console.log(`\n  Created:  ${s.created_at}`);

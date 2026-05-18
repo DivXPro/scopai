@@ -117,7 +117,7 @@ export async function startMcpServer(): Promise<void> {
   });
 
   server.registerTool('list_strategies', {
-    description: 'List all available analysis strategies',
+    description: 'List all available analysis strategies. Each strategy includes routing config (applicability_checks, boundary_false_positives, availability) when it supports dynamic strategy routing. Router strategies have is_router=true.',
     inputSchema: z.object({}),
   }, async () => {
     const result = await apiGet('/strategies');

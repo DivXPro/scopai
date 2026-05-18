@@ -52,6 +52,8 @@ export default async function strategiesRoutes(app: FastifyInstance) {
       depends_on: (obj.depends_on ?? null) as 'post' | 'comment' | null,
       include_original: (obj.include_original ?? false) as boolean,
       is_default: (obj.is_default ?? false) as boolean,
+      is_router: (obj.is_router ?? false) as boolean,
+      routing: (obj.routing ?? null) as any,
       file_path: null,
     };
 
@@ -90,6 +92,8 @@ export default async function strategiesRoutes(app: FastifyInstance) {
       depends_on: (obj.depends_on ?? null) as 'post' | 'comment' | null,
       include_original: (obj.include_original ?? false) as boolean,
       is_default: (obj.is_default ?? false) as boolean,
+      is_router: (obj.is_router ?? false) as boolean,
+      routing: (obj.routing ?? null) as any,
       file_path: null,
     });
     return { imported: true, id: obj.id };
