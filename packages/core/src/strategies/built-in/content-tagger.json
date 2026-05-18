@@ -14,43 +14,43 @@
         "type": "object",
         "required": ["topic", "product_category", "pain_point", "scene"],
         "properties": {
-          "topic": { "type": "array", "items": { "type": "string" } },
-          "product_category": { "type": "array", "items": { "type": "string" } },
-          "pain_point": { "type": "array", "items": { "type": "string" } },
-          "scene": { "type": "array", "items": { "type": "string" } }
+          "topic": { "type": "array", "items": { "type": "string" }, "title": "主题/话题", "description": "内容的主题领域，如 职场焦虑、家居改造、母婴好物" },
+          "product_category": { "type": "array", "items": { "type": "string" }, "title": "产品品类", "description": "涉及的产品类别，如 美妆护肤、数码3C、食品饮料" },
+          "pain_point": { "type": "array", "items": { "type": "string" }, "title": "功能痛点", "description": "解决的功能痛点，如 去油控油、收纳困难、续航焦虑" },
+          "scene": { "type": "array", "items": { "type": "string" }, "title": "场景植入", "description": "内容植入的使用场景，如 通勤路上、周末宅家、办公室" }
         }
       },
       "emotion_narrative": {
         "type": "object",
         "required": ["emotion_tone", "narrative_structure", "hook_type", "cta_method"],
         "properties": {
-          "emotion_tone": { "type": "array", "items": { "type": "string" } },
-          "narrative_structure": { "type": "array", "items": { "type": "string" } },
-          "hook_type": { "type": "array", "items": { "type": "string" } },
-          "cta_method": { "type": "array", "items": { "type": "string" } }
+          "emotion_tone": { "type": "array", "items": { "type": "string" }, "title": "情绪基调", "description": "内容的情绪基调，如 治愈系、搞笑沙雕、励志燃向" },
+          "narrative_structure": { "type": "array", "items": { "type": "string" }, "title": "叙事结构", "description": "内容的叙事方式，如 问题-解决、前后对比、故事讲述" },
+          "hook_type": { "type": "array", "items": { "type": "string" }, "title": "钩子类型", "description": "开头吸引注意力的方式，如 数字冲击、反常识、痛点共鸣" },
+          "cta_method": { "type": "array", "items": { "type": "string" }, "title": "CTA方式", "description": "引导用户行动的方式，如 限时优惠、评论区互动、关注抽奖" }
         }
       },
       "visual_style": {
         "type": "object",
         "required": ["composition", "color_style", "camera_language", "visual_element"],
         "properties": {
-          "composition": { "type": "array", "items": { "type": "string" } },
-          "color_style": { "type": "array", "items": { "type": "string" } },
-          "camera_language": { "type": "array", "items": { "type": "string" } },
-          "visual_element": { "type": "array", "items": { "type": "string" } }
+          "composition": { "type": "array", "items": { "type": "string" }, "title": "画面构图", "description": "画面的构图方式，如 中心构图、三分法、对称构图" },
+          "color_style": { "type": "array", "items": { "type": "string" }, "title": "色彩风格", "description": "内容的色彩风格，如 莫兰迪色系、高饱和、黑白极简" },
+          "camera_language": { "type": "array", "items": { "type": "string" }, "title": "镜头语言", "description": "视频的镜头语言，如 特写镜头、一镜到底、快剪节奏" },
+          "visual_element": { "type": "array", "items": { "type": "string" }, "title": "视觉元素", "description": "画面中的视觉元素，如 真人出镜、动画插画、产品特写" }
         }
       },
       "platform_spread": {
         "type": "object",
         "required": ["platform_fit", "spread_node", "creator_type", "commercial_type"],
         "properties": {
-          "platform_fit": { "type": "array", "items": { "type": "string" } },
-          "spread_node": { "type": "array", "items": { "type": "string" } },
-          "creator_type": { "type": "array", "items": { "type": "string" } },
-          "commercial_type": { "type": "array", "items": { "type": "string" } }
+          "platform_fit": { "type": "array", "items": { "type": "string" }, "title": "适配平台", "description": "内容适配的平台格式，如 抖音竖屏、小红书图文、B站长视频" },
+          "spread_node": { "type": "array", "items": { "type": "string" }, "title": "传播节点", "description": "内容传播的时间节点，如 618大促、春节返乡、开学季" },
+          "creator_type": { "type": "array", "items": { "type": "string" }, "title": "达人属性", "description": "创作者的属性，如 头部KOL、腰部KOC、素人真实" },
+          "commercial_type": { "type": "array", "items": { "type": "string" }, "title": "商业类型", "description": "内容的商业性质，如 纯种草、软植入、硬广、测评对比" }
         }
       },
-      "summary": { "type": "string", "maxLength": 100 }
+      "summary": { "type": "string", "maxLength": 100, "title": "内容摘要", "description": "100 字以内的内容核心画像概括" }
     }
   }
 }
